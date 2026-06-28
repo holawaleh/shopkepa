@@ -1,6 +1,8 @@
 import axios from 'axios'
 
-const BASE_URL = import.meta.env.VITE_API_URL || ''
+const BASE_URL = import.meta.env.VITE_API_URL || 'https://shopkepa-backend.onrender.com/api/v1'
+// Backend root — used for non-versioned endpoints like /health/
+const BACKEND_ROOT = BASE_URL.replace(/\/api\/v1\/?$/, '')
 
 // Access token lives ONLY in memory — never localStorage
 let _accessToken = null
@@ -32,8 +34,7 @@ api.interceptors.response.use(
   async (error) => {
     const original = error.config
 
-    // 401 and not a retry → try refresh
-    // Skip for auth endpoints themselves to prevent recursive loops
+    // Skip auth endpoints to prevent recursive retry loops
     const isAuthEndpoint = original.url?.includes('/auth/token/refresh/') ||
                            original.url?.includes('/auth/logout/') ||
                            original.url?.includes('/auth/login/')
@@ -43,7 +44,7 @@ api.interceptors.response.use(
       // Deduplicate concurrent refresh calls
       if (!_refreshPromise) {
         _refreshPromise = axios
-          .post(`${BASE_URL}/api/v1/auth/token/refresh/`, {}, { withCredentials: true })
+          .post(`${BASE_URL}/auth/token/refresh/`, {}, { withCredentials: true })
           .then((res) => {
             setAccessToken(res.data.access)
             return res.data.access
@@ -51,7 +52,6 @@ api.interceptors.response.use(
           .catch((err) => {
             const wasLoggedIn = !!_accessToken
             clearAccessToken()
-            // Only force logout if user had an active session — not on initial page load
             if (wasLoggedIn) {
               window.dispatchEvent(new Event('auth:logout'))
             }
@@ -84,56 +84,57 @@ export default api
 // ── Typed API helpers ──
 
 export const authAPI = {
-  login:   (data) => api.post('/api/v1/auth/login/', data),
-  logout:  ()     => api.post('/api/v1/auth/logout/'),
-  me:      ()     => api.get('/api/v1/auth/me/'),
-  refresh: ()     => api.post('/api/v1/auth/token/refresh/'),
+  login:   (data) => api.post('/auth/login/', data),
+  logout:  ()     => api.post('/auth/logout/'),
+  me:      ()     => api.get('/auth/me/'),
+  refresh: ()     => api.post('/auth/token/refresh/'),
 }
 
 export const productsAPI = {
-  list:         (params) => api.get('/api/v1/products/', { params }),
-  get:          (id)     => api.get(`/api/v1/products/${id}/`),
-  create:       (data)   => api.post('/api/v1/products/', data),
-  update:       (id, d)  => api.patch(`/api/v1/products/${id}/`, d),
-  delete:       (id)     => api.delete(`/api/v1/products/${id}/`),
-  stockHistory: (id)     => api.get(`/api/v1/products/${id}/stock-history/`),
+  list:         (params) => api.get('/products/', { params }),
+  get:          (id)     => api.get(`/products/${id}/`),
+  create:       (data)   => api.post('/products/', data),
+  update:       (id, d)  => api.patch(`/products/${id}/`, d),
+  delete:       (id)     => api.delete(`/products/${id}/`),
+  stockHistory: (id)     => api.get(`/products/${id}/stock-history/`),
 }
 
 export const salesAPI = {
-  list:   (params) => api.get('/api/v1/sales/', { params }),
-  create: (data)   => api.post('/api/v1/sales/', data),
-  get:    (id)     => api.get(`/api/v1/sales/${id}/`),
+  list:   (params) => api.get('/sales/', { params }),
+  create: (data)   => api.post('/sales/', data),
+  get:    (id)     => api.get(`/sales/${id}/`),
 }
 
 export const customersAPI = {
-  list:   (params) => api.get('/api/v1/customers/', { params }),
-  get:    (id)     => api.get(`/api/v1/customers/${id}/`),
-  create: (data)   => api.post('/api/v1/customers/', data),
-  update: (id, d)  => api.patch(`/api/v1/customers/${id}/`, d),
+  list:   (params) => api.get('/customers/', { params }),
+  get:    (id)     => api.get(`/customers/${id}/`),
+  create: (data)   => api.post('/customers/', data),
+  update: (id, d)  => api.patch(`/customers/${id}/`, d),
 }
 
 export const reportsAPI = {
-  dailySales:   (params) => api.get('/api/v1/reports/sales/daily/',   { params }),
-  weeklySales:  (params) => api.get('/api/v1/reports/sales/weekly/',  { params }),
-  monthlySales: (params) => api.get('/api/v1/reports/sales/monthly/', { params }),
-  debtors:      (params) => api.get('/api/v1/reports/debtors/',       { params }),
-  inventory:    (params) => api.get('/api/v1/reports/inventory/',      { params }),
-  customers:    (params) => api.get('/api/v1/reports/customers/',      { params }),
-  branches:     (params) => api.get('/api/v1/reports/branches/',       { params }),
-  expenses:     (params) => api.get('/api/v1/reports/expenses/',       { params }),
+  dailySales:   (params) => api.get('/reports/sales/daily/',   { params }),
+  weeklySales:  (params) => api.get('/reports/sales/weekly/',  { params }),
+  monthlySales: (params) => api.get('/reports/sales/monthly/', { params }),
+  debtors:      (params) => api.get('/reports/debtors/',       { params }),
+  inventory:    (params) => api.get('/reports/inventory/',      { params }),
+  customers:    (params) => api.get('/reports/customers/',      { params }),
+  branches:     (params) => api.get('/reports/branches/',       { params }),
+  expenses:     (params) => api.get('/reports/expenses/',       { params }),
 }
 
 export const jobCardsAPI = {
-  list:   (params) => api.get('/api/v1/jobcards/', { params }),
-  get:    (id)     => api.get(`/api/v1/jobcards/${id}/`),
-  create: (data)   => api.post('/api/v1/jobcards/', data),
-  update: (id, d)  => api.patch(`/api/v1/jobcards/${id}/`, d),
+  list:   (params) => api.get('/jobcards/', { params }),
+  get:    (id)     => api.get(`/jobcards/${id}/`),
+  create: (data)   => api.post('/jobcards/', data),
+  update: (id, d)  => api.patch(`/jobcards/${id}/`, d),
 }
 
 export const branchesAPI = {
-  list: () => api.get('/api/v1/branches/'),
+  list: () => api.get('/branches/'),
 }
 
+// /health/ lives at backend root, not under /api/v1/
 export const healthAPI = {
-  ping: () => api.get('/api/v1/status/', { timeout: 3000 }),
+  ping: () => axios.get(`${BACKEND_ROOT}/health/`, { timeout: 3000, withCredentials: true }),
 }

@@ -3,12 +3,18 @@ from django.urls import path, include
 from django.http import JsonResponse
 
 
-def health_check(request):
-    return JsonResponse({'status': 'ok', 'service': 'shopkepa'})
+def health(_request):
+    return JsonResponse({
+        'status': 'ok',
+        'service': 'ShopKepa API',
+        'version': 'v1.0',
+        'docs': '/api/v1/',
+    })
 
 
 urlpatterns = [
-    path('health/', health_check),
-    path('admin/', admin.site.urls),
+    path('',        health),
+    path('health/', health),
+    path('admin/',  admin.site.urls),
     path('api/v1/', include('api.v1.urls')),
 ]
