@@ -9,4 +9,5 @@ urlpatterns = [
     path('<uuid:product_id>/', views.ProductDetailView.as_view(), name='product-detail'),
     path('<uuid:product_id>/inventory/', views.ProductInventoryView.as_view(), name='product-inventory'),
     path('<uuid:product_id>/adjust-stock/', views.StockAdjustView.as_view(), name='product-adjust-stock'),
+    path('<uuid:product_id>/stock-history/', views.StockHistoryView.as_view(), name='product-stock-history'),
 ]

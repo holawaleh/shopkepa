@@ -74,6 +74,7 @@ class JobCard(models.Model):
             models.Index(fields=['business', 'status']),
             models.Index(fields=['business', 'payment_status']),
             models.Index(fields=['technician', 'status']),
+            models.Index(fields=['business', 'intake_date']),
         ]
 
     def __str__(self):

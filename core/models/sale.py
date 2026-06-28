@@ -53,6 +53,7 @@ class Sale(models.Model):
             models.Index(fields=['business', 'payment_status']),
             models.Index(fields=['customer', 'business']),
             models.Index(fields=['business', 'branch']),
+            models.Index(fields=['business', 'created_by']),
         ]
 
     def __str__(self):
@@ -118,6 +119,7 @@ class Payment(models.Model):
         indexes = [
             models.Index(fields=['sale']),
             models.Index(fields=['business', 'payment_date']),
+            models.Index(fields=['business', 'payment_method']),
         ]
 
     def __str__(self):

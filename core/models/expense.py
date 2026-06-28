@@ -40,6 +40,7 @@ class Expense(models.Model):
             models.Index(fields=['business', 'expense_date']),
             models.Index(fields=['business', 'branch']),
             models.Index(fields=['business', 'category']),
+            models.Index(fields=['business', 'is_deleted']),
         ]
 
     def __str__(self):

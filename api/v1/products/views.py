@@ -436,6 +436,55 @@ class ExpiringProductsView(APIView):
             'expiring_products': results,
         })
         
+class StockHistoryView(APIView):
+    permission_classes = [IsManagerOrAbove]
+
+    def get(self, request, product_id):
+        try:
+            product = Product.objects.get(
+                id=product_id,
+                business=request.user.business,
+                is_deleted=False
+            )
+        except Product.DoesNotExist:
+            return Response(
+                {'error': 'Product not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        branch_id = request.query_params.get('branch_id')
+        limit     = min(int(request.query_params.get('limit', 50)), 200)
+
+        adjustments = StockAdjustment.objects.filter(
+            product=product,
+            business=request.user.business,
+        ).select_related('branch', 'created_by').order_by('-created_at')
+
+        if branch_id:
+            adjustments = adjustments.filter(branch_id=branch_id)
+
+        adjustments = adjustments[:limit]
+
+        return Response({
+            'product_id':   str(product.id),
+            'product_name': product.name,
+            'history': [
+                {
+                    'id':              str(a.id),
+                    'date':            str(a.created_at.date()),
+                    'branch':          a.branch.name,
+                    'type':            a.adjustment_type,
+                    'quantity_change': a.quantity_change,
+                    'quantity_before': a.quantity_before,
+                    'quantity_after':  a.quantity_after,
+                    'reason':          a.reason or '',
+                    'created_by':      a.created_by.full_name if a.created_by else None,
+                }
+                for a in adjustments
+            ],
+        })
+
+
 class ProductBarcodeLookupView(APIView):
     permission_classes = [IsCashierOrAbove]
 

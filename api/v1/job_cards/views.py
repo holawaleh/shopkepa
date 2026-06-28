@@ -203,6 +203,13 @@ class JobCardDetailView(APIView):
             job_card.labour_charge = data['labour_charge']
             job_card.total_charge  = job_card.labour_charge + job_card.parts_charge
             job_card.balance_due   = job_card.total_charge - job_card.amount_paid
+            if job_card.balance_due <= 0:
+                job_card.balance_due    = Decimal('0')
+                job_card.payment_status = JobCard.PAYMENT_PAID
+            elif job_card.amount_paid > 0:
+                job_card.payment_status = JobCard.PAYMENT_PARTIAL
+            else:
+                job_card.payment_status = JobCard.PAYMENT_UNPAID
 
         if 'warranty_days' in data:
             job_card.warranty_days = data['warranty_days']

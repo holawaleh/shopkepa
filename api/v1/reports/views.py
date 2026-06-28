@@ -1,6 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, Subquery, OuterRef
 from django.db.models.functions import TruncDate, TruncWeek
 from django.utils.dateparse import parse_date
 from datetime import date, timedelta
@@ -331,12 +331,12 @@ class DebtorReportView(APIView):
                 'payment_status': job.payment_status,
             })
 
-        total_job_debt = sum(float(j['balance_due']) for j in job_debts)
+        total_job_debt = sum(Decimal(j['balance_due']) for j in job_debts)
 
         return Response({
             'total_outstanding_sales': str(total_outstanding),
             'total_outstanding_jobs':  str(total_job_debt),
-            'total_outstanding':       str(float(total_outstanding) + total_job_debt),
+            'total_outstanding':       str((total_outstanding or Decimal('0')) + total_job_debt),
             'active_plans':            plans.filter(status='active').count(),
             'overdue_plans':           plans.filter(status='overdue').count(),
             'debtors':                 debtors,
@@ -472,33 +472,22 @@ class BranchReportView(APIView):
         business           = request.user.business
         date_from, date_to = get_date_range(request, default_days=30)
 
+        sale_filter    = Q(sales__sale_date__range=[date_from, date_to], sales__is_deleted=False)
+        expense_filter = Q(expenses__expense_date__range=[date_from, date_to], expenses__is_deleted=False)
+
         branches = Branch.objects.filter(
             business=business,
-            is_deleted=False
+            is_deleted=False,
+        ).annotate(
+            revenue=Sum('sales__amount_paid', filter=sale_filter),
+            total_expenses=Sum('expenses__amount', filter=expense_filter),
+            transaction_count=Count('sales__id', filter=sale_filter),
         )
 
         report = []
         for branch in branches:
-            sales = Sale.objects.filter(
-                business=business,
-                branch=branch,
-                sale_date__range=[date_from, date_to],
-                is_deleted=False
-            )
-            expenses = Expense.objects.filter(
-                business=business,
-                branch=branch,
-                expense_date__range=[date_from, date_to],
-                is_deleted=False
-            )
-
-            revenue = sales.aggregate(
-                total=Sum('amount_paid')
-            )['total'] or Decimal('0')
-
-            total_expenses = expenses.aggregate(
-                total=Sum('amount')
-            )['total'] or Decimal('0')
+            revenue        = branch.revenue or Decimal('0')
+            total_expenses = branch.total_expenses or Decimal('0')
 
             top_product = SaleItem.objects.filter(
                 sale__business=business,
@@ -514,12 +503,12 @@ class BranchReportView(APIView):
                 'is_main':      branch.is_main_branch,
                 'revenue':      str(revenue),
                 'expenses':     str(total_expenses),
-                'net_profit':   str(float(revenue) - float(total_expenses)),
-                'transactions': sales.count(),
+                'net_profit':   str(revenue - total_expenses),
+                'transactions': branch.transaction_count or 0,
                 'top_product':  top_product['product_name'] if top_product else None,
             })
 
-        report.sort(key=lambda x: float(x['revenue']), reverse=True)
+        report.sort(key=lambda x: Decimal(x['revenue']), reverse=True)
 
         return Response({
             'period':   f"{date_from} to {date_to}",
@@ -567,7 +556,7 @@ class ExpenseReportView(APIView):
             total=Sum('amount_paid')
         )['total'] or Decimal('0')
 
-        net_profit = float(total_sales) - float(total_expenses)
+        net_profit = total_sales - total_expenses
 
         period_days   = (date_to - date_from).days
         prev_start    = date_from - timedelta(days=period_days)
