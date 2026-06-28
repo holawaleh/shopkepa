@@ -1,139 +1,145 @@
-import axios from 'axios'
+import { useState, useEffect } from 'react'
+import AppLayout from '../../components/layout/AppLayout'
+import { salesAPI, productsAPI, customersAPI } from '../../api/client'
+import { useAuth } from '../../context/AuthContext'
 
-const BASE_URL = import.meta.env.VITE_API_URL || ''
+function StatCard({ label, value, sub, accent = false }) {
+  return (
+    <div style={{
+      background: 'var(--blue)',
+      border: '1px solid var(--mid)',
+      borderRadius: 10,
+      padding: '20px 24px',
+    }}>
+      <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
+      <div style={{ fontSize: 26, fontWeight: 700, color: accent ? 'var(--gold)' : 'var(--light)', marginBottom: 2 }}>{value}</div>
+      {sub && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{sub}</div>}
+    </div>
+  )
+}
 
-// Access token lives ONLY in memory — never localStorage
-let _accessToken = null
+function greeting() {
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 17) return 'Good afternoon'
+  return 'Good evening'
+}
 
-export const setAccessToken = (token) => { _accessToken = token }
-export const getAccessToken = () => _accessToken
-export const clearAccessToken = () => { _accessToken = null }
+function fmt(n) {
+  return '₦' + Number(n || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 
-// ── Main API client ──
-const api = axios.create({
-  baseURL: BASE_URL,
-  withCredentials: true, // sends httpOnly refresh cookie automatically
-  headers: { 'Content-Type': 'application/json' },
-})
+export default function DashboardPage() {
+  const { user } = useAuth()
+  const [stats, setStats] = useState({ revenue: 0, sales: 0, products: 0, customers: 0 })
+  const [recentSales, setRecentSales] = useState([])
+  const [loading, setLoading] = useState(true)
 
-// Attach access token to every request
-api.interceptors.request.use((config) => {
-  if (_accessToken) {
-    config.headers.Authorization = `Bearer ${_accessToken}`
-  }
-  return config
-})
+  useEffect(() => {
+    const load = async () => {
+      const [salesRes, productsRes, customersRes] = await Promise.allSettled([
+        salesAPI.list({ page_size: 20, ordering: '-created_at' }),
+        productsAPI.list({ page_size: 1 }),
+        customersAPI.list({ page_size: 1 }),
+      ])
 
-// ── Token refresh logic ──
-let _refreshPromise = null
+      const salesData   = salesRes.status     === 'fulfilled' ? salesRes.value.data     : null
+      const productsData = productsRes.status === 'fulfilled' ? productsRes.value.data  : null
+      const customersData = customersRes.status === 'fulfilled' ? customersRes.value.data : null
 
-api.interceptors.response.use(
-  (res) => res,
-  async (error) => {
-    const original = error.config
+      const allSales = salesData?.results ?? salesData ?? []
+      const todayStr = new Date().toISOString().split('T')[0]
+      const todaySales = allSales.filter(s => (s.created_at || '').startsWith(todayStr))
+      const todayRevenue = todaySales.reduce((sum, s) => sum + parseFloat(s.total ?? s.amount ?? 0), 0)
 
-    // 401 and not a retry → try refresh
-    // Skip for auth endpoints themselves to prevent recursive loops
-    const isAuthEndpoint = original.url?.includes('/auth/token/refresh/') ||
-                           original.url?.includes('/auth/logout/') ||
-                           original.url?.includes('/auth/login/')
-    if (error.response?.status === 401 && !original._retry && !isAuthEndpoint) {
-      original._retry = true
-
-      // Deduplicate concurrent refresh calls
-      if (!_refreshPromise) {
-        _refreshPromise = axios
-          .post(`${BASE_URL}/api/v1/auth/token/refresh/`, {}, { withCredentials: true })
-          .then((res) => {
-            setAccessToken(res.data.access)
-            return res.data.access
-          })
-          .catch((err) => {
-            const wasLoggedIn = !!_accessToken
-            clearAccessToken()
-            // Only force logout if user had an active session — not on initial page load
-            if (wasLoggedIn) {
-              window.dispatchEvent(new Event('auth:logout'))
-            }
-            return Promise.reject(err)
-          })
-          .finally(() => { _refreshPromise = null })
-      }
-
-      try {
-        const newToken = await _refreshPromise
-        original.headers.Authorization = `Bearer ${newToken}`
-        return api(original)
-      } catch {
-        return Promise.reject(error)
-      }
+      setStats({
+        revenue:   todayRevenue,
+        sales:     todaySales.length,
+        products:  productsData?.count  ?? 0,
+        customers: customersData?.count ?? 0,
+      })
+      setRecentSales(allSales.slice(0, 6))
+      setLoading(false)
     }
+    load()
+  }, [])
 
-    // 429 → rate limited
-    if (error.response?.status === 429) {
-      const retryAfter = error.response.headers['retry-after'] || 60
-      error.retryAfter = parseInt(retryAfter, 10)
-    }
+  const name = user?.first_name || user?.email?.split('@')[0] || 'there'
+  const today = new Date().toLocaleDateString('en-NG', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
 
-    return Promise.reject(error)
-  }
-)
+  return (
+    <AppLayout>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 2, color: 'var(--light)' }}>
+          {greeting()}, {name}
+        </h1>
+        <p style={{ color: 'var(--muted)', fontSize: 13 }}>{today}</p>
+      </div>
 
-export default api
+      {/* Stat cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 16, marginBottom: 32 }}>
+        <StatCard
+          label="Today's Revenue"
+          value={loading ? '—' : fmt(stats.revenue)}
+          sub="Cash + transfers"
+          accent
+        />
+        <StatCard
+          label="Today's Sales"
+          value={loading ? '—' : stats.sales}
+          sub="Transactions"
+        />
+        <StatCard
+          label="Products"
+          value={loading ? '—' : stats.products}
+          sub="In catalogue"
+        />
+        <StatCard
+          label="Customers"
+          value={loading ? '—' : stats.customers}
+          sub="Registered"
+        />
+      </div>
 
-// ── Typed API helpers ──
+      {/* Recent sales table */}
+      <div style={{ background: 'var(--blue)', border: '1px solid var(--mid)', borderRadius: 10, padding: '20px 24px' }}>
+        <h2 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16, color: 'var(--light)' }}>Recent Sales</h2>
 
-export const authAPI = {
-  login:   (data) => api.post('/api/v1/auth/login/', data),
-  logout:  ()     => api.post('/api/v1/auth/logout/'),
-  me:      ()     => api.get('/api/v1/auth/me/'),
-  refresh: ()     => api.post('/api/v1/auth/token/refresh/'),
-}
-
-export const productsAPI = {
-  list:         (params) => api.get('/api/v1/products/', { params }),
-  get:          (id)     => api.get(`/api/v1/products/${id}/`),
-  create:       (data)   => api.post('/api/v1/products/', data),
-  update:       (id, d)  => api.patch(`/api/v1/products/${id}/`, d),
-  delete:       (id)     => api.delete(`/api/v1/products/${id}/`),
-  stockHistory: (id)     => api.get(`/api/v1/products/${id}/stock-history/`),
-}
-
-export const salesAPI = {
-  list:   (params) => api.get('/api/v1/sales/', { params }),
-  create: (data)   => api.post('/api/v1/sales/', data),
-  get:    (id)     => api.get(`/api/v1/sales/${id}/`),
-}
-
-export const customersAPI = {
-  list:   (params) => api.get('/api/v1/customers/', { params }),
-  get:    (id)     => api.get(`/api/v1/customers/${id}/`),
-  create: (data)   => api.post('/api/v1/customers/', data),
-  update: (id, d)  => api.patch(`/api/v1/customers/${id}/`, d),
-}
-
-export const reportsAPI = {
-  dailySales:   (params) => api.get('/api/v1/reports/sales/daily/',   { params }),
-  weeklySales:  (params) => api.get('/api/v1/reports/sales/weekly/',  { params }),
-  monthlySales: (params) => api.get('/api/v1/reports/sales/monthly/', { params }),
-  debtors:      (params) => api.get('/api/v1/reports/debtors/',       { params }),
-  inventory:    (params) => api.get('/api/v1/reports/inventory/',      { params }),
-  customers:    (params) => api.get('/api/v1/reports/customers/',      { params }),
-  branches:     (params) => api.get('/api/v1/reports/branches/',       { params }),
-  expenses:     (params) => api.get('/api/v1/reports/expenses/',       { params }),
-}
-
-export const jobCardsAPI = {
-  list:   (params) => api.get('/api/v1/jobcards/', { params }),
-  get:    (id)     => api.get(`/api/v1/jobcards/${id}/`),
-  create: (data)   => api.post('/api/v1/jobcards/', data),
-  update: (id, d)  => api.patch(`/api/v1/jobcards/${id}/`, d),
-}
-
-export const branchesAPI = {
-  list: () => api.get('/api/v1/branches/'),
-}
-
-export const healthAPI = {
-  ping: () => api.get('/api/v1/status/', { timeout: 3000 }),
+        {loading ? (
+          <p style={{ color: 'var(--muted)', fontSize: 13 }}>Loading…</p>
+        ) : recentSales.length === 0 ? (
+          <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+            No sales recorded yet. Open the POS tab to start selling.
+          </p>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ color: 'var(--muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                <th style={{ textAlign: 'left',  padding: '0 0 10px', fontWeight: 500 }}>Customer</th>
+                <th style={{ textAlign: 'left',  padding: '0 0 10px', fontWeight: 500 }}>Items</th>
+                <th style={{ textAlign: 'right', padding: '0 0 10px', fontWeight: 500 }}>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentSales.map((s, i) => (
+                <tr key={s.id ?? i} style={{ borderTop: '1px solid var(--mid)' }}>
+                  <td style={{ padding: '10px 0', color: 'var(--light)' }}>
+                    {s.customer_name ?? s.customer?.name ?? 'Walk-in'}
+                  </td>
+                  <td style={{ padding: '10px 0', color: 'var(--muted)' }}>
+                    {s.items?.length ?? '—'}
+                  </td>
+                  <td style={{ padding: '10px 0', textAlign: 'right', color: 'var(--gold)', fontWeight: 500 }}>
+                    {fmt(s.total ?? s.amount)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </AppLayout>
+  )
 }

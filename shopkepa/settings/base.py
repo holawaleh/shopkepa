@@ -10,6 +10,7 @@ env = environ.Env()
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 SECRET_KEY = env('SECRET_KEY')
+APPEND_SLASH = True
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -125,6 +126,7 @@ REST_FRAMEWORK = {
         'login':    '5/min',
         'register': '3/min',
     },
+    'TRAILING_SLASH': True,
 }
 
 # JWT
