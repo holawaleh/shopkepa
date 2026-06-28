@@ -24,7 +24,7 @@ function useSEO() {
       if (!el) { el = document.createElement('meta'); el.setAttribute(attr, name); document.head.appendChild(el) }
       el.setAttribute('content', content)
     }
-    setMeta('description', 'ShopKepa is Nigeria\'s most complete retail POS. Track installments, manage multi-branch stock, run job cards for repair shops, and sell offline. Built by Tech Affairs, Ibadan.')
+    setMeta('description', 'ShopKepa is Nigeria\'s most complete retail POS. Track installments, manage multi-branch stock, run job cards for repair shops, and sell offline. Built by Tech Affairs.')
     setMeta('keywords', 'POS Nigeria, point of sale Nigeria, retail software Nigeria, inventory management Nigeria, installment tracking POS, repair shop software Nigeria, ShopKepa, Nigerian POS system')
     setMeta('author', 'Tech Affairs and Innovative Hub')
     setMeta('robots', 'index, follow')
@@ -63,7 +63,7 @@ function useSEO() {
           "author": {
             "@type": "Organization",
             "name": "Tech Affairs and Innovative Hub",
-            "address": { "@type": "PostalAddress", "addressLocality": "Ibadan", "addressCountry": "NG" },
+            "address": { "@type": "PostalAddress", "addressLocality": "", "addressCountry": "NG" },
             "contactPoint": {
               "@type": "ContactPoint",
               "contactType": "customer support",
@@ -85,7 +85,7 @@ function useSEO() {
           "@type": "Organization",
           "name": "Tech Affairs and Innovative Hub",
           "url": "https://shopkepa.vercel.app",
-          "address": { "@type": "PostalAddress", "addressLocality": "Ibadan", "addressRegion": "Oyo State", "addressCountry": "NG" }
+          "address": { "@type": "PostalAddress", "addressLocality": "", "addressRegion": "Oyo State", "addressCountry": "NG" }
         }
       ]
     }
@@ -782,7 +782,7 @@ export default function LandingPage() {
           </div>
           <div style={{ borderTop: '1px solid #1E3A5F', paddingTop: 22, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
             <span style={{ fontSize: 12, color: '#3D5A7A' }}>© 2026 Tech Affairs and Innovative Hub. All rights reserved. ShopKepa is a registered product.</span>
-            <span style={{ fontSize: 12, color: '#3D5A7A' }}>Made with ♥ in Ibadan, Nigeria 🇳🇬</span>
+            <span style={{ fontSize: 12, color: '#3D5A7A' }}>Made with ♥ in Nigeria 🇳🇬</span>
           </div>
         </div>
       </footer>

@@ -154,7 +154,7 @@ export default function LoginPage() {
       </div>
 
       <p style={{ fontSize: 12, color: 'var(--muted)', marginTop: 24, textAlign: 'center' }}>
-        Tech Affairs and Innovative Hub · Ibadan, Nigeria
+        Tech Affairs and Innovative Hub · Nigeria
       </p>
     </div>
   )
