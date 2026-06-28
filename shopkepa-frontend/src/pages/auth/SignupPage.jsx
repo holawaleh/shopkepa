@@ -280,19 +280,19 @@ export default function SignupPage() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
                   <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>First name</label>
-                  <input className={`input ${errors.first_name ? 'input-error' : ''}`} placeholder="Ada" value={form.first_name} onChange={set('first_name')} />
+                  <input className={`input ${errors.first_name ? 'input-error' : ''}`} placeholder=" " value={form.first_name} onChange={set('first_name')} />
                   <FieldError field="first_name" />
                 </div>
                 <div>
                   <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Last name</label>
-                  <input className={`input ${errors.last_name ? 'input-error' : ''}`} placeholder="Okonkwo" value={form.last_name} onChange={set('last_name')} />
+                  <input className={`input ${errors.last_name ? 'input-error' : ''}`} placeholder=" " value={form.last_name} onChange={set('last_name')} />
                   <FieldError field="last_name" />
                 </div>
               </div>
 
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Email address</label>
-                <input type="email" className={`input ${errors.email ? 'input-error' : ''}`} placeholder="ada@yourshop.ng" value={form.email} onChange={set('email')} autoComplete="email" />
+                <input type="email" className={`input ${errors.email ? 'input-error' : ''}`} placeholder="user@businees.com" value={form.email} onChange={set('email')} autoComplete="email" />
                 <FieldError field="email" />
               </div>
 
@@ -313,7 +313,7 @@ export default function SignupPage() {
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Business name</label>
-                <input className={`input ${errors.business_name ? 'input-error' : ''}`} placeholder="Ada's Supermarket" value={form.business_name} onChange={set('business_name')} />
+                <input className={`input ${errors.business_name ? 'input-error' : ''}`} placeholder=" " value={form.business_name} onChange={set('business_name')} />
                 <FieldError field="business_name" />
               </div>
 

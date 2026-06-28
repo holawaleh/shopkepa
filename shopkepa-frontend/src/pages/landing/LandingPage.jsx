@@ -189,7 +189,7 @@ function NavBar() {
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }} className="sk-nav-links">
           <Link to="/login" style={{ color: '#8AAAD4', fontSize: 14, textDecoration: 'none', padding: '7px 14px' }}>Sign in</Link>
-          <Link to="/signup" style={{ background: '#C9A84C', color: '#0A1628', fontWeight: 700, fontSize: 14, textDecoration: 'none', padding: '9px 20px', borderRadius: 7 }}>Start free trial</Link>
+          <Link to="/signup" style={{ background: '#C9A84C', color: '#0A1628', fontWeight: 700, fontSize: 14, textDecoration: 'none', padding: '9px 20px', borderRadius: 7 }}>start now</Link>
         </div>
         <button onClick={() => setOpen(o => !o)} className="sk-hamburger" aria-label="Toggle menu"
           style={{ background: 'none', border: 'none', color: '#8AAAD4', cursor: 'pointer', display: 'none' }}>
@@ -204,7 +204,7 @@ function NavBar() {
           ))}
           <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
             <Link to="/login" onClick={() => setOpen(false)} style={{ flex: 1, textAlign: 'center', color: '#8AAAD4', border: '1px solid #1E3A5F', borderRadius: 7, padding: '11px', textDecoration: 'none', fontSize: 14 }}>Sign in</Link>
-            <Link to="/signup" onClick={() => setOpen(false)} style={{ flex: 2, textAlign: 'center', background: '#C9A84C', color: '#0A1628', fontWeight: 700, borderRadius: 7, padding: '11px', textDecoration: 'none', fontSize: 14 }}>Start free trial</Link>
+            <Link to="/signup" onClick={() => setOpen(false)} style={{ flex: 2, textAlign: 'center', background: '#C9A84C', color: '#0A1628', fontWeight: 700, borderRadius: 7, padding: '11px', textDecoration: 'none', fontSize: 14 }}>start now</Link>
           </div>
         </div>
       )}
@@ -251,7 +251,7 @@ export default function LandingPage() {
 
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(76,175,125,0.1)', border: '1px solid rgba(76,175,125,0.28)', borderRadius: 20, padding: '5px 14px', marginBottom: 24 }}>
           <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4CAF7D', animation: 'sk-pulse 2s infinite' }} />
-          <span style={{ fontSize: 12, color: '#4CAF7D', fontWeight: 500 }}>Now serving 500+ Nigerian businesses</span>
+          <span style={{ fontSize: 12, color: '#4CAF7D', fontWeight: 500 }}>Sales Management Redefined</span>
         </div>
 
         <h1 style={{ fontSize: 'clamp(30px, 5.5vw, 62px)', fontWeight: 800, lineHeight: 1.13, maxWidth: 820, marginBottom: 22 }}>
@@ -260,12 +260,17 @@ export default function LandingPage() {
         </h1>
 
         <p style={{ fontSize: 'clamp(15px, 2vw, 18px)', color: '#8AAAD4', maxWidth: 580, lineHeight: 1.75, marginBottom: 36 }}>
-          Installments in 5 tranches. Camera barcode scanning. Job cards for repair shops. True profit (not just revenue). Multi-branch stock isolation. 15 things no other Nigerian POS does.
+          - Flexible payment/repayment plan (Five payment cycle)
+- Camera barcode scanning (No special barcode scanner machine Required)
+- Job cards for repair shops
+- True profit (not just revenue) 
+- Multi-branch stock isolation
+- 15 pther features no other Nigerian POS does
         </p>
 
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 14 }}>
           <Link to="/signup" style={{ background: '#C9A84C', color: '#0A1628', fontWeight: 700, fontSize: 16, padding: '14px 32px', borderRadius: 8, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            Start free — 14 days <ArrowRight size={18} />
+            start now—  <ArrowRight size={18} />
           </Link>
           <a href="#why" style={{ color: '#8AAAD4', fontSize: 15, padding: '14px 24px', borderRadius: 8, border: '1px solid #1E3A5F', textDecoration: 'none' }}>
             See what makes us different
@@ -425,7 +430,7 @@ export default function LandingPage() {
                 <h3 style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>{EDGE_ITEMS[activeEdge].title}</h3>
                 <p style={{ fontSize: 16, color: '#8AAAD4', lineHeight: 1.75 }}>{EDGE_ITEMS[activeEdge].body}</p>
                 <div style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#4CAF7D' }}>
-                  <Check size={15} /> Live in the backend now
+                  <Check size={15} /> 
                 </div>
               </>
             )})()}
@@ -604,7 +609,7 @@ export default function LandingPage() {
                 ))}
               </div>
               <Link to="/signup" style={{ display: 'block', textAlign: 'center', textDecoration: 'none', padding: '12px', borderRadius: 8, fontWeight: 700, fontSize: 14, background: highlight ? '#C9A84C' : 'transparent', color: highlight ? '#0A1628' : '#C9A84C', border: highlight ? 'none' : '1px solid #C9A84C', transition: 'opacity .15s' }}>
-                Start free trial
+                start now
               </Link>
             </div>
           ))}
@@ -702,7 +707,7 @@ export default function LandingPage() {
 
           <div style={{ marginTop: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             <MapPin size={14} color="#6B8BB5" />
-            <span style={{ fontSize: 13, color: '#6B8BB5' }}>Tech Affairs and Innovative Hub · Ibadan, Oyo State, Nigeria</span>
+            <span style={{ fontSize: 13, color: '#6B8BB5' }}>Tech Affairs and Innovative Hub · Nigeria</span>
           </div>
         </div>
       </section>
@@ -717,7 +722,7 @@ export default function LandingPage() {
             No app store. No scanner hardware. No long contracts. Just a tool that understands how Nigerian traders actually operate.
           </p>
           <Link to="/signup" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: '#C9A84C', color: '#0A1628', fontWeight: 800, fontSize: 17, padding: '16px 40px', borderRadius: 9, textDecoration: 'none' }}>
-            Start free — 14 days <ArrowRight size={20} />
+            start now—  <ArrowRight size={20} />
           </Link>
           <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginTop: 24, flexWrap: 'wrap' }}>
             {['No credit card', 'No app store needed', 'Cancel anytime', '24/7 support'].map(t => (
@@ -756,7 +761,7 @@ export default function LandingPage() {
                   <Mail size={16} />
                 </a>
               </div>
-              <p style={{ fontSize: 12, color: '#3D5A7A', marginTop: 14 }}>By Tech Affairs and Innovative Hub<br />Ibadan, Oyo State, Nigeria</p>
+              <p style={{ fontSize: 12, color: '#3D5A7A', marginTop: 14 }}>By Tech Affairs and Innovative Hub<br />Nigeria</p>
             </div>
             {[
               { title: 'Product', links: [['#why', 'Features'], ['#modules', 'Modules'], ['#pricing', 'Pricing'], ['#', 'POS'], ['#', 'Reports'], ['#', 'Job cards']] },

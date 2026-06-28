@@ -92,7 +92,7 @@ export default function LoginPage() {
             <input
               type="email"
               className="input"
-              placeholder="ada@yourshop.ng"
+              placeholder="user@business.com"
               value={form.email}
               onChange={set('email')}
               required
