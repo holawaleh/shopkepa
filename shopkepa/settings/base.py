@@ -64,20 +64,18 @@ TEMPLATES = [
 WSGI_APPLICATION = 'shopkepa.wsgi.application'
 
 # Database
+# Database — used in development only
+# Production overrides this completely via DATABASE_URL in production.py
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': env('DB_NAME'),
-        'USER': env('DB_USER'),
-        'PASSWORD': env('DB_PASSWORD'),
-        'HOST': env('DB_HOST', default='localhost'),
-        'PORT': env('DB_PORT', default='5432'),
-        'OPTIONS': {
-            'sslmode': 'require',
-        },
+        'NAME':     env('DB_NAME',     default='shopkepa_db'),
+        'USER':     env('DB_USER',     default='shopkepa_user'),
+        'PASSWORD': env('DB_PASSWORD', default='shopkepa_pass'),
+        'HOST':     env('DB_HOST',     default='localhost'),
+        'PORT':     env('DB_PORT',     default='5432'),
     }
 }
-
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
