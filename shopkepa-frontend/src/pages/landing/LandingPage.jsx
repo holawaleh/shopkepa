@@ -4,8 +4,16 @@ import {
   ShoppingCart, BarChart2, Users, Package, Wifi, Shield,
   Check, Star, Menu, X, ArrowRight, Zap, TrendingUp,
   Smartphone, Monitor, MapPin, Layers, CreditCard,
-  Wrench, Eye, UserCheck, Clock, ChevronRight
+  Wrench, Eye, UserCheck, Clock, ChevronRight,
+  MessageCircle, Send, Mail, Phone,
 } from 'lucide-react'
+
+// ── Contact details — update these before going live ──
+const CONTACT = {
+  whatsapp: 'https://wa.me/2348012345678',  // replace with your WhatsApp number
+  telegram: 'https://t.me/shopkepa',         // replace with your Telegram handle
+  email:    'mailto:support@shopkepa.ng',    // replace with your support email
+}
 
 // ── SEO helper — sets document head ──
 function useSEO() {
@@ -17,26 +25,69 @@ function useSEO() {
       el.setAttribute('content', content)
     }
     setMeta('description', 'ShopKepa is Nigeria\'s most complete retail POS. Track installments, manage multi-branch stock, run job cards for repair shops, and sell offline. Built by Tech Affairs, Ibadan.')
-    setMeta('keywords', 'POS Nigeria, point of sale Nigeria, retail software Nigeria, inventory management Nigeria, installment tracking POS, repair shop software Nigeria, ShopKepa')
+    setMeta('keywords', 'POS Nigeria, point of sale Nigeria, retail software Nigeria, inventory management Nigeria, installment tracking POS, repair shop software Nigeria, ShopKepa, Nigerian POS system')
     setMeta('author', 'Tech Affairs and Innovative Hub')
     setMeta('robots', 'index, follow')
     setMeta('og:title', 'ShopKepa — The POS Built for Nigerian Retail', 'property')
     setMeta('og:description', 'Installments, job cards, multi-branch stock, offline POS. 15 features no other Nigerian POS has.', 'property')
     setMeta('og:type', 'website', 'property')
-    setMeta('og:url', 'https://shopkepa.ng', 'property')
+    setMeta('og:url', 'https://shopkepa.vercel.app', 'property')
     setMeta('og:site_name', 'ShopKepa', 'property')
+    setMeta('og:image', 'https://shopkepa.vercel.app/og-image.png', 'property')
     setMeta('twitter:card', 'summary_large_image')
     setMeta('twitter:title', 'ShopKepa — Nigerian Retail POS')
     setMeta('twitter:description', 'Track installments, manage multi-branch stock, run job cards. Built for how Nigerians trade.')
+    setMeta('twitter:image', 'https://shopkepa.vercel.app/og-image.png')
+
+    // Canonical link
+    let canonical = document.querySelector('link[rel="canonical"]')
+    if (!canonical) {
+      canonical = document.createElement('link')
+      canonical.rel = 'canonical'
+      document.head.appendChild(canonical)
+    }
+    canonical.href = 'https://shopkepa.vercel.app'
+
+    // JSON-LD structured data
     const schema = {
       "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      "name": "ShopKepa",
-      "applicationCategory": "BusinessApplication",
-      "operatingSystem": "Web, Android",
-      "description": "Nigerian retail POS with installment tracking, job cards, multi-branch inventory and offline capability",
-      "offers": { "@type": "Offer", "price": "5000", "priceCurrency": "NGN" },
-      "author": { "@type": "Organization", "name": "Tech Affairs and Innovative Hub", "address": { "@type": "PostalAddress", "addressLocality": "Ibadan", "addressCountry": "NG" } }
+      "@graph": [
+        {
+          "@type": "SoftwareApplication",
+          "name": "ShopKepa",
+          "url": "https://shopkepa.vercel.app",
+          "applicationCategory": "BusinessApplication",
+          "operatingSystem": "Web, Android",
+          "description": "Nigerian retail POS with installment tracking, job cards, multi-branch inventory and offline capability",
+          "offers": { "@type": "Offer", "price": "5000", "priceCurrency": "NGN" },
+          "author": {
+            "@type": "Organization",
+            "name": "Tech Affairs and Innovative Hub",
+            "address": { "@type": "PostalAddress", "addressLocality": "Ibadan", "addressCountry": "NG" },
+            "contactPoint": {
+              "@type": "ContactPoint",
+              "contactType": "customer support",
+              "availableLanguage": ["English", "Yoruba"]
+            }
+          },
+          "featureList": [
+            "Installment tracking up to 5 tranches",
+            "Multi-branch stock isolation",
+            "Job card workflow for repair shops",
+            "Offline sales with PWA sync",
+            "Camera barcode scanning",
+            "Customer loyalty tiers",
+            "True profit tracking",
+            "Role-based access control"
+          ]
+        },
+        {
+          "@type": "Organization",
+          "name": "Tech Affairs and Innovative Hub",
+          "url": "https://shopkepa.vercel.app",
+          "address": { "@type": "PostalAddress", "addressLocality": "Ibadan", "addressRegion": "Oyo State", "addressCountry": "NG" }
+        }
+      ]
     }
     let s = document.querySelector('#shopkepa-schema')
     if (!s) { s = document.createElement('script'); s.id = 'shopkepa-schema'; s.type = 'application/ld+json'; document.head.appendChild(s) }
@@ -119,12 +170,18 @@ function NavBar() {
     transition: 'all 0.3s',
     backdropFilter: scrolled ? 'blur(10px)' : 'none',
   }
+  const NAV_LINKS = [
+    ['#why', 'Why ShopKepa'],
+    ['#modules', 'Modules'],
+    ['#pricing', 'Pricing'],
+    ['#contact', 'Contact'],
+  ]
   return (
     <nav style={navStyle} aria-label="Main navigation">
       <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 24px', height: 62, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Link to="/" style={{ fontSize: 21, fontWeight: 800, color: '#C9A84C', textDecoration: 'none', letterSpacing: 0.3 }} aria-label="ShopKepa home">ShopKepa</Link>
         <div style={{ display: 'flex', gap: 28, alignItems: 'center' }} className="sk-nav-links">
-          {[['#why', 'Why ShopKepa'], ['#modules', 'Modules'], ['#pricing', 'Pricing']].map(([href, label]) => (
+          {NAV_LINKS.map(([href, label]) => (
             <a key={href} href={href} style={{ color: '#8AAAD4', fontSize: 14, textDecoration: 'none', transition: 'color .15s' }}
               onMouseEnter={e => e.target.style.color = '#C9A84C'}
               onMouseLeave={e => e.target.style.color = '#8AAAD4'}>{label}</a>
@@ -141,7 +198,7 @@ function NavBar() {
       </div>
       {open && (
         <div style={{ background: '#0A1628', borderTop: '1px solid #1E3A5F', padding: '16px 24px 24px' }}>
-          {[['#why', 'Why ShopKepa'], ['#modules', 'Modules'], ['#pricing', 'Pricing']].map(([href, label]) => (
+          {NAV_LINKS.map(([href, label]) => (
             <a key={href} href={href} onClick={() => setOpen(false)}
               style={{ display: 'block', color: '#8AAAD4', fontSize: 16, textDecoration: 'none', padding: '13px 0', borderBottom: '1px solid #1E3A5F' }}>{label}</a>
           ))}
@@ -526,6 +583,99 @@ export default function LandingPage() {
         </p>
       </section>
 
+      {/* ── CONTACT ── */}
+      <section id="contact" style={{ background: '#0F2442', borderTop: '1px solid #1E3A5F', borderBottom: '1px solid #1E3A5F', padding: '80px 24px' }}>
+        <div style={{ maxWidth: 820, margin: '0 auto', textAlign: 'center' }}>
+          <Tag>Get in touch</Tag>
+          <h2 style={{ fontSize: 'clamp(22px, 3.5vw, 36px)', fontWeight: 800, marginBottom: 14 }}>
+            We're here to help
+          </h2>
+          <p style={{ fontSize: 15, color: '#8AAAD4', maxWidth: 520, margin: '0 auto 48px', lineHeight: 1.75 }}>
+            Have a question about ShopKepa? Want a demo for your team? Reach us directly — real people, fast responses.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+            {/* WhatsApp */}
+            <a
+              href={CONTACT.whatsapp}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ textDecoration: 'none' }}
+            >
+              <div
+                style={{ background: '#0A1628', border: '1px solid #1E3A5F', borderRadius: 14, padding: '28px 24px', cursor: 'pointer', transition: 'border-color .2s, transform .2s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(37,211,102,0.5)'; e.currentTarget.style.transform = 'translateY(-4px)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = '#1E3A5F'; e.currentTarget.style.transform = 'translateY(0)' }}
+              >
+                <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(37,211,102,0.1)', border: '1px solid rgba(37,211,102,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                  <MessageCircle size={24} color="#25D366" />
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>WhatsApp</div>
+                <div style={{ fontSize: 13, color: '#6B8BB5', lineHeight: 1.6, marginBottom: 16 }}>
+                  Chat with us directly — quick answers, demos, and support.
+                </div>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#25D366', fontWeight: 600 }}>
+                  Chat now <ArrowRight size={14} />
+                </div>
+              </div>
+            </a>
+
+            {/* Telegram */}
+            <a
+              href={CONTACT.telegram}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ textDecoration: 'none' }}
+            >
+              <div
+                style={{ background: '#0A1628', border: '1px solid #1E3A5F', borderRadius: 14, padding: '28px 24px', cursor: 'pointer', transition: 'border-color .2s, transform .2s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(0,136,204,0.5)'; e.currentTarget.style.transform = 'translateY(-4px)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = '#1E3A5F'; e.currentTarget.style.transform = 'translateY(0)' }}
+              >
+                <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(0,136,204,0.1)', border: '1px solid rgba(0,136,204,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                  <Send size={24} color="#0088CC" />
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Telegram</div>
+                <div style={{ fontSize: 13, color: '#6B8BB5', lineHeight: 1.6, marginBottom: 16 }}>
+                  Join our channel for updates, tips, and announcements.
+                </div>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#0088CC', fontWeight: 600 }}>
+                  Open Telegram <ArrowRight size={14} />
+                </div>
+              </div>
+            </a>
+
+            {/* Email */}
+            <a
+              href={CONTACT.email}
+              style={{ textDecoration: 'none' }}
+            >
+              <div
+                style={{ background: '#0A1628', border: '1px solid #1E3A5F', borderRadius: 14, padding: '28px 24px', cursor: 'pointer', transition: 'border-color .2s, transform .2s' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.5)'; e.currentTarget.style.transform = 'translateY(-4px)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = '#1E3A5F'; e.currentTarget.style.transform = 'translateY(0)' }}
+              >
+                <div style={{ width: 52, height: 52, borderRadius: 14, background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                  <Mail size={24} color="#C9A84C" />
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Email</div>
+                <div style={{ fontSize: 13, color: '#6B8BB5', lineHeight: 1.6, marginBottom: 16 }}>
+                  For detailed questions, partnerships, and enterprise enquiries.
+                </div>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#C9A84C', fontWeight: 600 }}>
+                  Send email <ArrowRight size={14} />
+                </div>
+              </div>
+            </a>
+          </div>
+
+          <div style={{ marginTop: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <MapPin size={14} color="#6B8BB5" />
+            <span style={{ fontSize: 13, color: '#6B8BB5' }}>Tech Affairs and Innovative Hub · Ibadan, Oyo State, Nigeria</span>
+          </div>
+        </div>
+      </section>
+
       {/* ── FINAL CTA ── */}
       <div style={{ background: '#0F2442', borderTop: '1px solid #1E3A5F', padding: '80px 24px', textAlign: 'center' }}>
         <div style={{ maxWidth: 620, margin: '0 auto' }}>
@@ -557,20 +707,38 @@ export default function LandingPage() {
               <p style={{ fontSize: 13, color: '#6B8BB5', lineHeight: 1.7, marginBottom: 14 }}>
                 The retail POS built for Nigerian businesses — installments, job cards, multi-branch stock, offline sales, and true profit tracking.
               </p>
-              <p style={{ fontSize: 12, color: '#3D5A7A' }}>By Tech Affairs and Innovative Hub<br />Ibadan, Oyo State, Nigeria</p>
+              {/* Social / contact quick links in footer */}
+              <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+                <a href={CONTACT.whatsapp} target="_blank" rel="noopener noreferrer"
+                  style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(37,211,102,0.1)', border: '1px solid rgba(37,211,102,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#25D366', transition: 'background .15s' }}
+                  aria-label="WhatsApp">
+                  <MessageCircle size={16} />
+                </a>
+                <a href={CONTACT.telegram} target="_blank" rel="noopener noreferrer"
+                  style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(0,136,204,0.1)', border: '1px solid rgba(0,136,204,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0088CC', transition: 'background .15s' }}
+                  aria-label="Telegram">
+                  <Send size={16} />
+                </a>
+                <a href={CONTACT.email}
+                  style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#C9A84C', transition: 'background .15s' }}
+                  aria-label="Email">
+                  <Mail size={16} />
+                </a>
+              </div>
+              <p style={{ fontSize: 12, color: '#3D5A7A', marginTop: 14 }}>By Tech Affairs and Innovative Hub<br />Ibadan, Oyo State, Nigeria</p>
             </div>
             {[
-              { title: 'Product', links: ['Features', 'Modules', 'Pricing', 'POS', 'Reports', 'Job cards'] },
-              { title: 'Industries', links: ['Supermarkets', 'Pharmacies', 'Restaurants', 'Repair shops', 'Electronics', 'Fashion'] },
-              { title: 'Company', links: ['About us', 'Contact', 'Privacy policy', 'Terms of service', 'Help centre'] },
+              { title: 'Product', links: [['#why', 'Features'], ['#modules', 'Modules'], ['#pricing', 'Pricing'], ['#', 'POS'], ['#', 'Reports'], ['#', 'Job cards']] },
+              { title: 'Industries', links: [['#modules', 'Supermarkets'], ['#modules', 'Pharmacies'], ['#modules', 'Restaurants'], ['#modules', 'Repair shops'], ['#modules', 'Electronics'], ['#modules', 'Fashion']] },
+              { title: 'Company', links: [['#', 'About us'], ['#contact', 'Contact'], ['#', 'Privacy policy'], ['#', 'Terms of service'], ['#', 'Help centre']] },
             ].map(col => (
               <div key={col.title}>
                 <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 14 }}>{col.title}</div>
-                {col.links.map(l => (
-                  <div key={l} style={{ marginBottom: 9 }}>
-                    <a href="#" style={{ fontSize: 13, color: '#6B8BB5', textDecoration: 'none', transition: 'color .15s' }}
+                {col.links.map(([href, label]) => (
+                  <div key={label} style={{ marginBottom: 9 }}>
+                    <a href={href} style={{ fontSize: 13, color: '#6B8BB5', textDecoration: 'none', transition: 'color .15s' }}
                       onMouseEnter={e => e.target.style.color = '#C9A84C'}
-                      onMouseLeave={e => e.target.style.color = '#6B8BB5'}>{l}</a>
+                      onMouseLeave={e => e.target.style.color = '#6B8BB5'}>{label}</a>
                   </div>
                 ))}
               </div>

@@ -112,10 +112,10 @@ export const reportsAPI = {
 }
 
 export const jobCardsAPI = {
-  list:   (params) => api.get('/api/v1/jobcards/', { params }),
-  get:    (id)     => api.get(`/api/v1/jobcards/${id}/`),
-  create: (data)   => api.post('/api/v1/jobcards/', data),
-  update: (id, d)  => api.patch(`/api/v1/jobcards/${id}/`, d),
+  list:   (params) => api.get('/api/v1/job-cards/', { params }),
+  get:    (id)     => api.get(`/api/v1/job-cards/${id}/`),
+  create: (data)   => api.post('/api/v1/job-cards/', data),
+  update: (id, d)  => api.patch(`/api/v1/job-cards/${id}/`, d),
 }
 
 export const branchesAPI = {
