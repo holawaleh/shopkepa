@@ -45,7 +45,8 @@ class ProductListCreateView(APIView):
         if search:
             queryset = queryset.filter(
                 Q(name__icontains=search) |
-                Q(sku__icontains=search)
+                Q(sku__icontains=search)      |
+                Q(barcode__icontains=search)
             )
 
         queryset = queryset.order_by('name')
@@ -177,7 +178,7 @@ class ProductDetailView(APIView):
 
         # Update product fields
         for field in [
-            'name', 'description', 'unit_type',
+            'name', 'description','sku', 'barcode', 'unit_type',
             'wholesale_price', 'retail_price',
             'cost_price', 'reorder_level', 'is_active'
         ]:
@@ -434,3 +435,58 @@ class ExpiringProductsView(APIView):
             'alert_window_days': alert_days,
             'expiring_products': results,
         })
+        
+class ProductBarcodeLookupView(APIView):
+    permission_classes = [IsCashierOrAbove]
+
+    def get(self, request):
+        barcode  = request.query_params.get('barcode', '').strip()
+        branch_id = request.query_params.get('branch_id')
+
+        if not barcode:
+            return Response(
+                {'error': 'barcode parameter is required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            product = Product.objects.get(
+                business=request.user.business,
+                barcode=barcode,
+                is_deleted=False,
+                is_active=True,
+            )
+        except Product.DoesNotExist:
+            return Response(
+                {'error': f'No product found with barcode {barcode}.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Product.MultipleObjectsReturned:
+            # Shouldn't happen but handle gracefully
+            product = Product.objects.filter(
+                business=request.user.business,
+                barcode=barcode,
+                is_deleted=False,
+                is_active=True,
+            ).first()
+
+        # Get stock at specific branch if provided
+        stock = None
+        if branch_id:
+            inventory = product.inventory.filter(
+                branch_id=branch_id
+            ).first()
+            stock = inventory.quantity_in_stock if inventory else 0
+
+        serializer = ProductSerializer(
+            product,
+            context={
+                'request':   request,
+                'branch_id': branch_id
+            }
+        )
+        data = serializer.data
+        if stock is not None:
+            data['branch_stock'] = stock
+
+        return Response(data)

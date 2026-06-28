@@ -93,6 +93,8 @@ class CreateProductSerializer(serializers.Serializer):
 class UpdateProductSerializer(serializers.Serializer):
     name            = serializers.CharField(max_length=200, required=False)
     description     = serializers.CharField(required=False, allow_blank=True)
+    sku             = serializers.CharField(required=False, allow_blank=True)
+    barcode         = serializers.CharField(required=False, allow_blank=True)
     unit_type       = serializers.CharField(required=False, allow_blank=True)
     wholesale_price = serializers.DecimalField(
         max_digits=15, decimal_places=2, required=False
@@ -108,7 +110,6 @@ class UpdateProductSerializer(serializers.Serializer):
     attributes      = serializers.ListField(
         child=serializers.DictField(), required=False
     )
-
 
 class StockAdjustmentSerializer(serializers.Serializer):
     branch_id       = serializers.UUIDField()
