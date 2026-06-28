@@ -3,23 +3,43 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import authenticate
+from rest_framework_simplejwt.exceptions import TokenError
+from django.conf import settings
 from django.utils import timezone
 
+from core.models import User
 from core.services.auth_service import register_business
 from core.utils import log_audit, get_client_ip
 from .serializers import (
     RegisterSerializer, LoginSerializer,
-    UserSerializer, ChangePasswordSerializer
+    UserSerializer, ChangePasswordSerializer,
 )
 
+REFRESH_COOKIE = 'shopkepa_refresh'
+COOKIE_MAX_AGE = 7 * 24 * 60 * 60  # 7 days in seconds
 
-def get_tokens_for_user(user):
+
+def _get_tokens(user):
     refresh = RefreshToken.for_user(user)
-    return {
-        'refresh': str(refresh),
-        'access':  str(refresh.access_token),
-    }
+    return str(refresh), str(refresh.access_token)
+
+
+def _set_refresh_cookie(response, token):
+    """Attach the refresh token as an httpOnly cookie appropriate for the env."""
+    is_prod = not settings.DEBUG
+    response.set_cookie(
+        REFRESH_COOKIE,
+        token,
+        max_age=COOKIE_MAX_AGE,
+        httponly=True,
+        secure=is_prod,
+        samesite='None' if is_prod else 'Lax',
+        path='/api/v1/auth/',
+    )
+
+
+def _clear_refresh_cookie(response):
+    response.delete_cookie(REFRESH_COOKIE, path='/api/v1/auth/')
 
 
 class RegisterView(APIView):
@@ -32,7 +52,7 @@ class RegisterView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         user = register_business(serializer.validated_data)
-        tokens = get_tokens_for_user(user)
+        refresh_token, access_token = _get_tokens(user)
 
         log_audit(
             business_id=user.business.id,
@@ -44,11 +64,13 @@ class RegisterView(APIView):
             ip_address=get_client_ip(request),
         )
 
-        return Response({
+        response = Response({
             'message': 'Business registered successfully.',
+            'access': access_token,
             'user': UserSerializer(user).data,
-            'tokens': tokens,
         }, status=status.HTTP_201_CREATED)
+        _set_refresh_cookie(response, refresh_token)
+        return response
 
 
 class LoginView(APIView):
@@ -60,76 +82,126 @@ class LoginView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        username = serializer.validated_data['username']
+        email    = serializer.validated_data['email'].lower().strip()
         password = serializer.validated_data['password']
 
-        user = authenticate(request, username=username, password=password)
-
-        if not user:
+        # Look up user by email then authenticate via username
+        try:
+            user_obj = User.objects.get(email=email)
+        except User.DoesNotExist:
             return Response(
-                {'error': 'Invalid username or password.'},
-                status=status.HTTP_401_UNAUTHORIZED
+                {'error': 'Invalid email or password.'},
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        if not user.is_active:
+        if not user_obj.check_password(password):
+            return Response(
+                {'error': 'Invalid email or password.'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        if not user_obj.is_active:
             return Response(
                 {'error': 'Your account has been deactivated. Contact your business owner.'},
-                status=status.HTTP_403_FORBIDDEN
+                status=status.HTTP_403_FORBIDDEN,
             )
 
-        if not user.business.is_active:
+        if not user_obj.business.is_active:
             return Response(
                 {'error': 'Your business account is inactive. Contact ShopKepa support.'},
-                status=status.HTTP_403_FORBIDDEN
+                status=status.HTTP_403_FORBIDDEN,
             )
 
-        user.last_login_at = timezone.now()
-        user.save(update_fields=['last_login_at'])
+        user_obj.last_login_at = timezone.now()
+        user_obj.save(update_fields=['last_login_at'])
 
-        tokens = get_tokens_for_user(user)
+        refresh_token, access_token = _get_tokens(user_obj)
 
         log_audit(
-            business_id=user.business.id,
-            user_id=user.id,
+            business_id=user_obj.business.id,
+            user_id=user_obj.id,
             action='LOGIN',
             table_name='users',
-            record_id=user.id,
+            record_id=user_obj.id,
             ip_address=get_client_ip(request),
         )
 
-        return Response({
+        response = Response({
             'message': 'Login successful.',
-            'user': UserSerializer(user).data,
-            'tokens': tokens,
+            'access': access_token,
+            'user': UserSerializer(user_obj).data,
         }, status=status.HTTP_200_OK)
+        _set_refresh_cookie(response, refresh_token)
+        return response
+
+
+class TokenRefreshCookieView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        raw_token = request.COOKIES.get(REFRESH_COOKIE)
+        if not raw_token:
+            return Response(
+                {'error': 'No refresh token found.'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        try:
+            refresh = RefreshToken(raw_token)
+            access = str(refresh.access_token)
+
+            response = Response({'access': access})
+
+            # Rotate refresh token if enabled
+            if settings.SIMPLE_JWT.get('ROTATE_REFRESH_TOKENS', False):
+                try:
+                    refresh.blacklist()
+                except AttributeError:
+                    pass
+                user_id = refresh.get('user_id')
+                user = User.objects.get(pk=user_id)
+                new_refresh = RefreshToken.for_user(user)
+                _set_refresh_cookie(response, str(new_refresh))
+
+            return response
+        except (TokenError, User.DoesNotExist):
+            resp = Response(
+                {'error': 'Invalid or expired refresh token.'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+            _clear_refresh_cookie(resp)
+            return resp
+
+
+class MeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(UserSerializer(request.user).data)
+
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        try:
-            refresh_token = request.data.get('refresh_token')
-            token = RefreshToken(refresh_token)
-            token.blacklist()
+        raw_token = request.COOKIES.get(REFRESH_COOKIE) or request.data.get('refresh_token')
+        if raw_token:
+            try:
+                RefreshToken(raw_token).blacklist()
+            except Exception:
+                pass
 
-            log_audit(
-                business_id=request.user.business.id,
-                user_id=request.user.id,
-                action='LOGOUT',
-                table_name='users',
-                record_id=request.user.id,
-                ip_address=get_client_ip(request),
-            )
+        log_audit(
+            business_id=request.user.business.id,
+            user_id=request.user.id,
+            action='LOGOUT',
+            table_name='users',
+            record_id=request.user.id,
+            ip_address=get_client_ip(request),
+        )
 
-            return Response(
-                {'message': 'Logged out successfully.'},
-                status=status.HTTP_200_OK
-            )
-        except Exception:
-            return Response(
-                {'error': 'Invalid or expired token.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        response = Response({'message': 'Logged out successfully.'}, status=status.HTTP_200_OK)
+        _clear_refresh_cookie(response)
+        return response
 
 
 class ChangePasswordView(APIView):
@@ -144,14 +216,10 @@ class ChangePasswordView(APIView):
         if not user.check_password(serializer.validated_data['current_password']):
             return Response(
                 {'error': 'Current password is incorrect.'},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         user.set_password(serializer.validated_data['new_password'])
         user.save()
 
-        return Response(
-            {'message': 'Password changed successfully.'},
-            status=status.HTTP_200_OK
-        )
-        
+        return Response({'message': 'Password changed successfully.'}, status=status.HTTP_200_OK)

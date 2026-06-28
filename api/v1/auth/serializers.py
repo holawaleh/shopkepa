@@ -5,30 +5,14 @@ from core.models import User
 
 class RegisterSerializer(serializers.Serializer):
     business_name = serializers.CharField(max_length=200)
-    owner_name    = serializers.CharField(max_length=150)
-    username      = serializers.CharField(max_length=50)
-    phone_number  = serializers.CharField(max_length=20)
+    first_name    = serializers.CharField(max_length=75)
+    last_name     = serializers.CharField(max_length=75, required=False, default='')
+    phone         = serializers.CharField(max_length=20)
     email         = serializers.EmailField()
     password      = serializers.CharField(min_length=6, write_only=True)
-    location      = serializers.CharField()
+    location      = serializers.CharField(required=False, default='')
 
-    def validate_username(self, value):
-        value = value.lower().strip()
-        if len(value) < 4:
-            raise serializers.ValidationError(
-                'Username must be at least 4 characters.'
-            )
-        if not re.match(r'^[a-z0-9_]+$', value):
-            raise serializers.ValidationError(
-                'Username may only contain lowercase letters, numbers, and underscores.'
-            )
-        if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError(
-                'This username is already taken.'
-            )
-        return value
-
-    def validate_phone_number(self, value):
+    def validate_phone(self, value):
         if User.objects.filter(phone_number=value).exists():
             raise serializers.ValidationError(
                 'An account with this phone number already exists.'
@@ -52,7 +36,7 @@ class RegisterSerializer(serializers.Serializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField(max_length=50)
+    email    = serializers.EmailField()
     password = serializers.CharField(write_only=True)
 
 

@@ -33,6 +33,12 @@ else:
         }
     }
 
+# CORS — always allow the Vercel frontend; merge with any additional origins from env
+_cors_env = env.list('CORS_ALLOWED_ORIGINS', default=[])
+CORS_ALLOWED_ORIGINS = list(set(_cors_env + [
+    'https://shopkepa.vercel.app',
+]))
+
 # Security
 SECURE_BROWSER_XSS_FILTER   = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
