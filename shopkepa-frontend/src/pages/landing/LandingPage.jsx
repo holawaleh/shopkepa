@@ -223,6 +223,23 @@ function Tag({ children }) {
 export default function LandingPage() {
   useSEO()
   const [activeEdge, setActiveEdge] = useState(0)
+  const [edgePaused, setEdgePaused] = useState(false)
+
+  // Auto-rotate the edge selector every 3.5 s; pause on hover
+  useEffect(() => {
+    if (edgePaused) return
+    const t = setInterval(() => {
+      setActiveEdge(i => (i + 1) % EDGE_ITEMS.length)
+    }, 3500)
+    return () => clearInterval(t)
+  }, [edgePaused])
+
+  const handleEdgeClick = (i) => {
+    setActiveEdge(i)
+    // Pause auto-rotation for 8 s after a manual click
+    setEdgePaused(true)
+    setTimeout(() => setEdgePaused(false), 8000)
+  }
 
   return (
     <div style={{ background: '#0A1628', color: '#fff', overflowX: 'hidden', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
@@ -363,22 +380,36 @@ export default function LandingPage() {
           </p>
         </div>
 
-        {/* Interactive edge selector */}
-        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 20 }} className="sk-edge-grid">
+        {/* Interactive edge selector — auto-rotates every 3.5 s, pauses on hover/click */}
+        <div
+          style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 20 }}
+          className="sk-edge-grid"
+          onMouseEnter={() => setEdgePaused(true)}
+          onMouseLeave={() => setEdgePaused(false)}
+        >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {EDGE_ITEMS.map((item, i) => {
               const Icon = item.icon
+              const isActive = activeEdge === i
               return (
-                <button key={i} onClick={() => setActiveEdge(i)}
+                <button key={i} onClick={() => handleEdgeClick(i)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
                     padding: '10px 14px', borderRadius: 8, cursor: 'pointer', border: 'none',
-                    background: activeEdge === i ? 'rgba(201,168,76,0.12)' : 'transparent',
-                    borderLeft: activeEdge === i ? '3px solid #C9A84C' : '3px solid transparent',
-                    textAlign: 'left', transition: 'all 0.15s',
+                    background: isActive ? 'rgba(201,168,76,0.12)' : 'transparent',
+                    borderLeft: isActive ? '3px solid #C9A84C' : '3px solid transparent',
+                    textAlign: 'left', transition: 'all 0.15s', position: 'relative', overflow: 'hidden',
                   }}>
-                  <Icon size={16} color={activeEdge === i ? '#C9A84C' : '#6B8BB5'} style={{ flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, color: activeEdge === i ? '#C9A84C' : '#6B8BB5', fontWeight: activeEdge === i ? 600 : 400 }}>
+                  {/* Progress bar crawls across the active row */}
+                  {isActive && !edgePaused && (
+                    <span style={{
+                      position: 'absolute', bottom: 0, left: 0, height: 2,
+                      background: 'rgba(201,168,76,0.5)', borderRadius: 1,
+                      animation: 'sk-edge-progress 3.5s linear forwards',
+                    }} />
+                  )}
+                  <Icon size={16} color={isActive ? '#C9A84C' : '#6B8BB5'} style={{ flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, color: isActive ? '#C9A84C' : '#6B8BB5', fontWeight: isActive ? 600 : 400 }}>
                     {item.title}
                   </span>
                 </button>
@@ -753,6 +784,7 @@ export default function LandingPage() {
 
       <style>{`
         @keyframes sk-pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+        @keyframes sk-edge-progress { from{width:0} to{width:100%} }
         @media (max-width: 768px) {
           .sk-nav-links { display: none !important; }
           .sk-hamburger { display: block !important; }
