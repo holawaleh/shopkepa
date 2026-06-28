@@ -33,11 +33,16 @@ else:
         }
     }
 
-# CORS — always allow the Vercel frontend; merge with any additional origins from env
+# CORS — allow production URL + all Vercel preview deployments for this project
 _cors_env = env.list('CORS_ALLOWED_ORIGINS', default=[])
 CORS_ALLOWED_ORIGINS = list(set(_cors_env + [
     'https://shopkepa.vercel.app',
 ]))
+
+# Covers preview URLs like shopkepa-abc123-holawalehs-projects.vercel.app
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^https://shopkepa[a-z0-9-]*\.vercel\.app$',
+]
 
 # Security
 SECURE_BROWSER_XSS_FILTER   = True
