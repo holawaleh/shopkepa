@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   ShoppingCart, LayoutDashboard, Package, Users,
   BarChart2, Wrench, Settings, LogOut, Menu, X, Wifi, WifiOff, Hotel,
+  ReceiptText, Bot,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus'
@@ -28,6 +29,8 @@ const ALL_NAV = [
   { key: 'reports',   to: '/reports',   label: 'Reports',   icon: BarChart2,      roles: ['owner', 'admin', 'manager'], always: true },
   { key: 'jobcards',  to: '/jobcards',  label: 'Job Cards', icon: Wrench,         roles: ['owner', 'admin', 'manager', 'cashier'] },
   { key: 'hotel',     to: '/hotel',     label: 'Hotel',     icon: Hotel,          roles: ['owner', 'admin', 'manager', 'cashier'] },
+  { key: 'expenses',  to: '/expenses',  label: 'Expenses',  icon: ReceiptText,    roles: ['owner', 'admin', 'manager'], always: true },
+  { key: 'ai',        to: '/ai',        label: 'AI',        icon: Bot,            roles: ['owner', 'admin', 'manager'], always: true },
   { key: 'settings',  to: '/settings',  label: 'Settings',  icon: Settings,       roles: ['owner', 'admin'], always: true },
 ]
 

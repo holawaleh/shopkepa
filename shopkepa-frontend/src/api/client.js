@@ -117,21 +117,28 @@ export const productsAPI = {
   delete:       (id)     => api.delete(`/products/${id}/`),
   adjustStock:  (id, d)  => api.post(`/products/${id}/adjust-stock/`, d),
   stockHistory: (id)     => api.get(`/products/${id}/stock-history/`),
+  inventory:    (id)     => api.get(`/products/${id}/inventory/`),
   lowStock:     (params) => api.get('/products/low-stock/',  { params }),
   expiring:     (params) => api.get('/products/expiring/',   { params }),
 }
 
 export const salesAPI = {
-  list:   (params) => api.get('/sales/', { params }),
-  create: (data)   => api.post('/sales/', data),
-  get:    (id)     => api.get(`/sales/${id}/`),
+  list:       (params) => api.get('/sales/', { params }),
+  create:     (data)   => api.post('/sales/', data),
+  get:        (id)     => api.get(`/sales/${id}/`),
+  addPayment: (id, d)  => api.post(`/sales/${id}/add-payment/`, d),
+  void:       (id)     => api.delete(`/sales/${id}/`),
 }
 
 export const customersAPI = {
-  list:   (params) => api.get('/customers/', { params }),
-  get:    (id)     => api.get(`/customers/${id}/`),
-  create: (data)   => api.post('/customers/', data),
-  update: (id, d)  => api.patch(`/customers/${id}/`, d),
+  list:       (params)          => api.get('/customers/', { params }),
+  get:        (id)              => api.get(`/customers/${id}/`),
+  create:     (data)            => api.post('/customers/', data),
+  update:     (id, d)           => api.patch(`/customers/${id}/`, d),
+  delete:     (id)              => api.delete(`/customers/${id}/`),
+  top:        (params)          => api.get('/customers/top/', { params }),
+  addNote:    (id, data)        => api.post(`/customers/${id}/notes/`, data),
+  deleteNote: (id, noteId)      => api.delete(`/customers/${id}/notes/${noteId}/`),
 }
 
 export const reportsAPI = {
@@ -146,37 +153,65 @@ export const reportsAPI = {
 }
 
 export const jobCardsAPI = {
-  list:         (params) => api.get('/job-cards/', { params }),
-  get:          (id)     => api.get(`/job-cards/${id}/`),
-  create:       (data)   => api.post('/job-cards/', data),
-  update:       (id, d)  => api.patch(`/job-cards/${id}/`, d),
-  pay:          (id, d)  => api.post(`/job-cards/${id}/add-payment/`, d),
-  listServices: ()       => api.get('/job-cards/services/'),
-  createService:(data)   => api.post('/job-cards/services/', data),
-  updateService:(id, d)  => api.patch(`/job-cards/services/${id}/`, d),
-  deleteService:(id)     => api.delete(`/job-cards/services/${id}/`),
+  list:         (params)        => api.get('/job-cards/', { params }),
+  get:          (id)            => api.get(`/job-cards/${id}/`),
+  create:       (data)          => api.post('/job-cards/', data),
+  update:       (id, d)         => api.patch(`/job-cards/${id}/`, d),
+  delete:       (id)            => api.delete(`/job-cards/${id}/`),
+  pay:          (id, d)         => api.post(`/job-cards/${id}/add-payment/`, d),
+  addPart:      (id, d)         => api.post(`/job-cards/${id}/parts/`, d),
+  deletePart:   (id, partId)    => api.delete(`/job-cards/${id}/parts/${partId}/`),
+  listServices: ()              => api.get('/job-cards/services/'),
+  createService:(data)          => api.post('/job-cards/services/', data),
+  updateService:(id, d)         => api.patch(`/job-cards/services/${id}/`, d),
+  deleteService:(id)            => api.delete(`/job-cards/services/${id}/`),
 }
 
 export const branchesAPI = {
-  list: () => api.get('/branches/'),
+  list:   ()           => api.get('/branches/'),
+  create: (data)       => api.post('/branches/', data),
+  get:    (id)         => api.get(`/branches/${id}/`),
+  update: (id, data)   => api.patch(`/branches/${id}/`, data),
+  delete: (id)         => api.delete(`/branches/${id}/`),
+}
+
+export const expensesAPI = {
+  listCategories:  ()       => api.get('/expenses/categories/'),
+  createCategory:  (data)   => api.post('/expenses/categories/', data),
+  list:            (params) => api.get('/expenses/', { params }),
+  create:          (data)   => api.post('/expenses/', data),
+  get:             (id)     => api.get(`/expenses/${id}/`),
+  update:          (id, d)  => api.patch(`/expenses/${id}/`, d),
+  delete:          (id)     => api.delete(`/expenses/${id}/`),
+  summary:         (params) => api.get('/expenses/summary/', { params }),
+}
+
+export const businessAPI = {
+  getProfile:     ()     => api.get('/business/profile/'),
+  updateProfile:  (data) => api.patch('/business/profile/', data),
+  getSettings:    ()     => api.get('/business/settings/'),
+  updateSettings: (data) => api.patch('/business/settings/', data),
+  getSubscription:()     => api.get('/business/subscription/'),
 }
 
 export const hotelAPI = {
   // Rooms
-  listRooms:    (params) => api.get('/hotel/rooms/', { params }),
-  createRoom:   (data)   => api.post('/hotel/rooms/', data),
-  updateRoom:   (id, d)  => api.patch(`/hotel/rooms/${id}/`, d),
-  deleteRoom:   (id)     => api.delete(`/hotel/rooms/${id}/`),
+  listRooms:     (params) => api.get('/hotel/rooms/', { params }),
+  createRoom:    (data)   => api.post('/hotel/rooms/', data),
+  updateRoom:    (id, d)  => api.patch(`/hotel/rooms/${id}/`, d),
+  deleteRoom:    (id)     => api.delete(`/hotel/rooms/${id}/`),
   // Bookings
-  listBookings: (params) => api.get('/hotel/bookings/', { params }),
-  getBooking:   (id)     => api.get(`/hotel/bookings/${id}/`),
-  createBooking:(data)   => api.post('/hotel/bookings/', data),
-  checkIn:      (id)     => api.post(`/hotel/bookings/${id}/check-in/`),
-  checkOut:     (id)     => api.post(`/hotel/bookings/${id}/check-out/`),
-  pay:          (id, d)  => api.post(`/hotel/bookings/${id}/payment/`, d),
+  listBookings:  (params) => api.get('/hotel/bookings/', { params }),
+  getBooking:    (id)     => api.get(`/hotel/bookings/${id}/`),
+  createBooking: (data)   => api.post('/hotel/bookings/', data),
+  updateBooking: (id, d)  => api.patch(`/hotel/bookings/${id}/`, d),
+  checkIn:       (id)     => api.post(`/hotel/bookings/${id}/check-in/`),
+  checkOut:      (id)     => api.post(`/hotel/bookings/${id}/check-out/`),
+  pay:           (id, d)  => api.post(`/hotel/bookings/${id}/payment/`, d),
   // Stats
-  occupancy:    ()       => api.get('/hotel/occupancy/'),
+  occupancy:     ()       => api.get('/hotel/occupancy/'),
 }
+
 
 export const modulesAPI = {
   list:     ()              => api.get('/modules/'),

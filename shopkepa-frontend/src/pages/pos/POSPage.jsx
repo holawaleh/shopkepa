@@ -80,6 +80,10 @@ export default function POSPage() {
   const [customers, setCustomers]               = useState([])
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [showCustomerList, setShowCustomerList] = useState(false)
+  const [quickAddCustomer, setQuickAddCustomer] = useState(false)
+  const [quickForm, setQuickForm]               = useState({ full_name: '', phone_number: '' })
+  const [quickSaving, setQuickSaving]           = useState(false)
+  const [quickError, setQuickError]             = useState('')
 
   // ── Checkout ──────────────────────────────────────────────────────────────
   const [modal, setModal]         = useState(false)
@@ -94,15 +98,24 @@ export default function POSPage() {
   useEffect(() => {
     Promise.all([branchesAPI.list(), modulesAPI.active()])
       .then(([bRes, mRes]) => {
-        const bs = Array.isArray(bRes.data) ? bRes.data : (bRes.data.results ?? [])
+        const allBranches = Array.isArray(bRes.data) ? bRes.data : (bRes.data.results ?? [])
         const ms = (Array.isArray(mRes.data) ? mRes.data : (mRes.data.results ?? [])).filter(bm => bm.is_active)
-        setBranches(bs)
+
+        // Cashiers are assigned to specific branches — filter to their branches
+        const userBranchIds = new Set(user?.branch_ids ?? [])
+        const bs = userBranchIds.size > 0
+          ? allBranches.filter(b => userBranchIds.has(b.id))
+          : allBranches
+
+        setBranches(bs.length > 0 ? bs : allBranches)
         setActiveModules(ms)
-        if (bs.length === 1) setBranchId(bs[0].id)
+        // Auto-select if only one option available
+        const visibleBranches = bs.length > 0 ? bs : allBranches
+        if (visibleBranches.length === 1) setBranchId(visibleBranches[0].id)
         if (ms.length === 1) setModuleId(ms[0].module.id)
       })
       .catch(() => setSetupError('Could not load branches/modules. Check your connection.'))
-  }, [])
+  }, [user])
 
   const confirmSetup = () => {
     if (!branchId) { setSetupError('Please select a branch.'); return }
@@ -211,6 +224,24 @@ export default function POSPage() {
     }, 300)
     return () => clearTimeout(t)
   }, [customerSearch])
+
+  const handleQuickAddCustomer = async () => {
+    if (!quickForm.full_name.trim()) { setQuickError('Name is required.'); return }
+    setQuickSaving(true); setQuickError('')
+    try {
+      const res = await customersAPI.create({
+        full_name:    quickForm.full_name.trim(),
+        phone_number: quickForm.phone_number.trim(),
+      })
+      setSelectedCustomer(res.data)
+      setCustomerSearch('')
+      setShowCustomerList(false)
+      setQuickAddCustomer(false)
+      setQuickForm({ full_name: '', phone_number: '' })
+      toast.success(`${res.data.full_name} added as a customer`)
+    } catch (err) { setQuickError(parseApiError(err)) }
+    finally { setQuickSaving(false) }
+  }
 
   // ── Checkout ──────────────────────────────────────────────────────────────
   const openCheckout = () => {
@@ -422,6 +453,23 @@ export default function POSPage() {
                   <X size={15} />
                 </button>
               </div>
+            ) : quickAddCustomer ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ fontSize: 12, color: 'var(--gold)', marginBottom: 2, fontWeight: 500 }}>New customer</div>
+                {quickError && <div style={{ fontSize: 12, color: 'var(--error)' }}>{quickError}</div>}
+                <input className="input" placeholder="Full name *" style={{ fontSize: 13 }}
+                  value={quickForm.full_name} onChange={e => setQuickForm(f => ({ ...f, full_name: e.target.value }))} />
+                <input className="input" placeholder="Phone number" style={{ fontSize: 13 }}
+                  value={quickForm.phone_number} onChange={e => setQuickForm(f => ({ ...f, phone_number: e.target.value }))} />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="btn-ghost" style={{ flex: 1, padding: '6px 10px', fontSize: 12 }}
+                    onClick={() => { setQuickAddCustomer(false); setQuickError('') }}>Cancel</button>
+                  <button className="btn-gold" style={{ flex: 2, padding: '6px 10px', fontSize: 12 }}
+                    onClick={handleQuickAddCustomer} disabled={quickSaving}>
+                    {quickSaving ? 'Saving…' : 'Add & Select'}
+                  </button>
+                </div>
+              </div>
             ) : (
               <div style={{ position: 'relative' }}>
                 <input
@@ -431,7 +479,7 @@ export default function POSPage() {
                   onChange={e => setCustomerSearch(e.target.value)}
                   style={{ fontSize: 13 }}
                 />
-                {showCustomerList && customers.length > 0 && (
+                {showCustomerList && (
                   <div style={{
                     position: 'absolute', top: '100%', left: 0, right: 0,
                     background: 'var(--navy)', border: '1px solid var(--mid)',
@@ -452,7 +500,26 @@ export default function POSPage() {
                         <LoyaltyBadge tag={c.loyalty_tag} />
                       </button>
                     ))}
+                    <button
+                      onClick={() => { setQuickAddCustomer(true); setShowCustomerList(false) }}
+                      style={{
+                        width: '100%', padding: '10px 14px', background: 'rgba(201,168,76,0.06)',
+                        border: 'none', cursor: 'pointer', textAlign: 'left', display: 'flex',
+                        alignItems: 'center', gap: 6,
+                      }}>
+                      <Plus size={13} color="var(--gold)" />
+                      <span style={{ fontSize: 13, color: 'var(--gold)' }}>
+                        Add "{customerSearch.trim()}" as new customer
+                      </span>
+                    </button>
                   </div>
+                )}
+                {customerSearch.trim() && !showCustomerList && (
+                  <button
+                    onClick={() => { setQuickForm({ full_name: customerSearch.trim(), phone_number: '' }); setQuickAddCustomer(true) }}
+                    style={{ fontSize: 12, color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer', marginTop: 4, padding: 0 }}>
+                    + Add "{customerSearch.trim()}" as new customer
+                  </button>
                 )}
               </div>
             )}

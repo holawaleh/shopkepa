@@ -31,9 +31,22 @@ const STYLES = `
 `
 
 function openPrint(html) {
-  const win = window.open('', '_blank', 'width=520,height=700,scrollbars=yes')
-  if (!win) { alert('Please allow pop-ups for shopkepa.vercel.app to print.'); return }
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>ShopKepa</title><style>${STYLES}</style></head><body>${html}<script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script></body></html>`)
+  const win = window.open('', '_blank', 'width=560,height=750,scrollbars=yes')
+  if (!win) { alert('Please allow pop-ups for ShopKepa to print.'); return }
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>ShopKepa — Print Preview</title><style>
+${STYLES}
+#print-bar{position:fixed;bottom:0;left:0;right:0;background:#1a1a2e;border-top:1px solid #333;padding:10px 16px;display:flex;gap:10px;justify-content:flex-end;z-index:99}
+#print-bar button{padding:7px 20px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-family:inherit}
+#btn-print{background:#c9a84c;color:#000;font-weight:600}
+#btn-cancel{background:transparent;color:#aaa;border:1px solid #444!important}
+body{padding-bottom:56px}
+@media print{#print-bar{display:none}body{padding-bottom:0}}
+</style></head><body>${html}
+<div id="print-bar">
+  <button id="btn-cancel" onclick="window.close()">Cancel</button>
+  <button id="btn-print" onclick="window.print()">Print</button>
+</div>
+</body></html>`)
   win.document.close()
 }
 

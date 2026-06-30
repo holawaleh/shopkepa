@@ -16,6 +16,8 @@ const ReportsPage    = lazy(() => import('./pages/reports/ReportsPage'))
 const JobCardsPage   = lazy(() => import('./pages/jobcards/JobCardsPage'))
 const SettingsPage   = lazy(() => import('./pages/settings/SettingsPage'))
 const HotelPage      = lazy(() => import('./pages/hotel/HotelPage'))
+const ExpensesPage   = lazy(() => import('./pages/expenses/ExpensesPage'))
+const AIPage         = lazy(() => import('./pages/ai/AIPage'))
 
 function PageLoader() {
   return (
@@ -78,6 +80,8 @@ export default function App() {
               <Route path="/jobcards"    element={<ProtectedRoute><JobCardsPage /></ProtectedRoute>} />
               <Route path="/hotel"       element={<ProtectedRoute><HotelPage /></ProtectedRoute>} />
               <Route path="/settings"    element={<ProtectedRoute roles={['owner','admin']}><SettingsPage /></ProtectedRoute>} />
+              <Route path="/expenses"    element={<ProtectedRoute roles={['owner','admin','manager']}><ExpensesPage /></ProtectedRoute>} />
+              <Route path="/ai"          element={<ProtectedRoute><AIPage /></ProtectedRoute>} />
               <Route path="/"            element={<LandingPage />} />
               <Route path="*"            element={<Navigate to="/" replace />} />
             </Routes>

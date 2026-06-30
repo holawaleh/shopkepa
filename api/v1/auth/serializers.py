@@ -1,6 +1,6 @@
 import re
 from rest_framework import serializers
-from core.models import User
+from core.models import User, UserBranch
 
 
 class RegisterSerializer(serializers.Serializer):
@@ -41,12 +41,15 @@ class LoginSerializer(serializers.Serializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    business_name = serializers.CharField(
-        source='business.name', read_only=True
-    )
-    business_id = serializers.UUIDField(
-        source='business.id', read_only=True
-    )
+    business_name = serializers.CharField(source='business.name', read_only=True)
+    business_id   = serializers.UUIDField(source='business.id',   read_only=True)
+    branch_ids    = serializers.SerializerMethodField()
+
+    def get_branch_ids(self, obj):
+        return list(
+            UserBranch.objects.filter(user=obj)
+            .values_list('branch_id', flat=True)
+        )
 
     class Meta:
         model  = User
@@ -54,7 +57,7 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'full_name', 'username',
             'phone_number', 'email', 'location',
             'role', 'business_id', 'business_name',
-            'is_active', 'created_at',
+            'branch_ids', 'is_active', 'created_at',
         ]
 
 

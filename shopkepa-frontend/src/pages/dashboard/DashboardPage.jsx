@@ -153,10 +153,12 @@ function todayStr() {
 // ─── Section: Sales KPIs ──────────────────────────────────────────────────
 
 function SalesSection({ activeCodes }) {
+  const { user } = useAuth()
   const [stats, setStats] = useState({ revenue: 0, sales: 0, products: 0, customers: 0 })
   const [recentSales, setRecentSales] = useState([])
   const [loading, setLoading] = useState(true)
   const hasProducts = ['general_trade','fashion','electronics','food','pharmacy','building_materials','stationery'].some(c => activeCodes.has(c))
+  const canVoid = user?.role === 'owner' || user?.role === 'manager'
 
   useEffect(() => {
     const load = async () => {
@@ -171,14 +173,29 @@ function SalesSection({ activeCodes }) {
       const productsData  = hasProducts && results[2]?.status === 'fulfilled' ? results[2].value.data : null
       const allSales  = salesData?.results ?? salesData ?? []
       const today     = todayStr()
-      const todaySales   = allSales.filter(s => (s.created_at || '').startsWith(today))
-      const todayRevenue = todaySales.reduce((sum, s) => sum + parseFloat(s.total ?? s.amount ?? 0), 0)
+      // sale_date is YYYY-MM-DD; created_at is ISO datetime — check both
+      const todaySales   = allSales.filter(s =>
+        (s.sale_date || '').startsWith(today) || (s.created_at || '').startsWith(today)
+      )
+      const todayRevenue = todaySales.reduce((sum, s) =>
+        sum + parseFloat(s.total_amount ?? s.total ?? s.amount ?? 0), 0
+      )
       setStats({ revenue: todayRevenue, sales: todaySales.length, products: productsData?.count ?? null, customers: customersData?.count ?? 0 })
       setRecentSales(allSales.slice(0, 6))
       setLoading(false)
     }
     load()
   }, [hasProducts])
+
+  const handleVoid = async (sale) => {
+    if (!window.confirm(`Void sale ${sale.sale_number ?? sale.id.slice(0, 8)}? Stock will be restored and this cannot be undone.`)) return
+    try {
+      await salesAPI.void(sale.id)
+      setRecentSales(prev => prev.filter(s => s.id !== sale.id))
+    } catch (err) {
+      alert(err?.response?.data?.error || 'Could not void this sale.')
+    }
+  }
 
   return (
     <>
@@ -198,16 +215,27 @@ function SalesSection({ activeCodes }) {
             <thead>
               <tr style={{ color: 'var(--muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>
                 <th style={{ textAlign: 'left',  padding: '0 0 10px', fontWeight: 500 }}>Customer</th>
-                <th style={{ textAlign: 'left',  padding: '0 0 10px', fontWeight: 500 }}>Items</th>
+                <th style={{ textAlign: 'left',  padding: '0 0 10px', fontWeight: 500 }}>Sale #</th>
                 <th style={{ textAlign: 'right', padding: '0 0 10px', fontWeight: 500 }}>Amount</th>
+                {canVoid && <th style={{ padding: '0 0 10px', fontWeight: 500 }} />}
               </tr>
             </thead>
             <tbody>
               {recentSales.map((s, i) => (
                 <tr key={s.id ?? i} style={{ borderTop: '1px solid var(--mid)' }}>
                   <td style={{ padding: '10px 0', color: 'var(--light)' }}>{s.customer_name ?? s.customer?.name ?? 'Walk-in'}</td>
-                  <td style={{ padding: '10px 0', color: 'var(--muted)' }}>{s.items?.length ?? '—'}</td>
-                  <td style={{ padding: '10px 0', textAlign: 'right', color: 'var(--gold)', fontWeight: 500 }}>{fmt(s.total ?? s.amount)}</td>
+                  <td style={{ padding: '10px 0', color: 'var(--muted)' }}>{s.sale_number ?? '—'}</td>
+                  <td style={{ padding: '10px 0', textAlign: 'right', color: 'var(--gold)', fontWeight: 500 }}>{fmt(s.total_amount ?? s.total ?? s.amount)}</td>
+                  {canVoid && (
+                    <td style={{ padding: '10px 0', textAlign: 'right', paddingLeft: 12 }}>
+                      <button
+                        onClick={() => handleVoid(s)}
+                        style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'none', border: '1px solid var(--mid)', color: 'var(--error)', cursor: 'pointer' }}
+                        title="Void this sale">
+                        Void
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

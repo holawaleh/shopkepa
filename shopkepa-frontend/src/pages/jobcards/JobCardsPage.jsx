@@ -275,6 +275,14 @@ function JobCardsTab({ branches }) {
   const [payAmount, setPayAmount]   = useState('')
   const [payMethod, setPayMethod]   = useState('cash')
 
+  // ── Parts management ──────────────────────────────────────────────────────
+  const [partsJob, setPartsJob]       = useState(null)
+  const [parts, setParts]             = useState([])
+  const [partsLoading, setPartsLoading] = useState(false)
+  const [partForm, setPartForm]       = useState({ part_name: '', quantity: '1', unit_cost: '', supplier: '' })
+  const [partSaving, setPartSaving]   = useState(false)
+  const [partError, setPartError]     = useState('')
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
@@ -393,6 +401,55 @@ function JobCardsTab({ branches }) {
     finally { setSaving(false) }
   }
 
+  const handleDeleteJob = async (j) => {
+    if (!window.confirm(`Delete job card ${j.job_number}? This cannot be undone.`)) return
+    try {
+      await jobCardsAPI.delete(j.id)
+      toast.info(`Job card ${j.job_number} deleted`)
+      load()
+    } catch (err) { toast.error(parseApiError(err)) }
+  }
+
+  const openParts = async (j) => {
+    setPartsJob(j); setPartError('')
+    setPartForm({ part_name: '', quantity: '1', unit_cost: '', supplier: '' })
+    setPartsLoading(true); setModal('parts')
+    try {
+      const res = await jobCardsAPI.get(j.id)
+      setParts(res.data.parts || [])
+    } catch { setParts([]) }
+    finally { setPartsLoading(false) }
+  }
+
+  const handleAddPart = async () => {
+    if (!partForm.part_name.trim()) { setPartError('Part name is required.'); return }
+    if (!partForm.unit_cost || parseFloat(partForm.unit_cost) < 0) { setPartError('Enter a valid unit cost.'); return }
+    setPartSaving(true); setPartError('')
+    try {
+      await jobCardsAPI.addPart(partsJob.id, {
+        part_name: partForm.part_name.trim(),
+        quantity:  parseInt(partForm.quantity, 10) || 1,
+        unit_cost: parseFloat(partForm.unit_cost) || 0,
+        supplier:  partForm.supplier.trim(),
+      })
+      setPartForm({ part_name: '', quantity: '1', unit_cost: '', supplier: '' })
+      const res = await jobCardsAPI.get(partsJob.id)
+      setParts(res.data.parts || [])
+      load()
+    } catch (err) { setPartError(parseApiError(err)) }
+    finally { setPartSaving(false) }
+  }
+
+  const handleDeletePart = async (partId) => {
+    if (!window.confirm('Remove this part?')) return
+    try {
+      await jobCardsAPI.deletePart(partsJob.id, partId)
+      const res = await jobCardsAPI.get(partsJob.id)
+      setParts(res.data.parts || [])
+      load()
+    } catch (err) { toast.error(parseApiError(err)) }
+  }
+
   const filtered = jobs.filter(j =>
     !search ||
     j.job_number?.toLowerCase().includes(search.toLowerCase()) ||
@@ -474,11 +531,14 @@ function JobCardsTab({ branches }) {
                     <td style={{ padding: '12px 16px', color: parseFloat(j.balance_due) > 0 ? 'var(--error)' : 'var(--muted)', fontWeight: 500 }}>{formatNaira(j.balance_due)}</td>
                     <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>{formatDate(j.created_at)}</td>
                     <td style={{ padding: '12px 16px' }}>
-                      <div style={{ display: 'flex', gap: 6 }}>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <button onClick={() => openStatus(j)} className="btn-ghost" style={{ padding: '4px 8px', fontSize: 11 }}>Status</button>
                         {j.payment_status !== 'paid' && (
                           <button onClick={() => openPayment(j)} className="btn-ghost" style={{ padding: '4px 8px', fontSize: 11, color: 'var(--gold)' }}>Pay</button>
                         )}
+                        <button onClick={() => openParts(j)} className="btn-ghost" style={{ padding: '4px 8px', fontSize: 11 }} title="Manage parts">
+                          Parts
+                        </button>
                         <button
                           onClick={async () => {
                             try { const res = await jobCardsAPI.get(j.id); printJobCardReceipt(res.data, user?.business_name) }
@@ -487,6 +547,12 @@ function JobCardsTab({ branches }) {
                           className="btn-ghost" style={{ padding: '4px 8px', fontSize: 11 }} title="Print">
                           <Printer size={13} />
                         </button>
+                        {(user?.role === 'owner' || user?.role === 'manager') && (
+                          <button onClick={() => handleDeleteJob(j)} className="btn-ghost"
+                            style={{ padding: '4px 8px', color: 'var(--error)' }} title="Delete job card">
+                            <Trash2 size={13} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -649,6 +715,90 @@ function JobCardsTab({ branches }) {
             <button className="btn-gold" style={{ flex: 2 }} onClick={handlePayment} disabled={saving}>
               {saving ? 'Recording…' : 'Record Payment'}
             </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Parts management modal */}
+      {modal === 'parts' && partsJob && (
+        <Modal title={`Parts — ${partsJob.job_number}`} onClose={() => setModal(null)} maxWidth={560}>
+          {partError && <ErrBanner msg={partError} />}
+
+          {/* Existing parts list */}
+          {partsLoading ? (
+            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16 }}>Loading parts…</p>
+          ) : parts.length > 0 ? (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8, fontWeight: 500 }}>Attached parts</div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--mid)' }}>
+                    {['Part', 'Qty', 'Unit cost', 'Total', 'Supplier', ''].map(h => (
+                      <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontSize: 11, color: 'var(--muted)', fontWeight: 500 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {parts.map(p => (
+                    <tr key={p.id} style={{ borderBottom: '1px solid var(--mid)' }}>
+                      <td style={{ padding: '8px 10px', color: 'var(--light)' }}>{p.part_name}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--muted)' }}>{p.quantity}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--muted)' }}>{formatNaira(p.unit_cost)}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--gold)', fontWeight: 500 }}>{formatNaira(p.line_total)}</td>
+                      <td style={{ padding: '8px 10px', color: 'var(--muted)', fontSize: 12 }}>{p.supplier || '—'}</td>
+                      <td style={{ padding: '8px 10px' }}>
+                        <button onClick={() => handleDeletePart(p.id)} className="btn-ghost"
+                          style={{ padding: '3px 6px', color: 'var(--error)' }} title="Remove">
+                          <Trash2 size={12} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  <tr style={{ background: 'rgba(0,0,0,0.15)', borderTop: '2px solid var(--mid)' }}>
+                    <td colSpan={3} style={{ padding: '8px 10px', color: 'var(--muted)', fontSize: 12 }}>Parts total</td>
+                    <td style={{ padding: '8px 10px', color: 'var(--gold)', fontWeight: 700 }}>
+                      {formatNaira(parts.reduce((s, p) => s + parseFloat(p.line_total || 0), 0))}
+                    </td>
+                    <td colSpan={2} />
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20 }}>No parts added yet.</p>
+          )}
+
+          {/* Add part form */}
+          <div style={{ borderTop: '1px solid var(--mid)', paddingTop: 16 }}>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12, fontWeight: 500 }}>Add a part</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+              <div>
+                <label style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Part name *</label>
+                <input className="input" style={{ fontSize: 12 }} placeholder="e.g. LCD Screen"
+                  value={partForm.part_name} onChange={e => setPartForm(f => ({ ...f, part_name: e.target.value }))} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Qty</label>
+                <input className="input" type="number" min="1" style={{ fontSize: 12 }}
+                  value={partForm.quantity} onChange={e => setPartForm(f => ({ ...f, quantity: e.target.value }))} />
+              </div>
+              <div>
+                <label style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Unit cost (₦)</label>
+                <input className="input" type="number" min="0" step="0.01" style={{ fontSize: 12 }} placeholder="0.00"
+                  value={partForm.unit_cost} onChange={e => setPartForm(f => ({ ...f, unit_cost: e.target.value }))} />
+              </div>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 11, color: 'var(--muted)', display: 'block', marginBottom: 4 }}>Supplier (optional)</label>
+              <input className="input" style={{ fontSize: 12 }} placeholder="e.g. Computer Village"
+                value={partForm.supplier} onChange={e => setPartForm(f => ({ ...f, supplier: e.target.value }))} />
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>Close</button>
+              <button className="btn-gold" style={{ flex: 2 }} onClick={handleAddPart} disabled={partSaving}>
+                {partSaving ? 'Adding…' : 'Add Part'}
+              </button>
+            </div>
           </div>
         </Modal>
       )}
