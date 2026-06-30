@@ -148,7 +148,11 @@ export const modulesAPI = {
 }
 
 export const staffAPI = {
-  list: () => api.get('/staff/'),
+  list:   ()           => api.get('/staff/'),
+  create: (data)       => api.post('/staff/', data),
+  update: (id, data)   => api.patch(`/staff/${id}/`, data),
+  toggle: (id, active) => api.patch(`/staff/${id}/toggle-active/`, { is_active: active }),
+  delete: (id)         => api.delete(`/staff/${id}/`),
 }
 
 // /health/ lives at backend root, not under /api/v1/

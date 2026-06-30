@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Search, Edit2, X, AlertCircle, Users } from 'lucide-react'
+import { Plus, Search, Edit2, X, AlertCircle, Users, Printer } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
-import { customersAPI } from '../../api/client'
+import { customersAPI, salesAPI } from '../../api/client'
 import { formatNaira, formatDate, parseApiError } from '../../utils/format'
+import { printCustomerStatement } from '../../utils/printDoc'
+import { useAuth } from '../../context/AuthContext'
 
 const EMPTY_FORM = {
   full_name: '', phone_number: '', email: '',
@@ -41,6 +43,7 @@ function Modal({ title, onClose, children }) {
 }
 
 export default function CustomersPage() {
+  const { user } = useAuth()
   const [customers, setCustomers]   = useState([])
   const [loading, setLoading]       = useState(true)
   const [search, setSearch]         = useState('')
@@ -218,9 +221,26 @@ export default function CustomersPage() {
                       {formatDate(c.last_purchase_date)}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
-                      <button onClick={() => openEdit(c)} className="btn-ghost" style={{ padding: '4px 8px' }}>
-                        <Edit2 size={13} />
-                      </button>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => openEdit(c)} className="btn-ghost" style={{ padding: '4px 8px' }}>
+                          <Edit2 size={13} />
+                        </button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              const res = await salesAPI.list({ customer_id: c.id })
+                              const raw = res.data
+                              const sales = Array.isArray(raw) ? raw : (raw.results ?? [])
+                              printCustomerStatement(c, sales, user?.business_name)
+                            } catch { printCustomerStatement(c, [], user?.business_name) }
+                          }}
+                          className="btn-ghost"
+                          style={{ padding: '4px 8px' }}
+                          title="Print customer statement"
+                        >
+                          <Printer size={13} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )

@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Search, X, AlertCircle, Wrench } from 'lucide-react'
+import { Plus, Search, X, AlertCircle, Wrench, Printer } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
 import { jobCardsAPI, branchesAPI } from '../../api/client'
 import { formatNaira, formatDate, parseApiError } from '../../utils/format'
+import { printJobCardReceipt } from '../../utils/printDoc'
+import { useAuth } from '../../context/AuthContext'
 
 const STATUS_OPTS = [
   { value: '',           label: 'All' },
@@ -57,6 +59,7 @@ function Modal({ title, onClose, children }) {
 }
 
 export default function JobCardsPage() {
+  const { user } = useAuth()
   const [jobs, setJobs]             = useState([])
   const [branches, setBranches]     = useState([])
   const [loading, setLoading]       = useState(true)
@@ -314,6 +317,19 @@ export default function JobCardsPage() {
                             Pay
                           </button>
                         )}
+                        <button
+                          onClick={async () => {
+                            try {
+                              const res = await jobCardsAPI.get(j.id)
+                              printJobCardReceipt(res.data, user?.business_name)
+                            } catch { printJobCardReceipt(j, user?.business_name) }
+                          }}
+                          className="btn-ghost"
+                          style={{ padding: '4px 8px', fontSize: 11 }}
+                          title="Print receipt"
+                        >
+                          <Printer size={13} />
+                        </button>
                       </div>
                     </td>
                   </tr>

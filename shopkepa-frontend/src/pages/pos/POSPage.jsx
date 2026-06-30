@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Search, Plus, Minus, Trash2, X, AlertCircle, ShoppingCart, Check } from 'lucide-react'
+import { Search, Plus, Minus, Trash2, X, AlertCircle, ShoppingCart, Check, Printer } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
 import { productsAPI, salesAPI, modulesAPI, branchesAPI, customersAPI } from '../../api/client'
 import { formatNaira, parseApiError } from '../../utils/format'
+import { printSaleReceipt } from '../../utils/printDoc'
+import { useAuth } from '../../context/AuthContext'
 
 export default function POSPage() {
   // Setup state
@@ -222,12 +224,14 @@ export default function POSPage() {
     )
   }
 
+  const { user } = useAuth()
+
   // ── Success banner ──
   const SuccessBanner = success && (
     <div style={{
       background: 'rgba(76,175,125,0.12)', border: '1px solid rgba(76,175,125,0.3)',
       borderRadius: 8, padding: '12px 16px', marginBottom: 16,
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Check size={16} color="var(--success)" />
@@ -235,9 +239,22 @@ export default function POSPage() {
           Sale {success.sale_number} recorded — {formatNaira(success.amount_paid)} paid.
         </span>
       </div>
-      <button onClick={() => setSuccess(null)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}>
-        <X size={15} />
-      </button>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          onClick={() => printSaleReceipt(success, user?.business_name)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '5px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+            background: 'rgba(201,168,76,0.15)', border: '1px solid rgba(201,168,76,0.3)',
+            color: 'var(--gold)',
+          }}
+        >
+          <Printer size={13} /> Print Receipt
+        </button>
+        <button onClick={() => setSuccess(null)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}>
+          <X size={15} />
+        </button>
+      </div>
     </div>
   )
 

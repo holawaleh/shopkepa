@@ -10,6 +10,18 @@ const EMPTY_FORM = {
   cost_price: '', reorder_level: '0',
 }
 
+const MODULE_PLACEHOLDERS = {
+  pharmacy:    'e.g. Paracetamol 500mg',
+  restaurant:  'e.g. Jollof Rice (Party Pack)',
+  electronics: 'e.g. Samsung 65W USB-C Charger',
+  fashion:     "e.g. Men's Slim-Fit Polo Shirt",
+  repairs:     'e.g. Phone Screen Replacement',
+  salon:       'e.g. Hair Relaxer Treatment',
+  grocery:     'e.g. Basmati Rice 5kg',
+  supermarket: 'e.g. Dangote Sugar 1kg',
+  pos:         'e.g. Product name',
+}
+
 function Modal({ title, onClose, children }) {
   return (
     <div style={{
@@ -273,8 +285,16 @@ export default function ProductsPage() {
           )}
           <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <FormField label="Product name *" error={formErrors.name}>
-              <input className={`input ${formErrors.name ? 'input-error' : ''}`}
-                value={form.name} onChange={set('name')} placeholder="e.g. Paracetamol 500mg" />
+              {(() => {
+                const selMod = activeModules.find(bm => bm.module.id === form.module_id)
+                const ph = selMod
+                  ? (MODULE_PLACEHOLDERS[selMod.module.code?.toLowerCase()] || `e.g. ${selMod.module.name} item`)
+                  : 'e.g. Product name'
+                return (
+                  <input className={`input ${formErrors.name ? 'input-error' : ''}`}
+                    value={form.name} onChange={set('name')} placeholder={ph} />
+                )
+              })()}
             </FormField>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
