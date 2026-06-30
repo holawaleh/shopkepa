@@ -6,6 +6,7 @@ import {
 import AppLayout from '../../components/layout/AppLayout'
 import { modulesAPI, staffAPI, branchesAPI, authAPI } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
+import { useToast } from '../../context/ToastContext'
 import { parseApiError, formatDate } from '../../utils/format'
 
 // ─── Shared helpers ────────────────────────────────────────────────────────
@@ -67,6 +68,7 @@ function icon(code) { return MODULE_ICONS[code?.toLowerCase()] || '📦' }
 
 function ModulesTab() {
   const { reloadModules } = useAuth()
+  const toast = useToast()
   const [allModules, setAllModules]       = useState([])
   const [businessModules, setBusinessModules] = useState([])
   const [loading, setLoading]             = useState(true)
@@ -97,6 +99,7 @@ function ModulesTab() {
 
   const handleToggle = async (mod) => {
     const bm = getBM(mod.id)
+    const willActivate = !bm || !bm.is_active
     setToggling(t => ({ ...t, [mod.id]: true }))
     try {
       if (!bm) {
@@ -105,6 +108,11 @@ function ModulesTab() {
         await modulesAPI.toggle(bm.id, !bm.is_active)
       }
       await Promise.all([load(), reloadModules()])
+      if (willActivate) {
+        toast.success(`${mod.name} module activated`)
+      } else {
+        toast.info(`${mod.name} module deactivated`)
+      }
     } catch (err) {
       setError(parseApiError(err))
     } finally {
@@ -182,6 +190,7 @@ const EMPTY_STAFF = {
 
 function TeamTab() {
   const { isOwner, user } = useAuth()
+  const toast = useToast()
   const [staff, setStaff]           = useState([])
   const [branches, setBranches]     = useState([])
   const [loading, setLoading]       = useState(true)
@@ -253,6 +262,7 @@ function TeamTab() {
         role:         form.role,
         branch_ids:   form.branch_ids,
       })
+      toast.success(`${form.full_name.trim()} added to your team as ${form.role}`)
       setModal(null)
       load()
     } catch (err) {

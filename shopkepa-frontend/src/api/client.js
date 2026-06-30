@@ -150,7 +150,7 @@ export const jobCardsAPI = {
   get:    (id)     => api.get(`/jobcards/${id}/`),
   create: (data)   => api.post('/jobcards/', data),
   update: (id, d)  => api.patch(`/jobcards/${id}/`, d),
-  pay:    (id, d)  => api.post(`/jobcards/${id}/payment/`, d),
+  pay:    (id, d)  => api.post(`/jobcards/${id}/add-payment/`, d),
 }
 
 export const branchesAPI = {

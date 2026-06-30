@@ -5,6 +5,7 @@ import { customersAPI, salesAPI } from '../../api/client'
 import { formatNaira, formatDate, parseApiError } from '../../utils/format'
 import { printCustomerStatement } from '../../utils/printDoc'
 import { useAuth } from '../../context/AuthContext'
+import { useToast } from '../../context/ToastContext'
 
 const EMPTY_FORM = {
   full_name: '', phone_number: '', email: '',
@@ -44,6 +45,7 @@ function Modal({ title, onClose, children }) {
 
 export default function CustomersPage() {
   const { user } = useAuth()
+  const toast    = useToast()
   const [customers, setCustomers]   = useState([])
   const [loading, setLoading]       = useState(true)
   const [search, setSearch]         = useState('')
@@ -119,8 +121,10 @@ export default function CustomersPage() {
       }
       if (modal === 'add') {
         await customersAPI.create(payload)
+        toast.success(`${payload.full_name} added as a customer`)
       } else {
         await customersAPI.update(editing.id, payload)
+        toast.success(`${payload.full_name}'s profile updated`)
       }
       setModal(null)
       load()

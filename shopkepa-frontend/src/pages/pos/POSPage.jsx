@@ -8,6 +8,7 @@ import { productsAPI, salesAPI, modulesAPI, branchesAPI, customersAPI } from '..
 import { formatNaira, parseApiError } from '../../utils/format'
 import { printSaleReceipt } from '../../utils/printDoc'
 import { useAuth } from '../../context/AuthContext'
+import { useToast } from '../../context/ToastContext'
 
 const PAGE_SIZE = 12
 
@@ -51,8 +52,9 @@ function StockBadge({ remaining }) {
 }
 
 export default function POSPage() {
-  // Keep useAuth at the very top — must never be below an early return
+  // Keep hooks at the very top — must never be below an early return
   const { user } = useAuth()
+  const toast    = useToast()
 
   // ── Setup ─────────────────────────────────────────────────────────────────
   const [branches, setBranches]           = useState([])
@@ -245,7 +247,21 @@ export default function POSPage() {
         notes,
         discount_amount: 0,
       })
-      setSuccess(res.data)
+      const saleData = res.data
+      setSuccess(saleData)
+      // Fire success toast
+      toast.success(`Sale complete — ${formatNaira(saleData.total ?? saleData.amount ?? cartTotal)}`)
+      // Stock-level warnings from sale items
+      const saleItems = saleData.items ?? []
+      saleItems.forEach(item => {
+        const remaining = item.remaining_stock ?? item.stock_after ?? null
+        if (remaining === null) return
+        if (remaining === 0) {
+          toast.error(`${item.product_name ?? item.name ?? 'Item'} is now out of stock`)
+        } else if (remaining <= (item.reorder_level ?? 5)) {
+          toast.info(`${item.product_name ?? item.name ?? 'Item'} is running low (${remaining} left)`)
+        }
+      })
       setCart([])
       setSelectedCustomer(null)
       setCustomerSearch('')

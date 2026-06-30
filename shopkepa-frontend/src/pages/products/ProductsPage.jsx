@@ -3,6 +3,7 @@ import { Plus, Search, Edit2, Trash2, X, AlertCircle, Package, PackagePlus } fro
 import AppLayout from '../../components/layout/AppLayout'
 import { productsAPI, modulesAPI, branchesAPI } from '../../api/client'
 import { formatNaira, parseApiError } from '../../utils/format'
+import { useToast } from '../../context/ToastContext'
 
 const EMPTY_FORM = {
   name: '', sku: '', description: '', module_id: '',
@@ -69,6 +70,7 @@ function FormField({ label, children, error }) {
 }
 
 export default function ProductsPage() {
+  const toast = useToast()
   const [products, setProducts]       = useState([])
   const [activeModules, setActiveModules] = useState([])
   const [branches, setBranches]       = useState([])
@@ -126,6 +128,7 @@ export default function ProductsPage() {
         notes:           restockForm.notes.trim() || undefined,
       })
       setModal(null)
+      toast.success(`${qty > 0 ? `+${qty}` : qty} units ${qty > 0 ? 'added to' : 'removed from'} ${restockTarget.name}`)
       load()
     } catch (err) {
       setError(parseApiError(err))
@@ -190,8 +193,10 @@ export default function ProductsPage() {
       }
       if (modal === 'add') {
         await productsAPI.create(payload)
+        toast.success(`${payload.name} added to catalogue`)
       } else {
         await productsAPI.update(editing.id, payload)
+        toast.success(`${payload.name} updated`)
       }
       setModal(null)
       load()
@@ -207,6 +212,7 @@ export default function ProductsPage() {
     setDeleting(p.id)
     try {
       await productsAPI.delete(p.id)
+      toast.success(`${p.name} deleted`)
       load()
     } catch (err) {
       setError(parseApiError(err))

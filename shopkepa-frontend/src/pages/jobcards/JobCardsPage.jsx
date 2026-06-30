@@ -5,6 +5,7 @@ import { jobCardsAPI, branchesAPI } from '../../api/client'
 import { formatNaira, formatDate, parseApiError } from '../../utils/format'
 import { printJobCardReceipt } from '../../utils/printDoc'
 import { useAuth } from '../../context/AuthContext'
+import { useToast } from '../../context/ToastContext'
 
 // ─── Services catalogue helpers (localStorage-backed) ─────────────────────
 
@@ -243,6 +244,7 @@ function ServicesTab({ userId, isOwner }) {
 
 function JobCardsTab({ branches, userId }) {
   const { user } = useAuth()
+  const toast    = useToast()
   const [jobs, setJobs]             = useState([])
   const [loading, setLoading]       = useState(true)
   const [search, setSearch]         = useState('')
@@ -314,7 +316,7 @@ function JobCardsTab({ branches, userId }) {
     setSaving(true)
     setError('')
     try {
-      await jobCardsAPI.create({
+      const res = await jobCardsAPI.create({
         customer_name:      form.customer_name.trim(),
         customer_phone:     form.customer_phone.trim(),
         device_description: form.device_description.trim(),
@@ -322,6 +324,7 @@ function JobCardsTab({ branches, userId }) {
         labour_charge:      parseFloat(form.labour_charge) || 0,
         branch_id:          form.branch_id,
       })
+      toast.success(`Job card ${res.data.job_number ?? ''} created for ${form.customer_name.trim()}`)
       setModal(null)
       load()
     } catch (err) {
@@ -338,6 +341,11 @@ function JobCardsTab({ branches, userId }) {
     setSaving(true); setError('')
     try {
       await jobCardsAPI.update(selected.id, { status: newStatus })
+      if (newStatus === 'ready') {
+        toast.success(`${selected.job_number} is ready for collection — notify ${selected.customer_name}`)
+      } else {
+        toast.info(`${selected.job_number} status updated to ${newStatus.replace(/_/g, ' ')}`)
+      }
       setModal(null); load()
     } catch (err) { setError(parseApiError(err)) }
     finally { setSaving(false) }
@@ -349,7 +357,13 @@ function JobCardsTab({ branches, userId }) {
     if (!payAmount || parseFloat(payAmount) <= 0) { setError('Enter a valid payment amount.'); return }
     setSaving(true); setError('')
     try {
-      await jobCardsAPI.pay(selected.id, { amount: parseFloat(payAmount), payment_method: payMethod })
+      const res = await jobCardsAPI.pay(selected.id, { amount: parseFloat(payAmount), payment_method: payMethod })
+      const remaining = parseFloat(res.data?.balance_due ?? 0)
+      if (remaining <= 0) {
+        toast.success(`${formatNaira(parseFloat(payAmount))} received — ${selected.job_number} fully paid`)
+      } else {
+        toast.info(`${formatNaira(parseFloat(payAmount))} received — ${formatNaira(remaining)} still outstanding`)
+      }
       setModal(null); load()
     } catch (err) { setError(parseApiError(err)) }
     finally { setSaving(false) }

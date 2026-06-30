@@ -3,6 +3,7 @@ import { Plus, Search, X, AlertCircle, Hotel, BedDouble, Calendar, LogIn, LogOut
 import AppLayout from '../../components/layout/AppLayout'
 import { hotelAPI } from '../../api/client'
 import { formatNaira, parseApiError } from '../../utils/format'
+import { useToast } from '../../context/ToastContext'
 
 // ─── Shared ────────────────────────────────────────────────────────────────
 
@@ -249,6 +250,7 @@ function RoomsTab() {
 const EMPTY_BOOKING = { room_id: '', guest_name: '', guest_phone: '', guest_email: '', check_in_date: '', check_out_date: '', notes: '', amount_paid: '0', payment_method: 'cash' }
 
 function BookingsTab() {
+  const toast = useToast()
   const [bookings, setBookings]   = useState([])
   const [rooms, setRooms]         = useState([])
   const [loading, setLoading]     = useState(true)
@@ -286,7 +288,7 @@ function BookingsTab() {
     if (!form.room_id || !form.guest_name.trim() || !form.check_in_date || !form.check_out_date) { setError('Room, guest name, and dates are required.'); return }
     setSaving(true); setError('')
     try {
-      await hotelAPI.createBooking({
+      const res = await hotelAPI.createBooking({
         room_id:        form.room_id,
         guest_name:     form.guest_name.trim(),
         guest_phone:    form.guest_phone,
@@ -297,20 +299,32 @@ function BookingsTab() {
         amount_paid:    parseFloat(form.amount_paid) || 0,
         payment_method: form.amount_paid > 0 ? form.payment_method : undefined,
       })
+      toast.success(`Booking ${res.data.booking_number ?? ''} created for ${form.guest_name.trim()}`)
       setModal(null); load()
     } catch (e) { setError(parseApiError(e)) }
     finally { setSaving(false) }
   }
 
   const handleCheckIn = async b => {
-    try { await hotelAPI.checkIn(b.id); load() }
-    catch (e) { alert(parseApiError(e)) }
+    try {
+      await hotelAPI.checkIn(b.id)
+      toast.success(`${b.guest_name} checked in — Room ${b.room_number}`)
+      load()
+    } catch (e) { alert(parseApiError(e)) }
   }
 
   const handleCheckOut = async b => {
     if (!confirm(`Check out ${b.guest_name} from Room ${b.room_number}?`)) return
-    try { await hotelAPI.checkOut(b.id); load() }
-    catch (e) { alert(parseApiError(e)) }
+    try {
+      const res = await hotelAPI.checkOut(b.id)
+      const balance = parseFloat(res.data?.balance_due ?? 0)
+      if (balance > 0) {
+        toast.error(`${b.guest_name} checked out with outstanding balance of ${formatNaira(balance)}`)
+      } else {
+        toast.success(`${b.guest_name} checked out — Room ${b.room_number} is now available`)
+      }
+      load()
+    } catch (e) { alert(parseApiError(e)) }
   }
 
   const openPay = b => { setSelected(b); setPayAmount(''); setPayMethod('cash'); setError(''); setModal('pay') }
@@ -318,8 +332,16 @@ function BookingsTab() {
   const handlePay = async () => {
     if (!payAmount || parseFloat(payAmount) <= 0) { setError('Enter a valid amount.'); return }
     setSaving(true); setError('')
-    try { await hotelAPI.pay(selected.id, { amount: parseFloat(payAmount), payment_method: payMethod }); setModal(null); load() }
-    catch (e) { setError(parseApiError(e)) }
+    try {
+      const res = await hotelAPI.pay(selected.id, { amount: parseFloat(payAmount), payment_method: payMethod })
+      const remaining = parseFloat(res.data?.balance_due ?? 0)
+      if (remaining <= 0) {
+        toast.success(`${formatNaira(parseFloat(payAmount))} received — booking fully paid`)
+      } else {
+        toast.info(`${formatNaira(parseFloat(payAmount))} received — ${formatNaira(remaining)} still outstanding`)
+      }
+      setModal(null); load()
+    } catch (e) { setError(parseApiError(e)) }
     finally { setSaving(false) }
   }
 
