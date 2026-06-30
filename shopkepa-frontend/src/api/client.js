@@ -1,8 +1,8 @@
 import axios from 'axios'
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'https://shopkepa-backend.onrender.com/api/v1'
-// Backend root — used for non-versioned endpoints like /health/
-const BACKEND_ROOT = BASE_URL.replace(/\/api\/v1\/?$/, '')
+const RAW_BASE_URL = import.meta.env.VITE_API_URL || 'https://shopkepa-backend.onrender.com/api/v1'
+const BACKEND_ROOT = RAW_BASE_URL.replace(/\/+$/, '').replace(/\/api\/v1$/, '')
+const BASE_URL = `${BACKEND_ROOT}/api/v1`
 
 // Access token lives ONLY in memory — never localStorage
 let _accessToken = null
@@ -18,8 +18,12 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-// Attach access token to every request
+// Attach access token and keep request paths relative to BASE_URL.
 api.interceptors.request.use((config) => {
+  if (typeof config.url === 'string') {
+    config.url = config.url.replace(/^\/api\/v1(?=\/)/, '')
+  }
+
   if (_accessToken) {
     config.headers.Authorization = `Bearer ${_accessToken}`
   }
@@ -84,6 +88,7 @@ export default api
 // ── Typed API helpers ──
 
 export const authAPI = {
+  register: (data) => api.post('/auth/register/', data),
   login:   (data) => api.post('/auth/login/', data),
   logout:  ()     => api.post('/auth/logout/'),
   me:      ()     => api.get('/auth/me/'),

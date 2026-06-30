@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, AlertCircle, Check, ShoppingCart, BarChart2, Wifi, Shield } from 'lucide-react'
 import { useToast } from '../../context/ToastContext'
 import { parseApiError } from '../../utils/format'
-import api from '../../api/client'
+import { authAPI } from '../../api/client'
 
 // Rotating value propositions for the advert panel
 const SLIDES = [
@@ -99,7 +99,7 @@ export default function SignupPage() {
     if (!validateStep2()) return
     setLoading(true)
     try {
-      await api.post('/auth/register/', {
+      await authAPI.register({
         first_name:    form.first_name,
         last_name:     form.last_name,
         email:         form.email,
