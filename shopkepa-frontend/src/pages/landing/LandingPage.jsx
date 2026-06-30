@@ -8,17 +8,19 @@ import {
   MessageCircle, Send, Mail, Phone,
 } from 'lucide-react'
 
-// ── Contact details — update these before going live ──
+// â”€â”€ Contact details â€” update these before going live â”€â”€
 const CONTACT = {
-  whatsapp: 'https://wa.me/2348012345678',  // replace with your WhatsApp number
-  telegram: 'https://t.me/shopkepa',         // replace with your Telegram handle
-  email:    'mailto:support@shopkepa.ng',    // replace with your support email
+  whatsapp: 'https://wa.me/2348059597963',
+  telegram: 'tg://resolve?phone=2348059597963',
+  email: 'mailto:techaffairsandinnovation@gmail.com',
+  phoneDisplay: '08059597963',
+  emailDisplay: 'techaffairsandinnovation@gmail.com',
 }
 
-// ── SEO helper — sets document head ──
+// â”€â”€ SEO helper â€” sets document head â”€â”€
 function useSEO() {
   useEffect(() => {
-    document.title = 'ShopKepa — Nigerian Retail POS | Installments, Job Cards, Multi-Branch'
+    document.title = 'ShopKepa â€” Nigerian Retail POS | Installments, Job Cards, Multi-Branch'
     const setMeta = (name, content, attr = 'name') => {
       let el = document.querySelector(`meta[${attr}="${name}"]`)
       if (!el) { el = document.createElement('meta'); el.setAttribute(attr, name); document.head.appendChild(el) }
@@ -28,14 +30,14 @@ function useSEO() {
     setMeta('keywords', 'POS Nigeria, point of sale Nigeria, retail software Nigeria, inventory management Nigeria, installment tracking POS, repair shop software Nigeria, ShopKepa, Nigerian POS system')
     setMeta('author', 'Tech Affairs and Innovative Hub')
     setMeta('robots', 'index, follow')
-    setMeta('og:title', 'ShopKepa — The POS Built for Nigerian Retail', 'property')
+    setMeta('og:title', 'ShopKepa â€” The POS Built for Nigerian Retail', 'property')
     setMeta('og:description', 'Installments, job cards, multi-branch stock, offline POS. 15 features no other Nigerian POS has.', 'property')
     setMeta('og:type', 'website', 'property')
     setMeta('og:url', 'https://shopkepa.vercel.app', 'property')
     setMeta('og:site_name', 'ShopKepa', 'property')
     setMeta('og:image', 'https://shopkepa.vercel.app/og-image.png', 'property')
     setMeta('twitter:card', 'summary_large_image')
-    setMeta('twitter:title', 'ShopKepa — Nigerian Retail POS')
+    setMeta('twitter:title', 'ShopKepa â€” Nigerian Retail POS')
     setMeta('twitter:description', 'Track installments, manage multi-branch stock, run job cards. Built for how Nigerians trade.')
     setMeta('twitter:image', 'https://shopkepa.vercel.app/og-image.png')
 
@@ -96,65 +98,65 @@ function useSEO() {
   }, [])
 }
 
-// ── Data ──
+// â”€â”€ Data â”€â”€
 const EDGE_ITEMS = [
-  { icon: CreditCard,  title: 'Installments up to 5 tranches',    body: 'Track partial payments, show running balance, surface debtors — because this is how Nigerians actually trade.' },
+  { icon: CreditCard,  title: 'Installments up to 5 tranches',    body: 'Track partial payments, show running balance, surface debtors â€” because this is how Nigerians actually trade.' },
   { icon: Layers,      title: 'Multi-module, one account',         body: 'Sell electronics AND run a repair shop from one login, one dashboard, one report. No other Nigerian POS does this.' },
   { icon: UserCheck,   title: 'Customer intelligence',             body: 'Lifetime spend, debt history, loyalty tier (Bronze / Silver / Gold), purchase patterns. Not just a name list.' },
-  { icon: TrendingUp,  title: 'True profit, not just revenue',     body: 'Track expenses per branch — fuel, rent, salaries — and subtract them. See what you actually made, for the first time.' },
+  { icon: TrendingUp,  title: 'True profit, not just revenue',     body: 'Track expenses per branch â€” fuel, rent, salaries â€” and subtract them. See what you actually made, for the first time.' },
   { icon: Package,     title: 'Wholesale / retail / custom pricing',body: 'Three price points per product. Cashier picks at point of sale. Owner enables or locks custom pricing in settings.' },
   { icon: MapPin,      title: 'Branch-level stock isolation',       body: 'Dugbe Branch out of stock while Main Store has 20 units. Sales only deduct from the selling branch. No guesswork.' },
-  { icon: Wrench,      title: 'Full job card workflow',             body: 'Received → Diagnosing → Awaiting Parts → In Repair → Ready → Collected. Labour, parts billing, technician assignment.' },
+  { icon: Wrench,      title: 'Full job card workflow',             body: 'Received â†’ Diagnosing â†’ Awaiting Parts â†’ In Repair â†’ Ready â†’ Collected. Labour, parts billing, technician assignment.' },
   { icon: Eye,         title: 'Full audit trail, nothing deleted',  body: 'Every sale, edit, void, and login is logged with who did it and when. If a cashier voids a sale, you will know.' },
-  { icon: Smartphone,  title: 'Camera barcode scanning',           body: 'Any Android phone becomes a scanner — zero extra cost. No ₦15,000 hardware required. Just open the app and scan.' },
+  { icon: Smartphone,  title: 'Camera barcode scanning',           body: 'Any Android phone becomes a scanner â€” zero extra cost. No â‚¦15,000 hardware required. Just open the app and scan.' },
   { icon: Wifi,        title: 'Sells offline',                     body: 'NEPA strikes. Data runs out. ShopKepa queues sales via Service Worker and syncs when you reconnect. No sale lost.' },
   { icon: Shield,      title: 'Role + branch scoped access',        body: 'A Dugbe cashier cannot see Main Store data, reports, or settings. Enterprise access control at SME pricing.' },
-  { icon: Zap,         title: 'PWA — no app store needed',         body: 'Install from the browser with one tap. No Google Play, no storage permissions, no update prompts. Loads fast on 3G.' },
+  { icon: Zap,         title: 'PWA â€” no app store needed',         body: 'Install from the browser with one tap. No Google Play, no storage permissions, no update prompts. Loads fast on 3G.' },
 ]
 
 const MODULES = [
-  { emoji: '🛒', name: 'Supermarkets',   desc: 'Fast checkout, multi-dept inventory' },
-  { emoji: '💊', name: 'Pharmacies',     desc: 'NAFDAC numbers, expiry tracking' },
-  { emoji: '🍔', name: 'Restaurants',    desc: 'Menu, orders, delivery management' },
-  { emoji: '🔧', name: 'Repair shops',   desc: 'Job cards, labour + parts billing' },
-  { emoji: '👗', name: 'Fashion',        desc: 'Size, colour, gender variants' },
-  { emoji: '💻', name: 'Electronics',    desc: 'IMEI, warranty, condition tracking' },
-  { emoji: '🥩', name: 'Grocery',        desc: 'Fresh goods, bulk + unit sales' },
-  { emoji: '💈', name: 'Salons',         desc: 'Services, retail products, bookings' },
+  { emoji: 'ðŸ›’', name: 'Supermarkets',   desc: 'Fast checkout, multi-dept inventory' },
+  { emoji: 'ðŸ’Š', name: 'Pharmacies',     desc: 'NAFDAC numbers, expiry tracking' },
+  { emoji: 'ðŸ”', name: 'Restaurants',    desc: 'Menu, orders, delivery management' },
+  { emoji: 'ðŸ”§', name: 'Repair shops',   desc: 'Job cards, labour + parts billing' },
+  { emoji: 'ðŸ‘—', name: 'Fashion',        desc: 'Size, colour, gender variants' },
+  { emoji: 'ðŸ’»', name: 'Electronics',    desc: 'IMEI, warranty, condition tracking' },
+  { emoji: 'ðŸ¥©', name: 'Grocery',        desc: 'Fresh goods, bulk + unit sales' },
+  { emoji: 'ðŸ’ˆ', name: 'Salons',         desc: 'Services, retail products, bookings' },
 ]
 
 const TESTIMONIALS = [
   { name: 'Emeka Nwosu', role: 'Supermarket owner, Lagos', text: 'The installment tracking changed how I do credit sales. Every kobo is accounted for, and my debtors list is always current. I stopped losing money to "I thought I paid" excuses.' },
-  { name: 'Dr. Aisha Bello', role: 'Pharmacy manager, Abuja', text: 'NAFDAC numbers and expiry dates on every product. Batch tracking on slow-moving items. ShopKepa understands pharmacy — most POS apps clearly never talked to a pharmacist.' },
+  { name: 'Dr. Aisha Bello', role: 'Pharmacy manager, Abuja', text: 'NAFDAC numbers and expiry dates on every product. Batch tracking on slow-moving items. ShopKepa understands pharmacy â€” most POS apps clearly never talked to a pharmacist.' },
   { name: 'Kunle Johnson', role: 'Phone repair shop, Port Harcourt', text: 'The job card system is exactly right. Customer drops a phone, I log the fault, track parts ordered, and mark it ready when done. Customer gets a professional receipt. No other app had this.' },
 ]
 
 const PLANS = [
   {
-    name: 'Starter', price: '₦5,000', period: '/month', tag: null, highlight: false,
+    name: 'Starter', price: 'â‚¦5,000', period: '/month', tag: null, highlight: false,
     desc: 'For shops just getting started',
-    features: ['1 branch · 3 staff', '1,000 products', 'POS + inventory', 'Installment tracking', 'Basic reports', 'Email support'],
+    features: ['1 branch Â· 3 staff', '1,000 products', 'POS + inventory', 'Installment tracking', 'Basic reports', 'Email support'],
   },
   {
-    name: 'Growth', price: '₦10,000', period: '/month', tag: 'Most popular', highlight: true,
+    name: 'Growth', price: 'â‚¦10,000', period: '/month', tag: 'Most popular', highlight: true,
     desc: 'For growing businesses',
-    features: ['2 branches · 5 staff', '3,000 products', 'All modules', 'Customer loyalty tiers', 'Advanced reports + profit view', 'Job cards', 'Priority support'],
+    features: ['2 branches Â· 5 staff', '3,000 products', 'All modules', 'Customer loyalty tiers', 'Advanced reports + profit view', 'Job cards', 'Priority support'],
   },
   {
-    name: 'Professional', price: '₦20,000', period: '/month', tag: null, highlight: false,
+    name: 'Professional', price: 'â‚¦20,000', period: '/month', tag: null, highlight: false,
     desc: 'For multi-branch operations',
-    features: ['5 branches · 15 staff', 'Unlimited products', 'All modules + API access', 'Full audit trail', 'Custom reports', 'Dedicated support', 'White-label option'],
+    features: ['5 branches Â· 15 staff', 'Unlimited products', 'All modules + API access', 'Full audit trail', 'Custom reports', 'Dedicated support', 'White-label option'],
   },
 ]
 
 const STATS = [
   { value: '15',   label: 'Unique features no competitor has' },
   { value: '8',    label: 'Retail verticals supported' },
-  { value: '103',  label: 'API endpoints — backend complete' },
-  { value: '100%', label: 'Offline-capable — sells without internet' },
+  { value: '103',  label: 'API endpoints â€” backend complete' },
+  { value: '100%', label: 'Offline-capable â€” sells without internet' },
 ]
 
-// ── Sub-components ──
+// â”€â”€ Sub-components â”€â”€
 function NavBar() {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -245,7 +247,7 @@ export default function LandingPage() {
     <div style={{ background: '#0A1628', color: '#fff', overflowX: 'hidden', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
       <NavBar />
 
-      {/* ── HERO ── */}
+      {/* â”€â”€ HERO â”€â”€ */}
       <header style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '110px 24px 70px', textAlign: 'center', position: 'relative' }}>
         <div style={{ position: 'absolute', top: '15%', left: '50%', transform: 'translateX(-50%)', width: 700, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(201,168,76,0.05) 0%, transparent 65%)', pointerEvents: 'none' }} />
 
@@ -265,18 +267,18 @@ export default function LandingPage() {
 - Job cards for repair shops
 - True profit (not just revenue) 
 - Multi-branch stock isolation
-- 15 pther features no other Nigerian POS does
+- 15 extra features no other Nigerian POS does
         </p>
 
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 14 }}>
           <Link to="/signup" style={{ background: '#C9A84C', color: '#0A1628', fontWeight: 700, fontSize: 16, padding: '14px 32px', borderRadius: 8, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            start now—  <ArrowRight size={18} />
+            start nowâ€”  <ArrowRight size={18} />
           </Link>
           <a href="#why" style={{ color: '#8AAAD4', fontSize: 15, padding: '14px 24px', borderRadius: 8, border: '1px solid #1E3A5F', textDecoration: 'none' }}>
             See what makes us different
           </a>
         </div>
-        <p style={{ fontSize: 12, color: '#6B8BB5' }}>No credit card · No app store · Cancel anytime</p>
+        <p style={{ fontSize: 12, color: '#6B8BB5' }}>No credit card Â· No app store Â· Cancel anytime</p>
 
         {/* Dashboard preview */}
         <div style={{ marginTop: 56, width: '100%', maxWidth: 880, background: '#0F2442', border: '1px solid #1E3A5F', borderRadius: 14, overflow: 'hidden', boxShadow: '0 28px 70px rgba(0,0,0,0.45)' }}>
@@ -291,7 +293,7 @@ export default function LandingPage() {
               <div>
                 <div style={{ fontSize: 11, color: '#6B8BB5' }}>Good morning,</div>
                 <div style={{ fontSize: 17, fontWeight: 700 }}>Ada's Electronics & Repair Shop</div>
-                <div style={{ fontSize: 11, color: '#6B8BB5', marginTop: 2 }}>Main Branch · 2 modules active</div>
+                <div style={{ fontSize: 11, color: '#6B8BB5', marginTop: 2 }}>Main Branch Â· 2 modules active</div>
               </div>
               <Link to="/pos" style={{ background: '#C9A84C', color: '#0A1628', fontSize: 12, fontWeight: 700, padding: '8px 16px', borderRadius: 6, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 5 }}>
                 <ShoppingCart size={13} /> New sale
@@ -299,8 +301,8 @@ export default function LandingPage() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 14 }}>
               {[
-                { label: "Today's revenue", value: '₦284,500', gold: true },
-                { label: "Today's profit", value: '₦91,200', gold: true },
+                { label: "Today's revenue", value: 'â‚¦284,500', gold: true },
+                { label: "Today's profit", value: 'â‚¦91,200', gold: true },
                 { label: 'Transactions', value: '47', white: true },
                 { label: 'Open job cards', value: '8', white: true },
               ].map(m => (
@@ -314,9 +316,9 @@ export default function LandingPage() {
               <div style={{ background: '#070E1A', border: '1px solid #1E3A5F', borderRadius: 8, padding: '12px 14px' }}>
                 <div style={{ fontSize: 10, fontWeight: 600, color: '#8AAAD4', marginBottom: 10 }}>Recent sales</div>
                 {[
-                  { name: 'Tecno Spark 10', amt: '₦95,000', status: 'paid' },
-                  { name: 'Screen replacement', amt: '₦12,500', status: 'installment' },
-                  { name: 'USB-C charger ×3', amt: '₦7,500', status: 'paid' },
+                  { name: 'Tecno Spark 10', amt: 'â‚¦95,000', status: 'paid' },
+                  { name: 'Screen replacement', amt: 'â‚¦12,500', status: 'installment' },
+                  { name: 'USB-C charger Ã—3', amt: 'â‚¦7,500', status: 'paid' },
                 ].map(s => (
                   <div key={s.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #1E3A5F' }}>
                     <span style={{ fontSize: 10 }}>{s.name}</span>
@@ -328,11 +330,11 @@ export default function LandingPage() {
                 ))}
               </div>
               <div style={{ background: '#070E1A', border: '1px solid #1E3A5F', borderRadius: 8, padding: '12px 14px' }}>
-                <div style={{ fontSize: 10, fontWeight: 600, color: '#8AAAD4', marginBottom: 10 }}>Job cards — open</div>
+                <div style={{ fontSize: 10, fontWeight: 600, color: '#8AAAD4', marginBottom: 10 }}>Job cards â€” open</div>
                 {[
-                  { device: 'iPhone 13 — screen crack', status: 'In repair', color: '#C9A84C' },
-                  { device: 'Samsung A54 — dead', status: 'Diagnosing', color: '#8AAAD4' },
-                  { device: 'Laptop — battery', status: 'Awaiting parts', color: '#E8A838' },
+                  { device: 'iPhone 13 â€” screen crack', status: 'In repair', color: '#C9A84C' },
+                  { device: 'Samsung A54 â€” dead', status: 'Diagnosing', color: '#8AAAD4' },
+                  { device: 'Laptop â€” battery', status: 'Awaiting parts', color: '#E8A838' },
                 ].map(j => (
                   <div key={j.device} style={{ padding: '5px 0', borderBottom: '1px solid #1E3A5F' }}>
                     <div style={{ fontSize: 10, marginBottom: 2 }}>{j.device}</div>
@@ -343,9 +345,9 @@ export default function LandingPage() {
               <div style={{ background: '#070E1A', border: '1px solid #1E3A5F', borderRadius: 8, padding: '12px 14px' }}>
                 <div style={{ fontSize: 10, fontWeight: 600, color: '#8AAAD4', marginBottom: 10 }}>Debtor balances</div>
                 {[
-                  { name: 'Chidi Okafor', balance: '₦45,000', tier: '🥇' },
-                  { name: 'Amaka Eze',   balance: '₦18,500', tier: '🥈' },
-                  { name: 'Tunde Bello', balance: '₦9,200',  tier: '🥉' },
+                  { name: 'Chidi Okafor', balance: 'â‚¦45,000', tier: 'ðŸ¥‡' },
+                  { name: 'Amaka Eze',   balance: 'â‚¦18,500', tier: 'ðŸ¥ˆ' },
+                  { name: 'Tunde Bello', balance: 'â‚¦9,200',  tier: 'ðŸ¥‰' },
                 ].map(d => (
                   <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #1E3A5F' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -361,7 +363,7 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* ── STATS ── */}
+      {/* â”€â”€ STATS â”€â”€ */}
       <div style={{ background: '#0F2442', borderTop: '1px solid #1E3A5F', borderBottom: '1px solid #1E3A5F' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto', padding: '28px 24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16, textAlign: 'center' }}>
           {STATS.map(s => (
@@ -373,7 +375,7 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* ── WHY SHOPKEPA — competitive edge ── */}
+      {/* â”€â”€ WHY SHOPKEPA â€” competitive edge â”€â”€ */}
       <section id="why" style={{ padding: '88px 24px', maxWidth: 1180, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 56 }}>
           <Tag>Why ShopKepa wins</Tag>
@@ -381,11 +383,11 @@ export default function LandingPage() {
             15 things no other Nigerian POS does
           </h2>
           <p style={{ fontSize: 15, color: '#8AAAD4', maxWidth: 560, margin: '0 auto', lineHeight: 1.7 }}>
-            These aren't marketing claims. They are working features in the backend right now — built because existing solutions don't serve Nigerian traders properly.
+            These aren't marketing claims. They are working features in the backend right now â€” built because existing solutions don't serve Nigerian traders properly.
           </p>
         </div>
 
-        {/* Interactive edge selector — auto-rotates every 3.5 s, pauses on hover/click */}
+        {/* Interactive edge selector â€” auto-rotates every 3.5 s, pauses on hover/click */}
         <div
           style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 20 }}
           className="sk-edge-grid"
@@ -451,7 +453,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── MODULES ── */}
+      {/* â”€â”€ MODULES â”€â”€ */}
       <section id="modules" style={{ background: '#0F2442', borderTop: '1px solid #1E3A5F', borderBottom: '1px solid #1E3A5F', padding: '72px 24px' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 44 }}>
@@ -475,7 +477,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── DEVICE SHOWCASE ── */}
+      {/* â”€â”€ DEVICE SHOWCASE â”€â”€ */}
       <section style={{ padding: '80px 24px', maxWidth: 1180, margin: '0 auto' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 56, alignItems: 'center' }} className="sk-split">
           <div>
@@ -484,13 +486,13 @@ export default function LandingPage() {
               Your phone is already the scanner
             </h2>
             <p style={{ fontSize: 15, color: '#8AAAD4', lineHeight: 1.75, marginBottom: 28 }}>
-              Traditional POS systems require a ₦15,000+ barcode scanner. ShopKepa uses your phone camera via the ZXing library — scan any barcode instantly at zero extra cost. It also installs on Android like an app, with no Play Store account needed.
+              Traditional POS systems require a â‚¦15,000+ barcode scanner. ShopKepa uses your phone camera via the ZXing library â€” scan any barcode instantly at zero extra cost. It also installs on Android like an app, with no Play Store account needed.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {[
                 { icon: Smartphone, text: 'Install on Android directly from the browser' },
                 { icon: Monitor,    text: 'Full desktop dashboard for owners and managers' },
-                { icon: Wifi,       text: 'Sells offline — syncs when reconnected' },
+                { icon: Wifi,       text: 'Sells offline â€” syncs when reconnected' },
                 { icon: MapPin,     text: 'Multi-branch: each branch manages its own stock' },
               ].map(({ icon: Icon, text }) => (
                 <div key={text} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -510,7 +512,7 @@ export default function LandingPage() {
             <div style={{ width: 250, background: '#0F2442', borderRadius: 32, border: '2px solid #1E3A5F', overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}>
               <div style={{ background: '#070E1A', padding: '7px 16px', display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 9, color: '#C9A84C' }}>9:41</span>
-                <span style={{ fontSize: 9, color: '#C9A84C' }}>📶 100%</span>
+                <span style={{ fontSize: 9, color: '#C9A84C' }}>ðŸ“¶ 100%</span>
               </div>
               <div style={{ background: '#0A1628', padding: '10px 14px', borderBottom: '1px solid #1E3A5F', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 14, fontWeight: 700, color: '#C9A84C' }}>ShopKepa</span>
@@ -518,14 +520,14 @@ export default function LandingPage() {
               </div>
               <div style={{ padding: 13 }}>
                 <div style={{ background: '#0A1628', border: '1px dashed #1E3A5F', borderRadius: 8, padding: '12px 10px', textAlign: 'center', marginBottom: 10 }}>
-                  <div style={{ fontSize: 22, marginBottom: 3 }}>📷</div>
-                  <span style={{ fontSize: 9, color: '#6B8BB5' }}>Point camera at barcode — free, no scanner</span>
+                  <div style={{ fontSize: 22, marginBottom: 3 }}>ðŸ“·</div>
+                  <span style={{ fontSize: 9, color: '#6B8BB5' }}>Point camera at barcode â€” free, no scanner</span>
                 </div>
-                <div style={{ fontSize: 9, color: '#6B8BB5', letterSpacing: 0.8, marginBottom: 7 }}>CART · 3 ITEMS</div>
+                <div style={{ fontSize: 9, color: '#6B8BB5', letterSpacing: 0.8, marginBottom: 7 }}>CART Â· 3 ITEMS</div>
                 {[
-                  { name: 'Tecno Spark 10', qty: '×1', price: '₦95k' },
-                  { name: 'Phone case', qty: '×2', price: '₦3,200' },
-                  { name: 'USB cable', qty: '×1', price: '₦1,500' },
+                  { name: 'Tecno Spark 10', qty: 'Ã—1', price: 'â‚¦95k' },
+                  { name: 'Phone case', qty: 'Ã—2', price: 'â‚¦3,200' },
+                  { name: 'USB cable', qty: 'Ã—1', price: 'â‚¦1,500' },
                 ].map(item => (
                   <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #1E3A5F' }}>
                     <span style={{ fontSize: 9 }}>{item.name}</span>
@@ -538,7 +540,7 @@ export default function LandingPage() {
                 <div style={{ background: '#0A1628', borderRadius: 7, padding: 10, marginTop: 10 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                     <span style={{ fontSize: 9, color: '#6B8BB5' }}>Total</span>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: '#C9A84C' }}>₦99,700</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: '#C9A84C' }}>â‚¦99,700</span>
                   </div>
                   <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
                     <div style={{ flex: 1, background: '#1E3A5F', borderRadius: 5, padding: '6px', fontSize: 8, textAlign: 'center', color: '#8AAAD4' }}>Cash</div>
@@ -555,7 +557,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── TESTIMONIALS ── */}
+      {/* â”€â”€ TESTIMONIALS â”€â”€ */}
       <section style={{ background: '#0F2442', borderTop: '1px solid #1E3A5F', borderBottom: '1px solid #1E3A5F', padding: '72px 24px' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 44 }}>
@@ -579,12 +581,12 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── PRICING ── */}
+      {/* â”€â”€ PRICING â”€â”€ */}
       <section id="pricing" style={{ padding: '80px 24px', maxWidth: 1180, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: 48 }}>
           <Tag>Transparent pricing</Tag>
           <h2 style={{ fontSize: 'clamp(22px, 3.5vw, 36px)', fontWeight: 800, marginBottom: 10 }}>Pay for what your business needs</h2>
-          <p style={{ fontSize: 15, color: '#8AAAD4' }}>14-day free trial · No credit card · Monthly, yearly, or one-off lifetime payment</p>
+          <p style={{ fontSize: 15, color: '#8AAAD4' }}>14-day free trial Â· No credit card Â· Monthly, yearly, or one-off lifetime payment</p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(270px, 1fr))', gap: 18, alignItems: 'start' }}>
           {PLANS.map(({ name, price, period, tag, highlight, desc, features }) => (
@@ -615,11 +617,11 @@ export default function LandingPage() {
           ))}
         </div>
         <p style={{ textAlign: 'center', fontSize: 13, color: '#6B8BB5', marginTop: 24 }}>
-          Also available: yearly (save 10%) and one-off lifetime payment — because Nigerian SME owners shouldn't fear recurring charges.
+          Also available: yearly (save 10%) and one-off lifetime payment â€” because Nigerian SME owners shouldn't fear recurring charges.
         </p>
       </section>
 
-      {/* ── CONTACT ── */}
+      {/* â”€â”€ CONTACT â”€â”€ */}
       <section id="contact" style={{ background: '#0F2442', borderTop: '1px solid #1E3A5F', borderBottom: '1px solid #1E3A5F', padding: '80px 24px' }}>
         <div style={{ maxWidth: 820, margin: '0 auto', textAlign: 'center' }}>
           <Tag>Get in touch</Tag>
@@ -627,7 +629,7 @@ export default function LandingPage() {
             We're here to help
           </h2>
           <p style={{ fontSize: 15, color: '#8AAAD4', maxWidth: 520, margin: '0 auto 48px', lineHeight: 1.75 }}>
-            Have a question about ShopKepa? Want a demo for your team? Reach us directly — real people, fast responses.
+            Have a question about ShopKepa? Want a demo for your team? Reach us directly â€” real people, fast responses.
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
@@ -648,7 +650,7 @@ export default function LandingPage() {
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>WhatsApp</div>
                 <div style={{ fontSize: 13, color: '#6B8BB5', lineHeight: 1.6, marginBottom: 16 }}>
-                  Chat with us directly — quick answers, demos, and support.
+                  {CONTACT.phoneDisplay}
                 </div>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#25D366', fontWeight: 600 }}>
                   Chat now <ArrowRight size={14} />
@@ -673,7 +675,7 @@ export default function LandingPage() {
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Telegram</div>
                 <div style={{ fontSize: 13, color: '#6B8BB5', lineHeight: 1.6, marginBottom: 16 }}>
-                  Join our channel for updates, tips, and announcements.
+                  {CONTACT.phoneDisplay}
                 </div>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#0088CC', fontWeight: 600 }}>
                   Open Telegram <ArrowRight size={14} />
@@ -696,7 +698,7 @@ export default function LandingPage() {
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Email</div>
                 <div style={{ fontSize: 13, color: '#6B8BB5', lineHeight: 1.6, marginBottom: 16 }}>
-                  For detailed questions, partnerships, and enterprise enquiries.
+                  {CONTACT.emailDisplay}
                 </div>
                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#C9A84C', fontWeight: 600 }}>
                   Send email <ArrowRight size={14} />
@@ -707,12 +709,12 @@ export default function LandingPage() {
 
           <div style={{ marginTop: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             <MapPin size={14} color="#6B8BB5" />
-            <span style={{ fontSize: 13, color: '#6B8BB5' }}>Tech Affairs and Innovative Hub · Nigeria</span>
+            <span style={{ fontSize: 13, color: '#6B8BB5' }}>Tech Affairs and Innovative Hub Â· Nigeria</span>
           </div>
         </div>
       </section>
 
-      {/* ── FINAL CTA ── */}
+      {/* â”€â”€ FINAL CTA â”€â”€ */}
       <div style={{ background: '#0F2442', borderTop: '1px solid #1E3A5F', padding: '80px 24px', textAlign: 'center' }}>
         <div style={{ maxWidth: 620, margin: '0 auto' }}>
           <h2 style={{ fontSize: 'clamp(24px, 4vw, 42px)', fontWeight: 800, marginBottom: 14 }}>
@@ -722,7 +724,7 @@ export default function LandingPage() {
             No app store. No scanner hardware. No long contracts. Just a tool that understands how Nigerian traders actually operate.
           </p>
           <Link to="/signup" style={{ display: 'inline-flex', alignItems: 'center', gap: 10, background: '#C9A84C', color: '#0A1628', fontWeight: 800, fontSize: 17, padding: '16px 40px', borderRadius: 9, textDecoration: 'none' }}>
-            start now—  <ArrowRight size={20} />
+            start nowâ€”  <ArrowRight size={20} />
           </Link>
           <div style={{ display: 'flex', gap: 20, justifyContent: 'center', marginTop: 24, flexWrap: 'wrap' }}>
             {['No credit card', 'No app store needed', 'Cancel anytime', '24/7 support'].map(t => (
@@ -734,14 +736,14 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* ── FOOTER ── */}
+      {/* â”€â”€ FOOTER â”€â”€ */}
       <footer style={{ background: '#070E1A', borderTop: '1px solid #1E3A5F', padding: '48px 24px 28px' }} aria-label="Site footer">
         <div style={{ maxWidth: 1180, margin: '0 auto' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr', gap: 32, marginBottom: 36 }} className="sk-footer-grid">
             <div>
               <div style={{ fontSize: 20, fontWeight: 800, color: '#C9A84C', marginBottom: 10 }}>ShopKepa</div>
               <p style={{ fontSize: 13, color: '#6B8BB5', lineHeight: 1.7, marginBottom: 14 }}>
-                The retail POS built for Nigerian businesses — installments, job cards, multi-branch stock, offline sales, and true profit tracking.
+                The retail POS built for Nigerian businesses â€” installments, job cards, multi-branch stock, offline sales, and true profit tracking.
               </p>
               {/* Social / contact quick links in footer */}
               <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
@@ -781,8 +783,8 @@ export default function LandingPage() {
             ))}
           </div>
           <div style={{ borderTop: '1px solid #1E3A5F', paddingTop: 22, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-            <span style={{ fontSize: 12, color: '#3D5A7A' }}>© 2026 Tech Affairs and Innovative Hub. All rights reserved. ShopKepa is a registered product.</span>
-            <span style={{ fontSize: 12, color: '#3D5A7A' }}>Made with ♥ in Nigeria 🇳🇬</span>
+            <span style={{ fontSize: 12, color: '#3D5A7A' }}>Â© 2026 Tech Affairs and Innovative Hub. All rights reserved. ShopKepa is a registered product.</span>
+            <span style={{ fontSize: 12, color: '#3D5A7A' }}>Made with â™¥ in Nigeria ðŸ‡³ðŸ‡¬</span>
           </div>
         </div>
       </footer>
@@ -806,3 +808,4 @@ export default function LandingPage() {
     </div>
   )
 }
+

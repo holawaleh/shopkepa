@@ -99,7 +99,7 @@ export default function SignupPage() {
     if (!validateStep2()) return
     setLoading(true)
     try {
-      await api.post('/api/v1/auth/register/', {
+      await api.post('/auth/register/', {
         first_name:    form.first_name,
         last_name:     form.last_name,
         email:         form.email,
