@@ -7,47 +7,6 @@ import { printJobCardReceipt } from '../../utils/printDoc'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 
-// ─── Services catalogue helpers (localStorage-backed) ─────────────────────
-
-const DEFAULT_SERVICES = [
-  { name: 'Screen Replacement',         device_type: 'Smartphone',     base_price: 15000, est_days: 1 },
-  { name: 'Battery Replacement',        device_type: 'Smartphone',     base_price: 5000,  est_days: 1 },
-  { name: 'Charging Port Repair',       device_type: 'Smartphone',     base_price: 5000,  est_days: 1 },
-  { name: 'Speaker / Earpiece Repair',  device_type: 'Smartphone',     base_price: 4000,  est_days: 1 },
-  { name: 'Software Flash / Unlock',    device_type: 'Smartphone',     base_price: 5000,  est_days: 1 },
-  { name: 'Water Damage Treatment',     device_type: 'Smartphone',     base_price: 10000, est_days: 2 },
-  { name: 'Camera Repair',              device_type: 'Smartphone',     base_price: 8000,  est_days: 1 },
-  { name: 'Screen Replacement',         device_type: 'Laptop',         base_price: 35000, est_days: 2 },
-  { name: 'Keyboard Replacement',       device_type: 'Laptop',         base_price: 20000, est_days: 1 },
-  { name: 'Fan Cleaning & Servicing',   device_type: 'Laptop',         base_price: 8000,  est_days: 1 },
-  { name: 'OS Installation',            device_type: 'Laptop',         base_price: 10000, est_days: 1 },
-  { name: 'Battery Replacement',        device_type: 'Laptop',         base_price: 25000, est_days: 1 },
-  { name: 'Motherboard Repair',         device_type: 'Laptop',         base_price: 50000, est_days: 5 },
-  { name: 'Power Supply Repair',        device_type: 'TV',             base_price: 15000, est_days: 2 },
-  { name: 'Screen / Panel Repair',      device_type: 'TV',             base_price: 40000, est_days: 3 },
-  { name: 'Gas Refill (R22/R410)',      device_type: 'Air Conditioner',base_price: 20000, est_days: 1 },
-  { name: 'PCB / Board Repair',         device_type: 'Air Conditioner',base_price: 30000, est_days: 3 },
-  { name: 'Compressor Replacement',     device_type: 'Refrigerator',   base_price: 45000, est_days: 3 },
-  { name: 'Gas Refill',                 device_type: 'Refrigerator',   base_price: 15000, est_days: 1 },
-  { name: 'Full Service / Maintenance', device_type: 'Generator',      base_price: 15000, est_days: 1 },
-  { name: 'Carburetor Cleaning',        device_type: 'Generator',      base_price: 8000,  est_days: 1 },
-  { name: 'AVR Replacement',            device_type: 'Generator',      base_price: 20000, est_days: 2 },
-]
-
-function getServicesKey(userId) { return `sk_services_${userId}` }
-
-function loadServices(userId) {
-  try {
-    const raw = localStorage.getItem(getServicesKey(userId))
-    if (raw) return JSON.parse(raw)
-  } catch {}
-  return DEFAULT_SERVICES.map((s, i) => ({ ...s, id: `default_${i}` }))
-}
-
-function saveServices(userId, services) {
-  try { localStorage.setItem(getServicesKey(userId), JSON.stringify(services)) } catch {}
-}
-
 // ─── Shared constants ─────────────────────────────────────────────────────
 
 const STATUS_OPTS = [
@@ -83,7 +42,7 @@ const EMPTY_JOB = {
   customer_complaint: '', labour_charge: '0', branch_id: '', service_id: '',
 }
 
-const EMPTY_SVC = { name: '', device_type: 'Smartphone', base_price: '', est_days: '1' }
+const EMPTY_SVC = { name: '', category: '', base_price: '', description: '' }
 
 function Modal({ title, onClose, children, maxWidth = 480 }) {
   return (
@@ -123,41 +82,79 @@ function ErrBanner({ msg }) {
   )
 }
 
-// ─── Services tab ─────────────────────────────────────────────────────────
+// ─── Services tab (admin-managed, backend-backed) ─────────────────────────
 
-function ServicesTab({ userId, isOwner }) {
-  const [services, setServices] = useState(() => loadServices(userId))
-  const [modal, setModal]       = useState(null) // null | 'add' | 'edit'
+function ServicesTab({ isOwner }) {
+  const toast                   = useToast()
+  const [services, setServices] = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState('')
+  const [modal, setModal]       = useState(null)
   const [editing, setEditing]   = useState(null)
   const [form, setForm]         = useState(EMPTY_SVC)
+  const [saving, setSaving]     = useState(false)
 
-  const persist = (list) => { setServices(list); saveServices(userId, list) }
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await jobCardsAPI.listServices()
+      setServices(Array.isArray(res.data) ? res.data : (res.data.results ?? []))
+    } catch (e) { setError(parseApiError(e)) }
+    finally { setLoading(false) }
+  }, [])
 
-  const openAdd = () => { setForm(EMPTY_SVC); setEditing(null); setModal('svc') }
-  const openEdit = (s) => { setForm({ name: s.name, device_type: s.device_type, base_price: String(s.base_price), est_days: String(s.est_days) }); setEditing(s); setModal('svc') }
+  useEffect(() => { load() }, [load])
 
-  const handleSave = () => {
-    if (!form.name.trim()) return
-    const price = parseFloat(form.base_price) || 0
-    const days  = parseInt(form.est_days, 10) || 1
-    if (editing) {
-      persist(services.map(s => s.id === editing.id ? { ...s, ...form, base_price: price, est_days: days } : s))
-    } else {
-      persist([...services, { id: `custom_${Date.now()}`, name: form.name.trim(), device_type: form.device_type, base_price: price, est_days: days }])
-    }
-    setModal(null)
+  const openAdd  = () => { setForm(EMPTY_SVC); setEditing(null); setError(''); setModal('svc') }
+  const openEdit = (s) => {
+    setForm({ name: s.name, category: s.category ?? '', base_price: String(s.base_price), description: s.description ?? '' })
+    setEditing(s); setError(''); setModal('svc')
   }
 
-  const handleDelete = (id) => {
-    if (!confirm('Remove this service from the catalogue?')) return
-    persist(services.filter(s => s.id !== id))
+  const handleSave = async () => {
+    if (!form.name.trim()) { setError('Service name is required.'); return }
+    setSaving(true); setError('')
+    try {
+      const payload = {
+        name:        form.name.trim(),
+        category:    form.category.trim(),
+        base_price:  parseFloat(form.base_price) || 0,
+        description: form.description.trim(),
+      }
+      if (editing) {
+        await jobCardsAPI.updateService(editing.id, payload)
+        toast.success(`${payload.name} updated`)
+      } else {
+        await jobCardsAPI.createService(payload)
+        toast.success(`${payload.name} added to service types`)
+      }
+      setModal(null); load()
+    } catch (e) { setError(parseApiError(e)) }
+    finally { setSaving(false) }
   }
 
-  // Group by device_type
+  const handleDelete = async (s) => {
+    if (!confirm(`Remove "${s.name}" from service types?`)) return
+    try {
+      await jobCardsAPI.deleteService(s.id)
+      toast.success(`${s.name} removed`)
+      load()
+    } catch (e) { alert(parseApiError(e)) }
+  }
+
+  const handleToggle = async (s) => {
+    try {
+      await jobCardsAPI.updateService(s.id, { is_active: !s.is_active })
+      load()
+    } catch (e) { alert(parseApiError(e)) }
+  }
+
+  // Group by category
   const grouped = {}
   services.forEach(s => {
-    if (!grouped[s.device_type]) grouped[s.device_type] = []
-    grouped[s.device_type].push(s)
+    const cat = s.category || 'General'
+    if (!grouped[cat]) grouped[cat] = []
+    grouped[cat].push(s)
   })
 
   const set = (f) => (e) => setForm(p => ({ ...p, [f]: e.target.value }))
@@ -166,46 +163,63 @@ function ServicesTab({ userId, isOwner }) {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <p style={{ fontSize: 13, color: 'var(--muted)' }}>
-          Standard services and base prices for your repair shop. Pick a service when creating a job card to pre-fill the labour charge.
+          Define service types and standard prices for your repair shop. Staff pick from these when creating a job card.
+          {!isOwner && <span style={{ color: 'var(--warning)', marginLeft: 6 }}>(View only — contact admin to make changes)</span>}
         </p>
-        <button className="btn-gold" style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 16 }} onClick={openAdd}>
-          <Plus size={14} /> Add Service
-        </button>
+        {isOwner && (
+          <button className="btn-gold" style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 16 }} onClick={openAdd}>
+            <Plus size={14} /> Add Service Type
+          </button>
+        )}
       </div>
 
-      {Object.entries(grouped).map(([deviceType, list]) => (
-        <div key={deviceType} style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-            {deviceType}
+      <ErrBanner msg={error} />
+      {loading ? <p style={{ color: 'var(--muted)', fontSize: 13 }}>Loading…</p> : (
+        services.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 24px', color: 'var(--muted)', fontSize: 13 }}>
+            No service types defined yet.{isOwner && <> Click <strong style={{ color: 'var(--light)' }}>Add Service Type</strong> to get started.</>}
           </div>
-          <div style={{ background: 'var(--blue)', border: '1px solid var(--mid)', borderRadius: 8, overflow: 'hidden' }}>
-            {list.map((s, idx) => (
-              <div key={s.id} style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '10px 14px',
-                borderBottom: idx < list.length - 1 ? '1px solid var(--mid)' : 'none',
-              }}>
-                <div>
-                  <div style={{ fontSize: 13, color: 'var(--light)', fontWeight: 500 }}>{s.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-                    Est. {s.est_days} day{s.est_days !== 1 ? 's' : ''}
+        ) : (
+          Object.entries(grouped).map(([cat, list]) => (
+            <div key={cat} style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>{cat}</div>
+              <div style={{ background: 'var(--blue)', border: '1px solid var(--mid)', borderRadius: 8, overflow: 'hidden' }}>
+                {list.map((s, idx) => (
+                  <div key={s.id} style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '10px 14px', opacity: s.is_active ? 1 : 0.5,
+                    borderBottom: idx < list.length - 1 ? '1px solid var(--mid)' : 'none',
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 13, color: 'var(--light)', fontWeight: 500 }}>
+                        {s.name}
+                        {!s.is_active && <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 8 }}>(inactive)</span>}
+                      </div>
+                      {s.description && <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{s.description}</div>}
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span style={{ fontSize: 14, color: 'var(--gold)', fontWeight: 600 }}>{formatNaira(s.base_price)}</span>
+                      {isOwner && (
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button onClick={() => openEdit(s)} className="btn-ghost" style={{ padding: '3px 7px' }}><Edit2 size={12} /></button>
+                          <button onClick={() => handleToggle(s)} className="btn-ghost" style={{ padding: '3px 7px', fontSize: 11, color: s.is_active ? 'var(--muted)' : 'var(--success)' }}>
+                            {s.is_active ? 'Hide' : 'Show'}
+                          </button>
+                          <button onClick={() => handleDelete(s)} className="btn-ghost" style={{ padding: '3px 7px', color: 'var(--error)' }}><Trash2 size={12} /></button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span style={{ fontSize: 14, color: 'var(--gold)', fontWeight: 600 }}>{formatNaira(s.base_price)}</span>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <button onClick={() => openEdit(s)} className="btn-ghost" style={{ padding: '3px 7px' }}><Edit2 size={12} /></button>
-                    <button onClick={() => handleDelete(s.id)} className="btn-ghost" style={{ padding: '3px 7px', color: 'var(--error)' }}><Trash2 size={12} /></button>
-                  </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      ))}
+            </div>
+          ))
+        )
+      )}
 
       {modal === 'svc' && (
-        <Modal title={editing ? 'Edit Service' : 'Add Service'} onClose={() => setModal(null)}>
+        <Modal title={editing ? 'Edit Service Type' : 'Add Service Type'} onClose={() => setModal(null)}>
+          <ErrBanner msg={error} />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
               <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Service name *</label>
@@ -213,10 +227,11 @@ function ServicesTab({ userId, isOwner }) {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
-                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Device type</label>
-                <select className="input" value={form.device_type} onChange={set('device_type')}>
-                  {DEVICE_TYPES.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Category / Device type</label>
+                <input className="input" list="device-types-list" value={form.category} onChange={set('category')} placeholder="e.g. Smartphone" />
+                <datalist id="device-types-list">
+                  {DEVICE_TYPES.map(d => <option key={d} value={d} />)}
+                </datalist>
               </div>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Base price (₦)</label>
@@ -224,13 +239,13 @@ function ServicesTab({ userId, isOwner }) {
               </div>
             </div>
             <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Estimated turnaround (days)</label>
-              <input className="input" type="number" min="1" value={form.est_days} onChange={set('est_days')} placeholder="1" />
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Description (optional)</label>
+              <input className="input" value={form.description} onChange={set('description')} placeholder="Brief description…" />
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <button className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>
-              <button className="btn-gold" style={{ flex: 2 }} onClick={handleSave}>
-                {editing ? 'Save Changes' : 'Add Service'}
+              <button className="btn-gold" style={{ flex: 2 }} onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving…' : editing ? 'Save Changes' : 'Add Service Type'}
               </button>
             </div>
           </div>
@@ -242,10 +257,11 @@ function ServicesTab({ userId, isOwner }) {
 
 // ─── Job Cards tab ────────────────────────────────────────────────────────
 
-function JobCardsTab({ branches, userId }) {
+function JobCardsTab({ branches }) {
   const { user } = useAuth()
   const toast    = useToast()
   const [jobs, setJobs]             = useState([])
+  const [services, setServices]     = useState([])
   const [loading, setLoading]       = useState(true)
   const [search, setSearch]         = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -259,14 +275,21 @@ function JobCardsTab({ branches, userId }) {
   const [payAmount, setPayAmount]   = useState('')
   const [payMethod, setPayMethod]   = useState('cash')
 
-  const services = loadServices(userId)
-
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await jobCardsAPI.list({ status: statusFilter || undefined })
-      const raw = res.data
-      setJobs(Array.isArray(raw) ? raw : (raw.results ?? []))
+      const [jobsRes, svcRes] = await Promise.allSettled([
+        jobCardsAPI.list({ status: statusFilter || undefined }),
+        jobCardsAPI.listServices(),
+      ])
+      if (jobsRes.status === 'fulfilled') {
+        const raw = jobsRes.value.data
+        setJobs(Array.isArray(raw) ? raw : (raw.results ?? []))
+      }
+      if (svcRes.status === 'fulfilled') {
+        const raw = svcRes.value.data
+        setServices(Array.isArray(raw) ? raw : (raw.results ?? []))
+      }
     } catch (err) {
       setError(parseApiError(err))
     } finally {
@@ -288,14 +311,15 @@ function JobCardsTab({ branches, userId }) {
     setFormErrors(fe => ({ ...fe, [field]: '' }))
   }
 
-  // When a service is selected from dropdown, pre-fill device + labour
+  // When a service type is selected, pre-fill device description and labour charge
   const handleServicePick = (svcId) => {
+    if (!svcId) { setForm(f => ({ ...f, service_id: '' })); return }
     const svc = services.find(s => s.id === svcId)
-    if (!svc) { setForm(f => ({ ...f, service_id: '' })); return }
+    if (!svc) return
     setForm(f => ({
       ...f,
       service_id:         svcId,
-      device_description: f.device_description || svc.device_type,
+      device_description: f.device_description || (svc.category ? `${svc.category} — ${svc.name}` : svc.name),
       labour_charge:      String(svc.base_price),
     }))
   }
@@ -479,26 +503,33 @@ function JobCardsTab({ branches, userId }) {
           <ErrBanner msg={error} />
           <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-            {/* Pick from services catalogue */}
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>
-                Pick from service catalogue <span style={{ color: 'var(--muted)' }}>(optional)</span>
-              </label>
-              <select className="input" value={form.service_id} onChange={e => handleServicePick(e.target.value)}>
-                <option value="">— Select a standard service —</option>
-                {DEVICE_TYPES.map(dt => {
-                  const dtSvcs = services.filter(s => s.device_type === dt)
-                  if (dtSvcs.length === 0) return null
-                  return (
-                    <optgroup key={dt} label={dt}>
-                      {dtSvcs.map(s => (
-                        <option key={s.id} value={s.id}>{s.name} — {formatNaira(s.base_price)}</option>
-                      ))}
-                    </optgroup>
-                  )
-                })}
-              </select>
-            </div>
+            {/* Service type picker */}
+            {services.length > 0 && (
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>
+                  Type of service <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>(optional — pre-fills device & labour charge)</span>
+                </label>
+                <select className="input" value={form.service_id} onChange={e => handleServicePick(e.target.value)}>
+                  <option value="">— Select service type —</option>
+                  {(() => {
+                    // Group by category
+                    const grouped = {}
+                    services.forEach(s => {
+                      const cat = s.category || 'General'
+                      if (!grouped[cat]) grouped[cat] = []
+                      grouped[cat].push(s)
+                    })
+                    return Object.entries(grouped).map(([cat, list]) => (
+                      <optgroup key={cat} label={cat}>
+                        {list.map(s => (
+                          <option key={s.id} value={s.id}>{s.name} — {formatNaira(s.base_price)}</option>
+                        ))}
+                      </optgroup>
+                    ))
+                  })()}
+                </select>
+              </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
@@ -533,7 +564,7 @@ function JobCardsTab({ branches, userId }) {
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Labour charge (₦)</label>
                 <input className="input" type="number" min="0" step="0.01"
                   value={form.labour_charge} onChange={set('labour_charge')} placeholder="0.00" />
-                {form.service_id && <span style={{ fontSize: 11, color: 'var(--gold)', marginTop: 3, display: 'block' }}>Pre-filled from service catalogue.</span>}
+                {form.service_id && <span style={{ fontSize: 11, color: 'var(--gold)', marginTop: 3, display: 'block' }}>Pre-filled from selected service type. You can adjust this.</span>}
               </div>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Branch *</label>
@@ -663,8 +694,8 @@ export default function JobCardsPage() {
         ))}
       </div>
 
-      {tab === 'jobs'     && <JobCardsTab branches={branches} userId={user?.id} />}
-      {tab === 'services' && <ServicesTab userId={user?.id} isOwner={isOwner} />}
+      {tab === 'jobs'     && <JobCardsTab branches={branches} />}
+      {tab === 'services' && <ServicesTab isOwner={isOwner} />}
     </AppLayout>
   )
 }

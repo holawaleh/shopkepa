@@ -146,11 +146,15 @@ export const reportsAPI = {
 }
 
 export const jobCardsAPI = {
-  list:   (params) => api.get('/jobcards/', { params }),
-  get:    (id)     => api.get(`/jobcards/${id}/`),
-  create: (data)   => api.post('/jobcards/', data),
-  update: (id, d)  => api.patch(`/jobcards/${id}/`, d),
-  pay:    (id, d)  => api.post(`/jobcards/${id}/add-payment/`, d),
+  list:         (params) => api.get('/job-cards/', { params }),
+  get:          (id)     => api.get(`/job-cards/${id}/`),
+  create:       (data)   => api.post('/job-cards/', data),
+  update:       (id, d)  => api.patch(`/job-cards/${id}/`, d),
+  pay:          (id, d)  => api.post(`/job-cards/${id}/add-payment/`, d),
+  listServices: ()       => api.get('/job-cards/services/'),
+  createService:(data)   => api.post('/job-cards/services/', data),
+  updateService:(id, d)  => api.patch(`/job-cards/services/${id}/`, d),
+  deleteService:(id)     => api.delete(`/job-cards/services/${id}/`),
 }
 
 export const branchesAPI = {

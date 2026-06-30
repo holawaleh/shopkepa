@@ -79,7 +79,7 @@ export default function ProductsPage() {
   const [modal, setModal]             = useState(null) // null | 'add' | 'edit' | 'restock'
   const [editing, setEditing]         = useState(null)
   const [restockTarget, setRestockTarget] = useState(null)
-  const [restockForm, setRestockForm] = useState({ branch_id: '', quantity_change: '', notes: '' })
+  const [restockForm, setRestockForm] = useState({ branch_id: '', quantity_change: '', reason: '' })
   const [form, setForm]               = useState(EMPTY_FORM)
   const [formErrors, setFormErrors]   = useState({})
   const [saving, setSaving]           = useState(false)
@@ -110,7 +110,7 @@ export default function ProductsPage() {
 
   const openRestock = (p) => {
     setRestockTarget(p)
-    setRestockForm({ branch_id: branches[0]?.id || '', quantity_change: '', notes: '' })
+    setRestockForm({ branch_id: branches[0]?.id || '', quantity_change: '', reason: '' })
     setError('')
     setModal('restock')
   }
@@ -124,8 +124,9 @@ export default function ProductsPage() {
     try {
       await productsAPI.adjustStock(restockTarget.id, {
         branch_id:       restockForm.branch_id,
+        adjustment_type: qty > 0 ? 'restock' : 'manual_decrease',
         quantity_change: qty,
-        notes:           restockForm.notes.trim() || undefined,
+        reason:          restockForm.reason.trim() || undefined,
       })
       setModal(null)
       toast.success(`${qty > 0 ? `+${qty}` : qty} units ${qty > 0 ? 'added to' : 'removed from'} ${restockTarget.name}`)
@@ -458,8 +459,8 @@ export default function ProductsPage() {
             </div>
             <div>
               <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Reason / notes</label>
-              <input className="input" value={restockForm.notes}
-                onChange={e => setRestockForm(f => ({ ...f, notes: e.target.value }))}
+              <input className="input" value={restockForm.reason}
+                onChange={e => setRestockForm(f => ({ ...f, reason: e.target.value }))}
                 placeholder="e.g. New delivery, Stock correction…" />
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
