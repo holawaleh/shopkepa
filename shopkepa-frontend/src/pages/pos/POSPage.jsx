@@ -1,51 +1,99 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { Search, Plus, Minus, Trash2, X, AlertCircle, ShoppingCart, Check, Printer } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import {
+  Search, Plus, Minus, Trash2, X, AlertCircle,
+  ShoppingCart, Check, Printer, ChevronLeft, ChevronRight,
+} from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
 import { productsAPI, salesAPI, modulesAPI, branchesAPI, customersAPI } from '../../api/client'
 import { formatNaira, parseApiError } from '../../utils/format'
 import { printSaleReceipt } from '../../utils/printDoc'
 import { useAuth } from '../../context/AuthContext'
 
+const PAGE_SIZE = 12
+
+const LOYALTY_COLORS = {
+  bronze:   { bg: 'rgba(205,127,50,0.15)',  text: '#CD7F32' },
+  silver:   { bg: 'rgba(192,192,192,0.15)', text: '#C0C0C0' },
+  gold:     { bg: 'rgba(201,168,76,0.15)',  text: 'var(--gold)' },
+  platinum: { bg: 'rgba(229,228,226,0.15)', text: '#E5E4E2' },
+  vip:      { bg: 'rgba(120,60,220,0.15)',  text: '#9966FF' },
+}
+
+function LoyaltyBadge({ tag }) {
+  if (!tag) return null
+  const c = LOYALTY_COLORS[tag] || { bg: 'rgba(150,150,150,0.15)', text: 'var(--muted)' }
+  return (
+    <span style={{
+      fontSize: 10, padding: '2px 7px', borderRadius: 20, textTransform: 'capitalize',
+      background: c.bg, color: c.text, fontWeight: 600,
+    }}>
+      {tag}
+    </span>
+  )
+}
+
+function StockBadge({ remaining }) {
+  if (remaining <= 0) return (
+    <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'rgba(224,85,85,0.15)', color: 'var(--error)' }}>
+      Out of stock
+    </span>
+  )
+  if (remaining <= 5) return (
+    <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'rgba(201,168,76,0.15)', color: 'var(--warning)' }}>
+      {remaining} left
+    </span>
+  )
+  return (
+    <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'rgba(76,175,125,0.12)', color: 'var(--success)' }}>
+      {remaining} in stock
+    </span>
+  )
+}
+
 export default function POSPage() {
-  // Setup state
-  const [branches, setBranches]         = useState([])
+  // Keep useAuth at the very top — must never be below an early return
+  const { user } = useAuth()
+
+  // ── Setup ─────────────────────────────────────────────────────────────────
+  const [branches, setBranches]           = useState([])
   const [activeModules, setActiveModules] = useState([])
-  const [branchId, setBranchId]         = useState('')
-  const [moduleId, setModuleId]         = useState('')
-  const [setupDone, setSetupDone]       = useState(false)
-  const [setupError, setSetupError]     = useState('')
+  const [branchId, setBranchId]           = useState('')
+  const [moduleId, setModuleId]           = useState('')
+  const [setupDone, setSetupDone]         = useState(false)
+  const [setupError, setSetupError]       = useState('')
 
-  // Product search
-  const [query, setQuery]               = useState('')
-  const [searchResults, setSearchResults] = useState([])
-  const [searching, setSearching]       = useState(false)
-  const searchTimer                     = useRef(null)
+  // ── Products grid ─────────────────────────────────────────────────────────
+  const [products, setProducts]               = useState([])
+  const [page, setPage]                       = useState(1)
+  const [totalCount, setTotalCount]           = useState(0)
+  const [loadingProducts, setLoadingProducts] = useState(false)
+  const [query, setQuery]                     = useState('')
+  const searchTimer                           = useRef(null)
 
-  // Cart
-  const [cart, setCart]                 = useState([]) // [{product, qty, unit_price, price_type}]
+  // ── Cart: { product, qty, unit_price, price_type, stock } ─────────────────
+  const [cart, setCart] = useState([])
 
-  // Customer
-  const [customerSearch, setCustomerSearch] = useState('')
-  const [customers, setCustomers]       = useState([])
+  // ── Customer ──────────────────────────────────────────────────────────────
+  const [customerSearch, setCustomerSearch]     = useState('')
+  const [customers, setCustomers]               = useState([])
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [showCustomerList, setShowCustomerList] = useState(false)
 
-  // Checkout
-  const [modal, setModal]               = useState(false)
-  const [payMethod, setPayMethod]       = useState('cash')
-  const [amountPaid, setAmountPaid]     = useState('')
-  const [notes, setNotes]               = useState('')
-  const [saving, setSaving]             = useState(false)
-  const [saleError, setSaleError]       = useState('')
-  const [success, setSuccess]           = useState(null)
+  // ── Checkout ──────────────────────────────────────────────────────────────
+  const [modal, setModal]         = useState(false)
+  const [payMethod, setPayMethod] = useState('cash')
+  const [amountPaid, setAmountPaid] = useState('')
+  const [notes, setNotes]         = useState('')
+  const [saving, setSaving]       = useState(false)
+  const [saleError, setSaleError] = useState('')
+  const [success, setSuccess]     = useState(null)
 
+  // ── Load branches + modules ───────────────────────────────────────────────
   useEffect(() => {
     Promise.all([branchesAPI.list(), modulesAPI.active()])
       .then(([bRes, mRes]) => {
-        const bRaw = bRes.data
-        const mRaw = mRes.data
-        const bs = Array.isArray(bRaw) ? bRaw : (bRaw.results ?? [])
-        const ms = mRaw.filter(bm => bm.is_active)
+        const bs = Array.isArray(bRes.data) ? bRes.data : (bRes.data.results ?? [])
+        const ms = (Array.isArray(mRes.data) ? mRes.data : (mRes.data.results ?? [])).filter(bm => bm.is_active)
         setBranches(bs)
         setActiveModules(ms)
         if (bs.length === 1) setBranchId(bs[0].id)
@@ -55,68 +103,100 @@ export default function POSPage() {
   }, [])
 
   const confirmSetup = () => {
-    if (!branchId) { setSetupError('Select a branch'); return }
-    if (!moduleId) { setSetupError('Select a module'); return }
+    if (!branchId) { setSetupError('Please select a branch.'); return }
+    if (!moduleId) { setSetupError('Please select a module.'); return }
     setSetupError('')
     setSetupDone(true)
   }
 
-  // Debounced product search
+  // ── Load product grid ─────────────────────────────────────────────────────
   useEffect(() => {
-    if (!setupDone || !query.trim()) { setSearchResults([]); return }
+    if (!setupDone || !branchId) return
     clearTimeout(searchTimer.current)
+    const delay = query ? 300 : 0
     searchTimer.current = setTimeout(async () => {
-      setSearching(true)
+      setLoadingProducts(true)
       try {
         const res = await productsAPI.list({
-          search: query.trim(),
-          branch_id: branchId,
-          is_active: true,
+          branch_id: branchId, is_active: true,
+          page, page_size: PAGE_SIZE,
+          ...(query ? { search: query } : {}),
         })
         const raw = res.data
-        setSearchResults((Array.isArray(raw) ? raw : (raw.results ?? [])).slice(0, 10))
-      } catch { setSearchResults([]) }
-      finally { setSearching(false) }
-    }, 300)
+        if (raw && raw.results !== undefined) {
+          setProducts(raw.results)
+          setTotalCount(raw.count)
+        } else {
+          const arr = Array.isArray(raw) ? raw : []
+          setProducts(arr)
+          setTotalCount(arr.length)
+        }
+      } catch { setProducts([]) }
+      finally { setLoadingProducts(false) }
+    }, delay)
     return () => clearTimeout(searchTimer.current)
-  }, [query, setupDone, branchId])
+  }, [setupDone, branchId, query, page])
+
+  const handleQueryChange = (val) => { setQuery(val); setPage(1) }
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+
+  // ── Cart helpers ──────────────────────────────────────────────────────────
+  const getStock = (product) => typeof product.stock === 'number' ? product.stock : 9999
+  const cartMap  = Object.fromEntries(cart.map(i => [i.product.id, i.qty]))
 
   const addToCart = (product) => {
+    const stock = getStock(product)
+    if (stock <= 0) return
     setCart(c => {
       const existing = c.find(i => i.product.id === product.id)
       if (existing) {
+        if (existing.qty >= stock) return c
         return c.map(i => i.product.id === product.id ? { ...i, qty: i.qty + 1 } : i)
       }
-      return [...c, {
-        product,
-        qty: 1,
-        unit_price: parseFloat(product.retail_price),
-        price_type: 'retail',
-      }]
+      return [...c, { product, qty: 1, unit_price: parseFloat(product.retail_price) || 0, price_type: 'retail', stock }]
     })
-    setQuery('')
-    setSearchResults([])
   }
 
   const updateQty = (productId, delta) => {
-    setCart(c =>
-      c.map(i => i.product.id === productId ? { ...i, qty: Math.max(1, i.qty + delta) } : i)
-    )
+    setCart(c => c.map(i => {
+      if (i.product.id !== productId) return i
+      return { ...i, qty: Math.max(1, Math.min(i.qty + delta, i.stock)) }
+    }))
   }
 
-  const removeFromCart = (productId) => {
-    setCart(c => c.filter(i => i.product.id !== productId))
+  const setQtyDirect = (productId, val) => {
+    setCart(c => c.map(i => {
+      if (i.product.id !== productId) return i
+      const n = parseInt(val, 10)
+      if (isNaN(n) || n < 1) return i
+      return { ...i, qty: Math.min(n, i.stock) }
+    }))
+  }
+
+  const setPriceType = (productId, type) => {
+    setCart(c => c.map(i => {
+      if (i.product.id !== productId) return i
+      const prices = {
+        retail:    parseFloat(i.product.retail_price)    || 0,
+        wholesale: parseFloat(i.product.wholesale_price) || parseFloat(i.product.retail_price) || 0,
+        custom:    i.unit_price,
+      }
+      return { ...i, price_type: type, unit_price: prices[type] }
+    }))
   }
 
   const updatePrice = (productId, val) => {
-    setCart(c =>
-      c.map(i => i.product.id === productId ? { ...i, unit_price: parseFloat(val) || 0, price_type: 'custom' } : i)
-    )
+    setCart(c => c.map(i =>
+      i.product.id === productId ? { ...i, unit_price: parseFloat(val) || 0, price_type: 'custom' } : i
+    ))
   }
 
-  const cartTotal = cart.reduce((sum, i) => sum + i.qty * i.unit_price, 0)
+  const removeFromCart = (productId) => setCart(c => c.filter(i => i.product.id !== productId))
 
-  // Customer search
+  const cartTotal     = cart.reduce((s, i) => s + i.qty * i.unit_price, 0)
+  const cartItemCount = cart.reduce((s, i) => s + i.qty, 0)
+
+  // ── Customer search ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!customerSearch.trim()) { setCustomers([]); return }
     const t = setTimeout(async () => {
@@ -130,6 +210,7 @@ export default function POSPage() {
     return () => clearTimeout(t)
   }, [customerSearch])
 
+  // ── Checkout ──────────────────────────────────────────────────────────────
   const openCheckout = () => {
     if (cart.length === 0) return
     setAmountPaid(cartTotal.toFixed(2))
@@ -139,10 +220,13 @@ export default function POSPage() {
     setModal(true)
   }
 
+  const balanceDue = Math.max(0, cartTotal - parseFloat(amountPaid || 0))
+  const change     = Math.max(0, parseFloat(amountPaid || 0) - cartTotal)
+
   const handleCheckout = async () => {
     setSaleError('')
     const paid = parseFloat(amountPaid)
-    if (isNaN(paid) || paid < 0) { setSaleError('Enter a valid amount'); return }
+    if (isNaN(paid) || paid < 0) { setSaleError('Please enter the amount paid by the customer.'); return }
     setSaving(true)
     try {
       const res = await salesAPI.create({
@@ -158,13 +242,17 @@ export default function POSPage() {
         })),
         payment_method:  payMethod,
         amount_paid:     paid,
-        notes:           notes,
+        notes,
         discount_amount: 0,
       })
       setSuccess(res.data)
       setCart([])
       setSelectedCustomer(null)
+      setCustomerSearch('')
       setModal(false)
+      // Reload product grid to refresh stock counts
+      setPage(1)
+      setQuery(q => q)
     } catch (err) {
       setSaleError(parseApiError(err))
     } finally {
@@ -172,7 +260,7 @@ export default function POSPage() {
     }
   }
 
-  // ── Setup screen ──
+  // ── Setup screen ──────────────────────────────────────────────────────────
   if (!setupDone) {
     return (
       <AppLayout>
@@ -181,18 +269,16 @@ export default function POSPage() {
           <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 28 }}>
             Select your branch and module to start selling.
           </p>
-
           {setupError && (
             <div style={{
               background: 'rgba(224,85,85,0.12)', border: '1px solid rgba(224,85,85,0.3)',
-              borderRadius: 'var(--r-sm)', padding: '10px 14px',
+              borderRadius: 8, padding: '10px 14px',
               display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16,
             }}>
               <AlertCircle size={14} color="var(--error)" />
               <span style={{ fontSize: 13, color: 'var(--error)' }}>{setupError}</span>
             </div>
           )}
-
           <div className="card" style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
               <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Branch</label>
@@ -211,7 +297,7 @@ export default function POSPage() {
               </select>
               {activeModules.length === 0 && (
                 <p style={{ fontSize: 11, color: 'var(--warning)', marginTop: 4 }}>
-                  No active modules. Enable modules in Settings first.
+                  No active modules — enable modules in Settings first.
                 </p>
               )}
             </div>
@@ -224,42 +310,10 @@ export default function POSPage() {
     )
   }
 
-  const { user } = useAuth()
-
-  // ── Success banner ──
-  const SuccessBanner = success && (
-    <div style={{
-      background: 'rgba(76,175,125,0.12)', border: '1px solid rgba(76,175,125,0.3)',
-      borderRadius: 8, padding: '12px 16px', marginBottom: 16,
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Check size={16} color="var(--success)" />
-        <span style={{ fontSize: 13, color: 'var(--success)' }}>
-          Sale {success.sale_number} recorded — {formatNaira(success.amount_paid)} paid.
-        </span>
-      </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button
-          onClick={() => printSaleReceipt(success, user?.business_name)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '5px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
-            background: 'rgba(201,168,76,0.15)', border: '1px solid rgba(201,168,76,0.3)',
-            color: 'var(--gold)',
-          }}
-        >
-          <Printer size={13} /> Print Receipt
-        </button>
-        <button onClick={() => setSuccess(null)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}>
-          <X size={15} />
-        </button>
-      </div>
-    </div>
-  )
-
+  // ── Main POS ──────────────────────────────────────────────────────────────
   return (
     <AppLayout>
+      {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--light)' }}>POS</h1>
         <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => setSetupDone(false)}>
@@ -267,11 +321,45 @@ export default function POSPage() {
         </button>
       </div>
 
-      {SuccessBanner}
+      {/* Success banner */}
+      {success && (
+        <div style={{
+          background: 'rgba(76,175,125,0.12)', border: '1px solid rgba(76,175,125,0.3)',
+          borderRadius: 8, padding: '12px 16px', marginBottom: 16,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Check size={16} color="var(--success)" />
+            <span style={{ fontSize: 13, color: 'var(--success)' }}>
+              Sale {success.sale_number} recorded — {formatNaira(success.amount_paid)} paid.
+            </span>
+            {parseFloat(success.balance_due || 0) > 0 && (
+              <span style={{ fontSize: 13, color: 'var(--warning)' }}>
+                Balance: {formatNaira(success.balance_due)}
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => printSaleReceipt(success, user?.business_name)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '5px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                background: 'rgba(201,168,76,0.15)', border: '1px solid rgba(201,168,76,0.3)', color: 'var(--gold)',
+              }}
+            >
+              <Printer size={13} /> Print Receipt
+            </button>
+            <button onClick={() => setSuccess(null)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}>
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+      )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 16, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16, alignItems: 'start' }}>
 
-        {/* Left: Product search */}
+        {/* ── Left: Products + Customer ── */}
         <div>
           {/* Search */}
           <div style={{ position: 'relative', marginBottom: 12 }}>
@@ -280,65 +368,41 @@ export default function POSPage() {
               className="input"
               placeholder="Search products by name or SKU…"
               value={query}
-              onChange={e => setQuery(e.target.value)}
-              style={{ paddingLeft: 34, fontSize: 15 }}
+              onChange={e => handleQueryChange(e.target.value)}
+              style={{ paddingLeft: 36 }}
               autoFocus
             />
+            {query && (
+              <button onClick={() => handleQueryChange('')}
+                style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}>
+                <X size={14} />
+              </button>
+            )}
           </div>
-
-          {/* Results dropdown */}
-          {(searchResults.length > 0 || searching) && (
-            <div style={{
-              background: 'var(--blue)', border: '1px solid var(--mid)',
-              borderRadius: 8, overflow: 'hidden', marginBottom: 12,
-            }}>
-              {searching ? (
-                <p style={{ padding: '12px 16px', color: 'var(--muted)', fontSize: 13 }}>Searching…</p>
-              ) : (
-                searchResults.map(p => {
-                  const stock = typeof p.stock === 'number' ? p.stock
-                    : Array.isArray(p.stock) ? p.stock.find(s => s.branch?.toString() === branchId)?.quantity_in_stock ?? '?'
-                    : '?'
-                  return (
-                    <button
-                      key={p.id}
-                      onClick={() => addToCart(p)}
-                      style={{
-                        width: '100%', padding: '12px 16px', background: 'none', border: 'none',
-                        borderBottom: '1px solid var(--mid)', cursor: 'pointer', textAlign: 'left',
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontSize: 14, color: 'var(--light)', fontWeight: 500 }}>{p.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
-                          SKU: {p.sku || '—'} · Stock: {stock}
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 14, color: 'var(--gold)', fontWeight: 600, flexShrink: 0, marginLeft: 12 }}>
-                        {formatNaira(p.retail_price)}
-                      </div>
-                    </button>
-                  )
-                })
-              )}
-            </div>
-          )}
 
           {/* Customer selector */}
           <div style={{
             background: 'var(--blue)', border: '1px solid var(--mid)',
-            borderRadius: 8, padding: '14px 16px', marginBottom: 12,
+            borderRadius: 8, padding: '12px 14px', marginBottom: 12,
           }}>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>Customer (optional)</div>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>Customer (optional)</div>
             {selectedCustomer ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <div style={{ fontSize: 13, color: 'var(--light)', fontWeight: 500 }}>{selectedCustomer.full_name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>{selectedCustomer.phone_number}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 13, color: 'var(--light)', fontWeight: 500 }}>{selectedCustomer.full_name}</span>
+                    <LoyaltyBadge tag={selectedCustomer.loyalty_tag} />
+                    <span style={{ fontSize: 11, color: 'var(--muted)' }}>Spent: {formatNaira(selectedCustomer.lifetime_spend || 0)}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{selectedCustomer.phone_number}</div>
+                  {parseFloat(selectedCustomer.total_outstanding_debt || 0) > 0 && (
+                    <div style={{ fontSize: 11, color: 'var(--warning)', marginTop: 2 }}>
+                      ⚠ Outstanding debt: {formatNaira(selectedCustomer.total_outstanding_debt)}
+                    </div>
+                  )}
                 </div>
                 <button onClick={() => { setSelectedCustomer(null); setCustomerSearch('') }}
-                  style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}>
+                  style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', flexShrink: 0, marginLeft: 8 }}>
                   <X size={15} />
                 </button>
               </div>
@@ -346,7 +410,7 @@ export default function POSPage() {
               <div style={{ position: 'relative' }}>
                 <input
                   className="input"
-                  placeholder="Search customer…"
+                  placeholder="Search customer by name or phone…"
                   value={customerSearch}
                   onChange={e => setCustomerSearch(e.target.value)}
                   style={{ fontSize: 13 }}
@@ -363,9 +427,13 @@ export default function POSPage() {
                         style={{
                           width: '100%', padding: '10px 14px', background: 'none', border: 'none',
                           borderBottom: '1px solid var(--mid)', cursor: 'pointer', textAlign: 'left',
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         }}>
-                        <div style={{ fontSize: 13, color: 'var(--light)' }}>{c.full_name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.phone_number}</div>
+                        <div>
+                          <div style={{ fontSize: 13, color: 'var(--light)' }}>{c.full_name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.phone_number}</div>
+                        </div>
+                        <LoyaltyBadge tag={c.loyalty_tag} />
                       </button>
                     ))}
                   </div>
@@ -373,82 +441,213 @@ export default function POSPage() {
               </div>
             )}
           </div>
+
+          {/* Product grid */}
+          {loadingProducts ? (
+            <p style={{ color: 'var(--muted)', fontSize: 13, padding: '24px 0' }}>Loading products…</p>
+          ) : products.length === 0 ? (
+            <div style={{
+              background: 'var(--blue)', border: '1px solid var(--mid)',
+              borderRadius: 8, padding: '36px 24px', textAlign: 'center',
+            }}>
+              <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+                {query ? `No products match "${query}".` : 'No products found for this branch. Add products in the Products page.'}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(155px, 1fr))',
+                gap: 10,
+              }}>
+                {products.map(p => {
+                  const cartQty   = cartMap[p.id] || 0
+                  const stock     = getStock(p)
+                  const remaining = stock - cartQty
+                  const disabled  = stock <= 0
+
+                  return (
+                    <button key={p.id} onClick={() => addToCart(p)} disabled={disabled}
+                      style={{
+                        background: disabled ? 'rgba(0,0,0,0.15)' : 'var(--blue)',
+                        border: `1px solid ${cartQty > 0 ? 'rgba(201,168,76,0.4)' : 'var(--mid)'}`,
+                        borderRadius: 8, padding: '12px 12px 10px',
+                        cursor: disabled ? 'not-allowed' : 'pointer',
+                        textAlign: 'left', position: 'relative',
+                        opacity: disabled ? 0.5 : 1,
+                        transition: 'border-color 0.15s, background 0.15s',
+                      }}>
+                      {cartQty > 0 && (
+                        <span style={{
+                          position: 'absolute', top: -7, right: -7,
+                          background: 'var(--gold)', color: 'var(--navy)',
+                          fontSize: 10, fontWeight: 700, borderRadius: 10,
+                          padding: '1px 6px', minWidth: 18, textAlign: 'center',
+                        }}>
+                          {cartQty}
+                        </span>
+                      )}
+                      <div style={{
+                        fontSize: 13, fontWeight: 500, color: 'var(--light)',
+                        overflow: 'hidden', textOverflow: 'ellipsis',
+                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                        lineHeight: 1.35, minHeight: 36, marginBottom: 8,
+                      }}>
+                        {p.name}
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--gold)', marginBottom: 6 }}>
+                        {formatNaira(p.retail_price)}
+                      </div>
+                      <StockBadge remaining={remaining} />
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  gap: 12, marginTop: 16,
+                }}>
+                  <button className="btn-ghost"
+                    style={{ padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 4 }}
+                    onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>
+                    <ChevronLeft size={14} /> Prev
+                  </button>
+                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+                    {page} / {totalPages} · {totalCount} products
+                  </span>
+                  <button className="btn-ghost"
+                    style={{ padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 4 }}
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
+                    Next <ChevronRight size={14} />
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
-        {/* Right: Cart */}
+        {/* ── Right: Cart ── */}
         <div style={{
           background: 'var(--blue)', border: '1px solid var(--mid)',
-          borderRadius: 10, padding: 16, position: 'sticky', top: 72,
+          borderRadius: 10, padding: 14, position: 'sticky', top: 72,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
             <ShoppingCart size={15} color="var(--gold)" />
             <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--light)' }}>Cart</span>
-            {cart.length > 0 && (
+            {cartItemCount > 0 && (
               <span style={{
                 background: 'var(--gold)', color: 'var(--navy)',
-                fontSize: 11, fontWeight: 700, borderRadius: 10,
-                padding: '1px 7px', marginLeft: 'auto',
-              }}>{cart.length}</span>
+                fontSize: 10, fontWeight: 700, borderRadius: 10,
+                padding: '1px 6px', marginLeft: 'auto',
+              }}>
+                {cartItemCount} item{cartItemCount !== 1 ? 's' : ''}
+              </span>
             )}
           </div>
 
           {cart.length === 0 ? (
-            <p style={{ color: 'var(--muted)', fontSize: 13, textAlign: 'center', padding: '24px 0' }}>
-              Search for products to add them here.
+            <p style={{ color: 'var(--muted)', fontSize: 13, textAlign: 'center', padding: '28px 0' }}>
+              Tap a product card to add it here.
             </p>
           ) : (
             <>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 380, overflowY: 'auto', marginBottom: 12 }}>
-                {cart.map(item => (
-                  <div key={item.product.id} style={{
-                    background: 'var(--navy)', borderRadius: 6, padding: '10px 12px',
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                      <div style={{ fontSize: 13, color: 'var(--light)', fontWeight: 500, flex: 1, minWidth: 0 }}>
-                        {item.product.name}
-                      </div>
-                      <button onClick={() => removeFromCart(item.product.id)}
-                        style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', flexShrink: 0 }}>
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <button onClick={() => updateQty(item.product.id, -1)}
-                          style={{ background: 'var(--mid)', border: 'none', color: 'var(--light)', borderRadius: 4, width: 22, height: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Minus size={11} />
-                        </button>
-                        <span style={{ fontSize: 13, color: 'var(--light)', minWidth: 24, textAlign: 'center' }}>{item.qty}</span>
-                        <button onClick={() => updateQty(item.product.id, 1)}
-                          style={{ background: 'var(--mid)', border: 'none', color: 'var(--light)', borderRadius: 4, width: 22, height: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <Plus size={11} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 440, overflowY: 'auto', marginBottom: 10 }}>
+                {cart.map(item => {
+                  const remaining = item.stock - item.qty
+                  return (
+                    <div key={item.product.id} style={{ background: 'var(--navy)', borderRadius: 6, padding: '10px 10px 8px' }}>
+                      {/* Name + delete */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6, marginBottom: 7 }}>
+                        <div style={{ fontSize: 12, color: 'var(--light)', fontWeight: 500, flex: 1, lineHeight: 1.3 }}>
+                          {item.product.name}
+                        </div>
+                        <button onClick={() => removeFromCart(item.product.id)}
+                          style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', flexShrink: 0, padding: 0 }}>
+                          <Trash2 size={12} />
                         </button>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ fontSize: 11, color: 'var(--muted)' }}>₦</span>
-                        <input
-                          type="number" min="0" step="0.01"
-                          value={item.unit_price}
-                          onChange={e => updatePrice(item.product.id, e.target.value)}
-                          style={{
-                            width: 80, padding: '3px 6px', borderRadius: 4, fontSize: 13,
-                            background: 'var(--blue)', border: '1px solid var(--mid)',
-                            color: 'var(--gold)', fontWeight: 500, textAlign: 'right',
-                          }}
-                        />
+
+                      {/* Price type toggle */}
+                      <div style={{ display: 'flex', gap: 3, marginBottom: 7 }}>
+                        {[['retail', 'Retail'], ['wholesale', 'Whsl'], ['custom', 'Custom']].map(([type, label]) => (
+                          <button key={type} onClick={() => setPriceType(item.product.id, type)}
+                            style={{
+                              flex: 1, padding: '3px 0', borderRadius: 4, fontSize: 10, cursor: 'pointer',
+                              border: `1px solid ${item.price_type === type ? 'rgba(201,168,76,0.5)' : 'var(--mid)'}`,
+                              background: item.price_type === type ? 'var(--gold-dim)' : 'transparent',
+                              color: item.price_type === type ? 'var(--gold)' : 'var(--muted)',
+                            }}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Qty controls + unit price */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <button onClick={() => updateQty(item.product.id, -1)}
+                            style={{ background: 'var(--mid)', border: 'none', color: 'var(--light)', borderRadius: 4, width: 22, height: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Minus size={10} />
+                          </button>
+                          <input
+                            type="number" min="1" max={item.stock}
+                            value={item.qty}
+                            onChange={e => setQtyDirect(item.product.id, e.target.value)}
+                            style={{
+                              width: 38, height: 22, padding: '0 4px', borderRadius: 4,
+                              fontSize: 12, textAlign: 'center', MozAppearance: 'textfield',
+                              background: 'var(--blue)', border: '1px solid var(--mid)', color: 'var(--light)',
+                            }}
+                          />
+                          <button onClick={() => updateQty(item.product.id, 1)}
+                            disabled={item.qty >= item.stock}
+                            style={{
+                              background: item.qty >= item.stock ? 'rgba(255,255,255,0.04)' : 'var(--mid)',
+                              border: 'none', borderRadius: 4, width: 22, height: 22,
+                              cursor: item.qty >= item.stock ? 'not-allowed' : 'pointer',
+                              color: item.qty >= item.stock ? 'var(--muted)' : 'var(--light)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                            }}>
+                            <Plus size={10} />
+                          </button>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                          <span style={{ fontSize: 10, color: 'var(--muted)' }}>₦</span>
+                          <input
+                            type="number" min="0" step="0.01"
+                            value={item.unit_price}
+                            onChange={e => updatePrice(item.product.id, e.target.value)}
+                            style={{
+                              width: 72, height: 22, padding: '0 4px', borderRadius: 4,
+                              fontSize: 12, textAlign: 'right', MozAppearance: 'textfield',
+                              background: 'var(--blue)', border: '1px solid var(--mid)',
+                              color: 'var(--gold)', fontWeight: 500,
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Subtotal + remaining */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 }}>
+                        <span style={{ fontSize: 10, color: remaining <= 3 && item.stock < 9999 ? 'var(--warning)' : 'var(--muted)' }}>
+                          {item.stock < 9999 ? `${remaining} remaining` : ''}
+                        </span>
+                        <span style={{ fontSize: 12, color: 'var(--gold)', fontWeight: 600 }}>
+                          {formatNaira(item.qty * item.unit_price)}
+                        </span>
                       </div>
                     </div>
-                    <div style={{ textAlign: 'right', fontSize: 11, color: 'var(--muted)', marginTop: 4 }}>
-                      Subtotal: {formatNaira(item.qty * item.unit_price)}
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
 
-              {/* Total & checkout */}
-              <div style={{ borderTop: '1px solid var(--mid)', paddingTop: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <span style={{ fontSize: 14, color: 'var(--muted)' }}>Total</span>
+              <div style={{ borderTop: '1px solid var(--mid)', paddingTop: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <span style={{ fontSize: 13, color: 'var(--muted)' }}>Total</span>
                   <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--gold)' }}>{formatNaira(cartTotal)}</span>
                 </div>
                 <button className="btn-gold" style={{ width: '100%', fontSize: 14 }} onClick={openCheckout}>
@@ -464,7 +663,7 @@ export default function POSPage() {
         </div>
       </div>
 
-      {/* Checkout modal */}
+      {/* ── Checkout modal ── */}
       {modal && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
@@ -473,9 +672,10 @@ export default function POSPage() {
         }}>
           <div style={{
             background: 'var(--blue)', border: '1px solid var(--mid)',
-            borderRadius: 12, padding: 24, width: '100%', maxWidth: 420,
+            borderRadius: 12, padding: 24, width: '100%', maxWidth: 440,
+            maxHeight: '92vh', overflowY: 'auto',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
               <h2 style={{ fontSize: 16, fontWeight: 600, color: 'var(--light)' }}>Complete Sale</h2>
               <button onClick={() => setModal(false)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}>
                 <X size={18} />
@@ -485,26 +685,50 @@ export default function POSPage() {
             {saleError && (
               <div style={{
                 background: 'rgba(224,85,85,0.12)', border: '1px solid rgba(224,85,85,0.3)',
-                borderRadius: 'var(--r-sm)', padding: '10px 14px',
-                display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16,
+                borderRadius: 8, padding: '10px 14px',
+                display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 16,
               }}>
-                <AlertCircle size={14} color="var(--error)" />
-                <span style={{ fontSize: 13, color: 'var(--error)' }}>{saleError}</span>
+                <AlertCircle size={14} color="var(--error)" style={{ flexShrink: 0, marginTop: 1 }} />
+                <span style={{ fontSize: 13, color: 'var(--error)', lineHeight: 1.4 }}>{saleError}</span>
+              </div>
+            )}
+
+            {/* Customer summary */}
+            {selectedCustomer && (
+              <div style={{ background: 'var(--navy)', borderRadius: 8, padding: '10px 12px', marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--light)' }}>{selectedCustomer.full_name}</span>
+                  <LoyaltyBadge tag={selectedCustomer.loyalty_tag} />
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                  Lifetime spend: {formatNaira(selectedCustomer.lifetime_spend || 0)}
+                </div>
+                {parseFloat(selectedCustomer.total_outstanding_debt || 0) > 0 && (
+                  <div style={{ fontSize: 11, color: 'var(--warning)', marginTop: 3 }}>
+                    ⚠ Existing debt: {formatNaira(selectedCustomer.total_outstanding_debt)}
+                  </div>
+                )}
               </div>
             )}
 
             {/* Items summary */}
-            <div style={{
-              background: 'var(--navy)', borderRadius: 8, padding: '12px 14px', marginBottom: 16,
-              maxHeight: 200, overflowY: 'auto',
-            }}>
+            <div style={{ background: 'var(--navy)', borderRadius: 8, padding: '10px 12px', marginBottom: 14, maxHeight: 180, overflowY: 'auto' }}>
               {cart.map(item => (
                 <div key={item.product.id} style={{
-                  display: 'flex', justifyContent: 'space-between', fontSize: 13,
+                  display: 'flex', justifyContent: 'space-between', fontSize: 12,
                   padding: '4px 0', borderBottom: '1px solid var(--mid)',
                 }}>
-                  <span style={{ color: 'var(--light)' }}>{item.product.name} × {item.qty}</span>
-                  <span style={{ color: 'var(--gold)' }}>{formatNaira(item.qty * item.unit_price)}</span>
+                  <span style={{ color: 'var(--light)' }}>
+                    {item.product.name} × {item.qty}
+                    {item.price_type !== 'retail' && (
+                      <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 4, textTransform: 'capitalize' }}>
+                        ({item.price_type})
+                      </span>
+                    )}
+                  </span>
+                  <span style={{ color: 'var(--gold)', flexShrink: 0, marginLeft: 8 }}>
+                    {formatNaira(item.qty * item.unit_price)}
+                  </span>
                 </div>
               ))}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontWeight: 700, fontSize: 14 }}>
@@ -514,6 +738,7 @@ export default function POSPage() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 16 }}>
+              {/* Payment method */}
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Payment method</label>
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -532,20 +757,31 @@ export default function POSPage() {
                 </div>
               </div>
 
+              {/* Amount paid */}
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Amount paid (₦)</label>
                 <input className="input" type="number" min="0" step="0.01"
                   value={amountPaid} onChange={e => setAmountPaid(e.target.value)} />
-                {parseFloat(amountPaid) < cartTotal && parseFloat(amountPaid) >= 0 && (
-                  <span style={{ fontSize: 11, color: 'var(--warning)', marginTop: 3, display: 'block' }}>
-                    Balance due: {formatNaira(cartTotal - parseFloat(amountPaid || 0))}
-                  </span>
+                {balanceDue > 0 && (
+                  <div style={{ fontSize: 11, color: 'var(--warning)', marginTop: 4, lineHeight: 1.5 }}>
+                    Balance due: {formatNaira(balanceDue)}
+                    {selectedCustomer
+                      ? ' — an installment plan will be created for this customer (up to 5 payments).'
+                      : ' — sale will be recorded as unpaid. Attach a customer to enable installment tracking.'}
+                  </div>
+                )}
+                {change > 0 && (
+                  <div style={{ fontSize: 11, color: 'var(--success)', marginTop: 4 }}>
+                    Change to give back: {formatNaira(change)}
+                  </div>
                 )}
               </div>
 
+              {/* Notes */}
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Notes (optional)</label>
-                <input className="input" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. Customer discount applied" />
+                <input className="input" value={notes} onChange={e => setNotes(e.target.value)}
+                  placeholder="e.g. Customer discount applied" />
               </div>
             </div>
 
@@ -558,12 +794,6 @@ export default function POSPage() {
           </div>
         </div>
       )}
-
-      <style>{`
-        @media (max-width: 768px) {
-          .pos-grid { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
     </AppLayout>
   )
 }

@@ -155,7 +155,3 @@ export const staffAPI = {
   delete: (id)         => api.delete(`/staff/${id}/`),
 }
 
-// /health/ lives at backend root, not under /api/v1/
-export const healthAPI = {
-  ping: () => axios.get(`${BACKEND_ROOT}/health/`, { timeout: 3000, withCredentials: true }),
-}

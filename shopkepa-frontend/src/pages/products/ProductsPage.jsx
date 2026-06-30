@@ -22,6 +22,18 @@ const MODULE_PLACEHOLDERS = {
   pos:         'e.g. Product name',
 }
 
+const MODULE_SKU_PLACEHOLDERS = {
+  pharmacy:    'e.g. PARA-500-S10',
+  restaurant:  'e.g. REST-JOLLOF-PP',
+  electronics: 'e.g. SAM-65W-USBC',
+  fashion:     'e.g. POLO-SLIM-BLK-M',
+  repairs:     'e.g. SVC-SCR-REPL',
+  salon:       'e.g. SLN-RELAX-TRT',
+  grocery:     'e.g. GRC-RICE-BAS-5K',
+  supermarket: 'e.g. SUP-SUGAR-DAN-1K',
+  pos:         'e.g. PRD-001',
+}
+
 function Modal({ title, onClose, children }) {
   return (
     <div style={{
@@ -299,7 +311,13 @@ export default function ProductsPage() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <FormField label="SKU" error={formErrors.sku}>
-                <input className="input" value={form.sku} onChange={set('sku')} placeholder="e.g. PARA-500" />
+                {(() => {
+                  const selMod = activeModules.find(bm => bm.module.id === form.module_id)
+                  const skuPh = selMod
+                    ? (MODULE_SKU_PLACEHOLDERS[selMod.module.code?.toLowerCase()] || 'e.g. PRD-001')
+                    : 'e.g. PRD-001'
+                  return <input className="input" value={form.sku} onChange={set('sku')} placeholder={skuPh} />
+                })()}
               </FormField>
               <FormField label="Unit type" error={formErrors.unit_type}>
                 <input className="input" value={form.unit_type} onChange={set('unit_type')} placeholder="e.g. pcs, kg, box" />
