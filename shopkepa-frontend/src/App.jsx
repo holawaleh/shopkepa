@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { AuthProvider } from './context/AuthContext'
-import { ToastProvider } from './context/ToastContext'
+import { ToastProvider, useToast } from './context/ToastContext'
 import { ProtectedRoute, GuestRoute } from './components/ui/ProtectedRoute'
 import LoginPage from './pages/auth/LoginPage'
 import SignupPage from './pages/auth/SignupPage'
@@ -26,11 +26,45 @@ function PageLoader() {
   )
 }
 
+// Listens for axios-dispatched network/server errors and shows a toast
+function GlobalApiErrorListener() {
+  const { error: toastError, info } = useToast()
+
+  useEffect(() => {
+    let lastNetworkToast = 0
+
+    const onNetworkError = () => {
+      // Debounce: only show once per 5 seconds to avoid toast storm
+      const now = Date.now()
+      if (now - lastNetworkToast < 5000) return
+      lastNetworkToast = now
+      toastError('Could not reach the server. Check your internet connection.')
+    }
+
+    const onServerError = (e) => {
+      const status = e.detail?.status
+      toastError(status === 503
+        ? 'Server is temporarily unavailable. Please try again shortly.'
+        : 'A server error occurred. Please try again.')
+    }
+
+    window.addEventListener('api:network-error', onNetworkError)
+    window.addEventListener('api:server-error',  onServerError)
+    return () => {
+      window.removeEventListener('api:network-error', onNetworkError)
+      window.removeEventListener('api:server-error',  onServerError)
+    }
+  }, [toastError])
+
+  return null
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <ToastProvider>
+          <GlobalApiErrorListener />
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/login"       element={<GuestRoute><LoginPage /></GuestRoute>} />

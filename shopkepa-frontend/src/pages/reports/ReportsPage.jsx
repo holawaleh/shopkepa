@@ -43,10 +43,12 @@ export default function ReportsPage() {
   const [error, setError]         = useState('')
 
   useEffect(() => {
-    branchesAPI.list().then(res => {
-      const raw = res.data
-      setBranches(Array.isArray(raw) ? raw : (raw.results ?? []))
-    }).catch(() => {})
+    branchesAPI.list()
+      .then(res => {
+        const raw = res.data
+        setBranches(Array.isArray(raw) ? raw : (raw.results ?? []))
+      })
+      .catch(err => setError(parseApiError(err)))
   }, [])
 
   const load = async () => {

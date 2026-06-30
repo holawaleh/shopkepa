@@ -79,6 +79,19 @@ api.interceptors.response.use(
       error.retryAfter = parseInt(retryAfter, 10)
     }
 
+    // Pure network failure (server unreachable / no internet)
+    if (!error.response) {
+      error._networkError = true
+      // Dispatch a custom event so the app-level listener can show a toast
+      window.dispatchEvent(new CustomEvent('api:network-error'))
+    }
+
+    // 5xx server error — tag it so UI can show a generic message
+    if (error.response?.status >= 500) {
+      error._serverError = true
+      window.dispatchEvent(new CustomEvent('api:server-error', { detail: { status: error.response.status } }))
+    }
+
     return Promise.reject(error)
   }
 )
@@ -104,6 +117,8 @@ export const productsAPI = {
   delete:       (id)     => api.delete(`/products/${id}/`),
   adjustStock:  (id, d)  => api.post(`/products/${id}/adjust-stock/`, d),
   stockHistory: (id)     => api.get(`/products/${id}/stock-history/`),
+  lowStock:     (params) => api.get('/products/low-stock/',  { params }),
+  expiring:     (params) => api.get('/products/expiring/',   { params }),
 }
 
 export const salesAPI = {

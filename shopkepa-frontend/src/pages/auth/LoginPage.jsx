@@ -15,6 +15,11 @@ export default function LoginPage() {
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
   const [countdown, setCountdown] = useState(0) // for 429
+  const [sessionMsg, setSessionMsg] = useState(() => {
+    const expired = sessionStorage.getItem('sk_session_expired')
+    if (expired) { sessionStorage.removeItem('sk_session_expired'); return 'Your session expired. Please sign in again.' }
+    return ''
+  })
 
   // Countdown timer for rate-limit lockout
   useEffect(() => {
@@ -70,6 +75,17 @@ export default function LoginPage() {
         <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 24 }}>
           Sign in to your store
         </p>
+
+        {sessionMsg && (
+          <div style={{
+            background: 'rgba(255,165,0,0.1)', border: '1px solid rgba(255,165,0,0.3)',
+            borderRadius: 'var(--r-sm)', padding: '10px 14px',
+            display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 18,
+          }}>
+            <AlertCircle size={15} color="orange" style={{ flexShrink: 0, marginTop: 1 }} />
+            <span style={{ fontSize: 13, color: 'orange', lineHeight: 1.4 }}>{sessionMsg}</span>
+          </div>
+        )}
 
         {error && (
           <div style={{

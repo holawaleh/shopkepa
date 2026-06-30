@@ -1,8 +1,124 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { AlertTriangle, X } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
-import { salesAPI, productsAPI, customersAPI, jobCardsAPI, hotelAPI } from '../../api/client'
+import { salesAPI, productsAPI, customersAPI, jobCardsAPI, hotelAPI, reportsAPI } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
+import { formatNaira } from '../../utils/format'
+
+// ─── Alerts Panel ─────────────────────────────────────────────────────────
+
+const ALERT_STYLES = {
+  warning: { bg: 'rgba(255,165,0,0.09)', border: 'rgba(255,165,0,0.3)', color: '#e6a817', icon: '#e6a817' },
+  error:   { bg: 'rgba(224,85,85,0.09)', border: 'rgba(224,85,85,0.3)', color: 'var(--error)', icon: 'var(--error)' },
+  info:    { bg: 'rgba(59,130,246,0.09)', border: 'rgba(59,130,246,0.3)', color: '#60a5fa', icon: '#60a5fa' },
+}
+
+function AlertBanner({ alert, onDismiss }) {
+  const s = ALERT_STYLES[alert.level] ?? ALERT_STYLES.warning
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+      background: s.bg, border: `1px solid ${s.border}`,
+      borderRadius: 8, padding: '10px 14px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, flex: 1 }}>
+        <AlertTriangle size={15} color={s.icon} style={{ flexShrink: 0 }} />
+        <span style={{ fontSize: 13, color: s.color, lineHeight: 1.4 }}>
+          {alert.message}
+          {alert.link && (
+            <> &nbsp;<Link to={alert.link.to} style={{ color: s.color, textDecoration: 'underline', fontWeight: 500 }}>{alert.link.label}</Link></>
+          )}
+        </span>
+      </div>
+      <button onClick={() => onDismiss(alert.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: s.color, padding: 2, display: 'flex', flexShrink: 0 }}>
+        <X size={14} />
+      </button>
+    </div>
+  )
+}
+
+function AlertsPanel({ activeCodes }) {
+  const [alerts, setAlerts]     = useState([])
+  const [dismissed, setDismissed] = useState(new Set())
+
+  const hasSales    = ['general_trade','fashion','electronics','food','pharmacy','building_materials','stationery'].some(c => activeCodes.has(c))
+  const hasExpiry   = activeCodes.has('pharmacy') || activeCodes.has('food')
+  const hasAnyDebt  = hasSales || activeCodes.has('technical_services')
+
+  useEffect(() => {
+    const calls = []
+    if (hasSales)   calls.push(productsAPI.lowStock())
+    if (hasExpiry)  calls.push(productsAPI.expiring())
+    if (hasAnyDebt) calls.push(reportsAPI.debtors())
+
+    Promise.allSettled(calls).then(results => {
+      const found = []
+      let idx = 0
+
+      if (hasSales) {
+        const r = results[idx++]
+        if (r.status === 'fulfilled') {
+          const count = r.value.data?.count ?? 0
+          if (count > 0) {
+            const critical = (r.value.data?.low_stock_items ?? []).filter(i => i.quantity_in_stock === 0).length
+            if (critical > 0) {
+              found.push({ id: 'out-of-stock', level: 'error', message: `${critical} product${critical > 1 ? 's are' : ' is'} completely out of stock.`, link: { to: '/products', label: 'View Products' } })
+            } else {
+              found.push({ id: 'low-stock', level: 'warning', message: `${count} product${count > 1 ? 's are' : ' is'} running low on stock.`, link: { to: '/products', label: 'View Products' } })
+            }
+          }
+        }
+      }
+
+      if (hasExpiry) {
+        const r = results[idx++]
+        if (r.status === 'fulfilled') {
+          const expiring = r.value.data?.expiring_products ?? []
+          const expiredSoon = expiring.filter(p => p.days_remaining <= 7)
+          if (expiredSoon.length > 0) {
+            found.push({ id: 'expiring', level: 'error', message: `${expiredSoon.length} product${expiredSoon.length > 1 ? 's expire' : ' expires'} within 7 days.`, link: { to: '/products', label: 'View Products' } })
+          } else if (expiring.length > 0) {
+            const days = r.value.data?.alert_window_days ?? 30
+            found.push({ id: 'expiring', level: 'warning', message: `${expiring.length} product${expiring.length > 1 ? 's' : ''} will expire within ${days} days.`, link: { to: '/products', label: 'View Products' } })
+          }
+        }
+      }
+
+      if (hasAnyDebt) {
+        const r = results[idx++]
+        if (r.status === 'fulfilled') {
+          const total     = parseFloat(r.value.data?.total_outstanding ?? 0)
+          const overdue   = r.value.data?.overdue_plans ?? 0
+          const unpaidJobs= (r.value.data?.unpaid_job_cards ?? []).length
+          if (overdue > 0) {
+            found.push({ id: 'overdue', level: 'error', message: `${overdue} installment plan${overdue > 1 ? 's are' : ' is'} overdue.`, link: { to: '/reports', label: 'View Debtors' } })
+          } else if (total > 0) {
+            const parts = []
+            if (r.value.data?.active_plans > 0) parts.push(`${r.value.data.active_plans} installment plan${r.value.data.active_plans > 1 ? 's' : ''}`)
+            if (unpaidJobs > 0) parts.push(`${unpaidJobs} unpaid job card${unpaidJobs > 1 ? 's' : ''}`)
+            if (parts.length > 0) {
+              found.push({ id: 'debtors', level: 'warning', message: `Outstanding debt of ${formatNaira(total)} — ${parts.join(', ')}.`, link: { to: '/reports', label: 'View Debtors' } })
+            }
+          }
+        }
+      }
+
+      setAlerts(found)
+    })
+  }, [hasSales, hasExpiry, hasAnyDebt])
+
+  const visible = alerts.filter(a => !dismissed.has(a.id))
+  if (visible.length === 0) return null
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
+      {visible.map(a => (
+        <AlertBanner key={a.id} alert={a} onDismiss={id => setDismissed(s => new Set([...s, id]))} />
+      ))}
+    </div>
+  )
+}
 
 function StatCard({ label, value, sub, accent = false, linkTo }) {
   const inner = (
@@ -263,6 +379,8 @@ export default function DashboardPage() {
         </h1>
         <p style={{ color: 'var(--muted)', fontSize: 13 }}>{today}</p>
       </div>
+
+      <AlertsPanel activeCodes={activeCodes} />
 
       {hasSales && <SalesSection activeCodes={activeCodes} />}
       {hasJobs  && <JobCardsSection />}

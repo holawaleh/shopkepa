@@ -36,7 +36,10 @@ export function AuthProvider({ children }) {
   }, [loadModules])
 
   useEffect(() => {
-    const handle = () => logout()
+    const handle = () => {
+      sessionStorage.setItem('sk_session_expired', '1')
+      logout()
+    }
     window.addEventListener('auth:logout', handle)
     return () => window.removeEventListener('auth:logout', handle)
   }, [])
