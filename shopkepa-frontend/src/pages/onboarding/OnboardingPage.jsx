@@ -27,10 +27,11 @@ export default function OnboardingPage() {
   const [saving, setSaving]           = useState(false)
   const [error, setError]             = useState('')
 
-  // Redirect if modules already chosen (e.g. user manually navigated here)
+  // Navigate away once modules exist — fires both on initial mount (existing user)
+  // and after handleStart → reloadModules() flips hasModules to true.
   useEffect(() => {
     if (hasModules) navigate(defaultRoute(), { replace: true })
-  }, [hasModules])
+  }, [hasModules, navigate, defaultRoute])
 
   useEffect(() => {
     modulesAPI.list()
@@ -56,13 +57,16 @@ export default function OnboardingPage() {
     setError('')
     try {
       await modulesAPI.activate([...selected])
+      // reloadModules() updates AuthContext state. Once hasModules flips to true,
+      // the useEffect above handles the navigation — navigating here would race
+      // ProtectedRoute before the state update commits.
       await reloadModules()
-      navigate('/dashboard', { replace: true })
     } catch (err) {
       setError(parseApiError(err))
-    } finally {
       setSaving(false)
     }
+    // setSaving(false) intentionally omitted on success — the component unmounts
+    // immediately after navigation so there's no state update on unmounted component.
   }
 
   return (
