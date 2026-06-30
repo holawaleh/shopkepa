@@ -140,9 +140,9 @@ export default function LoginPage() {
         </form>
 
         <div style={{ textAlign: 'center', marginTop: 20 }}>
-          <a href="/forgot-password" style={{ fontSize: 13, color: 'var(--gold)', textDecoration: 'none' }}>
-            Forgot password?
-          </a>
+          <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+            Forgot password? Contact your admin to reset it.
+          </span>
         </div>
 
         <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--muted)', marginTop: 20 }}>

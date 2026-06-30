@@ -8,12 +8,14 @@ import SignupPage from './pages/auth/SignupPage'
 import LandingPage from './pages/landing/LandingPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
 
-const POSPage       = lazy(() => import('./pages/pos/POSPage'))
-const ProductsPage  = lazy(() => import('./pages/products/ProductsPage'))
-const CustomersPage = lazy(() => import('./pages/customers/CustomersPage'))
-const ReportsPage   = lazy(() => import('./pages/reports/ReportsPage'))
-const JobCardsPage  = lazy(() => import('./pages/jobcards/JobCardsPage'))
-const SettingsPage  = lazy(() => import('./pages/settings/SettingsPage'))
+const OnboardingPage = lazy(() => import('./pages/onboarding/OnboardingPage'))
+const POSPage        = lazy(() => import('./pages/pos/POSPage'))
+const ProductsPage   = lazy(() => import('./pages/products/ProductsPage'))
+const CustomersPage  = lazy(() => import('./pages/customers/CustomersPage'))
+const ReportsPage    = lazy(() => import('./pages/reports/ReportsPage'))
+const JobCardsPage   = lazy(() => import('./pages/jobcards/JobCardsPage'))
+const SettingsPage   = lazy(() => import('./pages/settings/SettingsPage'))
+const HotelPage      = lazy(() => import('./pages/hotel/HotelPage'))
 
 function PageLoader() {
   return (
@@ -31,17 +33,19 @@ export default function App() {
         <ToastProvider>
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/login"     element={<GuestRoute><LoginPage /></GuestRoute>} />
-              <Route path="/signup"    element={<GuestRoute><SignupPage /></GuestRoute>} />
-              <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
-              <Route path="/pos"       element={<ProtectedRoute><POSPage /></ProtectedRoute>} />
-              <Route path="/products"  element={<ProtectedRoute><ProductsPage /></ProtectedRoute>} />
-              <Route path="/customers" element={<ProtectedRoute><CustomersPage /></ProtectedRoute>} />
-              <Route path="/reports"   element={<ProtectedRoute roles={['owner','admin','manager']}><ReportsPage /></ProtectedRoute>} />
-              <Route path="/jobcards"  element={<ProtectedRoute><JobCardsPage /></ProtectedRoute>} />
-              <Route path="/settings"  element={<ProtectedRoute roles={['owner','admin']}><SettingsPage /></ProtectedRoute>} />
-              <Route path="/"          element={<LandingPage />} />
-              <Route path="*"          element={<Navigate to="/" replace />} />
+              <Route path="/login"       element={<GuestRoute><LoginPage /></GuestRoute>} />
+              <Route path="/signup"      element={<GuestRoute><SignupPage /></GuestRoute>} />
+              <Route path="/onboarding"  element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
+              <Route path="/dashboard"   element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+              <Route path="/pos"         element={<ProtectedRoute><POSPage /></ProtectedRoute>} />
+              <Route path="/products"    element={<ProtectedRoute><ProductsPage /></ProtectedRoute>} />
+              <Route path="/customers"   element={<ProtectedRoute><CustomersPage /></ProtectedRoute>} />
+              <Route path="/reports"     element={<ProtectedRoute roles={['owner','admin','manager']}><ReportsPage /></ProtectedRoute>} />
+              <Route path="/jobcards"    element={<ProtectedRoute><JobCardsPage /></ProtectedRoute>} />
+              <Route path="/hotel"       element={<ProtectedRoute><HotelPage /></ProtectedRoute>} />
+              <Route path="/settings"    element={<ProtectedRoute roles={['owner','admin']}><SettingsPage /></ProtectedRoute>} />
+              <Route path="/"            element={<LandingPage />} />
+              <Route path="*"            element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
         </ToastProvider>

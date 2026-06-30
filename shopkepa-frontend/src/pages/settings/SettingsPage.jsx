@@ -4,7 +4,7 @@ import {
   Plus, X, Trash2, UserCheck, UserX, Eye, EyeOff,
 } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
-import { modulesAPI, staffAPI, branchesAPI } from '../../api/client'
+import { modulesAPI, staffAPI, branchesAPI, authAPI } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import { parseApiError, formatDate } from '../../utils/format'
 
@@ -51,14 +51,22 @@ function ErrorBanner({ msg }) {
 // ─── Module icons ──────────────────────────────────────────────────────────
 
 const MODULE_ICONS = {
-  pos: '🛒', pharmacy: '💊', restaurant: '🍽️', repairs: '🔧',
-  fashion: '👗', electronics: '📱', grocery: '🥦', salon: '✂️',
+  general_trade:      '🛒',
+  fashion:            '👗',
+  electronics:        '📱',
+  food:               '🥦',
+  pharmacy:           '💊',
+  building_materials: '🧱',
+  stationery:         '✏️',
+  technical_services: '🔧',
+  hotel:              '🏨',
 }
 function icon(code) { return MODULE_ICONS[code?.toLowerCase()] || '📦' }
 
 // ─── Modules tab ──────────────────────────────────────────────────────────
 
 function ModulesTab() {
+  const { reloadModules } = useAuth()
   const [allModules, setAllModules]       = useState([])
   const [businessModules, setBusinessModules] = useState([])
   const [loading, setLoading]             = useState(true)
@@ -94,9 +102,9 @@ function ModulesTab() {
       if (!bm) {
         await modulesAPI.activate([mod.id])
       } else {
-        await modulesAPI.toggle(bm.module.id, !bm.is_active)
+        await modulesAPI.toggle(bm.id, !bm.is_active)
       }
-      await load()
+      await Promise.all([load(), reloadModules()])
     } catch (err) {
       setError(parseApiError(err))
     } finally {
@@ -485,9 +493,112 @@ function TeamTab() {
 
 // ─── Main SettingsPage ─────────────────────────────────────────────────────
 
+// ─── Change Password tab ───────────────────────────────────────────────────
+
+function ChangePasswordTab() {
+  const { user } = useAuth()
+  const [form, setForm]       = useState({ current_password: '', new_password: '', confirm: '' })
+  const [showCur, setShowCur] = useState(false)
+  const [showNew, setShowNew] = useState(false)
+  const [saving, setSaving]   = useState(false)
+  const [error, setError]     = useState('')
+  const [success, setSuccess] = useState('')
+
+  const set = f => e => { setForm(p => ({ ...p, [f]: e.target.value })); setError(''); setSuccess('') }
+
+  const handleSubmit = async e => {
+    e.preventDefault()
+    if (!form.current_password) { setError('Enter your current password.'); return }
+    if (form.new_password.length < 8) { setError('New password must be at least 8 characters.'); return }
+    if (form.new_password !== form.confirm) { setError('New passwords do not match.'); return }
+    setSaving(true); setError(''); setSuccess('')
+    try {
+      await authAPI.changePassword({ current_password: form.current_password, new_password: form.new_password })
+      setSuccess('Password changed successfully.')
+      setForm({ current_password: '', new_password: '', confirm: '' })
+    } catch (err) {
+      setError(parseApiError(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const strength = [
+    form.new_password.length >= 8,
+    /[A-Z]/.test(form.new_password),
+    /[0-9]/.test(form.new_password),
+    /[^A-Za-z0-9]/.test(form.new_password),
+  ].filter(Boolean).length
+
+  return (
+    <div style={{ maxWidth: 440 }}>
+      <div style={{ background: 'var(--blue)', border: '1px solid var(--mid)', borderRadius: 10, padding: '16px 20px', marginBottom: 24, fontSize: 13 }}>
+        <div style={{ color: 'var(--muted)', marginBottom: 2 }}>Signed in as</div>
+        <div style={{ color: 'var(--light)', fontWeight: 500 }}>{user?.first_name} {user?.last_name}</div>
+        <div style={{ color: 'var(--muted)', fontSize: 12 }}>{user?.email}</div>
+      </div>
+
+      {error && (
+        <div style={{ background: 'rgba(224,85,85,0.12)', border: '1px solid rgba(224,85,85,0.3)', borderRadius: 8, padding: '10px 14px', display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+          <AlertCircle size={14} color="var(--error)" />
+          <span style={{ fontSize: 13, color: 'var(--error)' }}>{error}</span>
+        </div>
+      )}
+      {success && (
+        <div style={{ background: 'rgba(76,175,125,0.12)', border: '1px solid rgba(76,175,125,0.3)', borderRadius: 8, padding: '10px 14px', fontSize: 13, color: 'var(--success)', marginBottom: 16 }}>
+          ✓ {success}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div>
+          <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Current password</label>
+          <div style={{ position: 'relative' }}>
+            <input type={showCur ? 'text' : 'password'} className="input" value={form.current_password} onChange={set('current_password')} placeholder="••••••••" style={{ paddingRight: 44 }} />
+            <button type="button" onClick={() => setShowCur(v => !v)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}>
+              {showCur ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>New password</label>
+          <div style={{ position: 'relative' }}>
+            <input type={showNew ? 'text' : 'password'} className="input" value={form.new_password} onChange={set('new_password')} placeholder="Min. 8 characters" style={{ paddingRight: 44 }} />
+            <button type="button" onClick={() => setShowNew(v => !v)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}>
+              {showNew ? <EyeOff size={15} /> : <Eye size={15} />}
+            </button>
+          </div>
+          {form.new_password && (
+            <div style={{ marginTop: 6 }}>
+              <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+                {[1,2,3,4].map(n => (
+                  <div key={n} style={{ flex: 1, height: 3, borderRadius: 2, background: n <= strength ? (strength <= 1 ? 'var(--error)' : strength <= 2 ? 'var(--warning)' : 'var(--success)') : 'var(--mid)', transition: 'background 0.2s' }} />
+                ))}
+              </div>
+              <span style={{ fontSize: 11, color: 'var(--muted)' }}>{['', 'Weak', 'Fair', 'Good', 'Strong'][strength]}</span>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Confirm new password</label>
+          <input type="password" className={`input ${form.confirm && form.confirm !== form.new_password ? 'input-error' : ''}`} value={form.confirm} onChange={set('confirm')} placeholder="Repeat new password" />
+          {form.confirm && form.confirm !== form.new_password && <span style={{ fontSize: 11, color: 'var(--error)', marginTop: 3, display: 'block' }}>Passwords do not match</span>}
+        </div>
+
+        <button type="submit" className="btn-gold" disabled={saving} style={{ marginTop: 4 }}>
+          {saving ? 'Changing password…' : 'Change Password'}
+        </button>
+      </form>
+    </div>
+  )
+}
+
 const TABS = [
-  { id: 'modules', label: 'Modules' },
-  { id: 'team',    label: 'Team' },
+  { id: 'modules',  label: 'Modules' },
+  { id: 'team',     label: 'Team' },
+  { id: 'security', label: 'Security' },
 ]
 
 export default function SettingsPage() {
@@ -498,7 +609,7 @@ export default function SettingsPage() {
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--light)', marginBottom: 4 }}>Settings</h1>
         <p style={{ fontSize: 13, color: 'var(--muted)' }}>
-          Manage your modules, team, and business configuration.
+          Manage your modules, team members, and account security.
         </p>
       </div>
 
@@ -519,8 +630,9 @@ export default function SettingsPage() {
         ))}
       </div>
 
-      {tab === 'modules' && <ModulesTab />}
-      {tab === 'team'    && <TeamTab />}
+      {tab === 'modules'  && <ModulesTab />}
+      {tab === 'team'     && <TeamTab />}
+      {tab === 'security' && <ChangePasswordTab />}
     </AppLayout>
   )
 }

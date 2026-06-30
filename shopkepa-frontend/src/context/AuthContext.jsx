@@ -1,19 +1,30 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { authAPI, setAccessToken, clearAccessToken } from '../api/client'
+import { authAPI, modulesAPI, setAccessToken, clearAccessToken } from '../api/client'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user, setUser]       = useState(null)
-  const [loading, setLoading] = useState(true) // true while checking session
+  const [user, setUser]                 = useState(null)
+  const [activeModules, setActiveModules] = useState([])
+  const [loading, setLoading]           = useState(true) // covers auth + modules
 
-  // On mount: try to restore session via refresh cookie
+  const loadModules = useCallback(async () => {
+    try {
+      const res = await modulesAPI.active()
+      const arr = Array.isArray(res.data) ? res.data : (res.data.results ?? [])
+      setActiveModules(arr.filter(bm => bm.is_active))
+    } catch {
+      setActiveModules([])
+    }
+  }, [])
+
+  // On mount: restore session
   useEffect(() => {
     const restore = async () => {
       try {
         const res = await authAPI.refresh()
         setAccessToken(res.data.access)
-        const me = await authAPI.me()
+        const [me] = await Promise.all([authAPI.me(), loadModules()])
         setUser(me.data)
       } catch {
         // No valid session — stay logged out
@@ -22,9 +33,8 @@ export function AuthProvider({ children }) {
       }
     }
     restore()
-  }, [])
+  }, [loadModules])
 
-  // Listen for forced logout (e.g. from API interceptor)
   useEffect(() => {
     const handle = () => logout()
     window.addEventListener('auth:logout', handle)
@@ -36,13 +46,15 @@ export function AuthProvider({ children }) {
     setAccessToken(res.data.access)
     const me = await authAPI.me()
     setUser(me.data)
+    await loadModules()
     return me.data
-  }, [])
+  }, [loadModules])
 
   const logout = useCallback(async () => {
     try { await authAPI.logout() } catch { /* best effort */ }
     clearAccessToken()
     setUser(null)
+    setActiveModules([])
   }, [])
 
   // Role helpers
@@ -50,15 +62,25 @@ export function AuthProvider({ children }) {
   const isCashier = user?.role === 'cashier'
   const isManager = user?.role === 'manager'
 
-  // Where to send the user after login
+  // Active module codes for quick lookup
+  const activeCodes = new Set(activeModules.map(bm => bm.module?.code).filter(Boolean))
+  const hasModules  = activeModules.length > 0
+
   const defaultRoute = () => {
+    if (!hasModules) return '/onboarding'
     if (isOwner || isManager) return '/dashboard'
     if (isCashier)            return '/pos'
     return '/dashboard'
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isOwner, isCashier, isManager, defaultRoute }}>
+    <AuthContext.Provider value={{
+      user, loading, login, logout,
+      isOwner, isCashier, isManager,
+      activeModules, activeCodes, hasModules,
+      reloadModules: loadModules,
+      defaultRoute,
+    }}>
       {children}
     </AuthContext.Provider>
   )

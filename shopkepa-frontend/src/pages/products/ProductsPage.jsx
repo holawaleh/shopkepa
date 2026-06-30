@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Search, Edit2, Trash2, X, AlertCircle, Package } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, X, AlertCircle, Package, PackagePlus } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
-import { productsAPI, modulesAPI } from '../../api/client'
+import { productsAPI, modulesAPI, branchesAPI } from '../../api/client'
 import { formatNaira, parseApiError } from '../../utils/format'
 
 const EMPTY_FORM = {
@@ -11,27 +11,27 @@ const EMPTY_FORM = {
 }
 
 const MODULE_PLACEHOLDERS = {
-  pharmacy:    'e.g. Paracetamol 500mg',
-  restaurant:  'e.g. Jollof Rice (Party Pack)',
-  electronics: 'e.g. Samsung 65W USB-C Charger',
-  fashion:     "e.g. Men's Slim-Fit Polo Shirt",
-  repairs:     'e.g. Phone Screen Replacement',
-  salon:       'e.g. Hair Relaxer Treatment',
-  grocery:     'e.g. Basmati Rice 5kg',
-  supermarket: 'e.g. Dangote Sugar 1kg',
-  pos:         'e.g. Product name',
+  general_trade:      'e.g. Dangote Sugar 1kg',
+  fashion:            "e.g. Men's Slim-Fit Polo Shirt",
+  electronics:        'e.g. Samsung 65W USB-C Charger',
+  food:               'e.g. Basmati Rice 5kg',
+  pharmacy:           'e.g. Paracetamol 500mg',
+  building_materials: 'e.g. Dangote Cement 50kg',
+  stationery:         'e.g. Bic Ballpoint Pen (Box of 50)',
+  technical_services: 'e.g. Phone Screen Replacement',
+  hotel:              'e.g. Standard Room (Daily)',
 }
 
 const MODULE_SKU_PLACEHOLDERS = {
-  pharmacy:    'e.g. PARA-500-S10',
-  restaurant:  'e.g. REST-JOLLOF-PP',
-  electronics: 'e.g. SAM-65W-USBC',
-  fashion:     'e.g. POLO-SLIM-BLK-M',
-  repairs:     'e.g. SVC-SCR-REPL',
-  salon:       'e.g. SLN-RELAX-TRT',
-  grocery:     'e.g. GRC-RICE-BAS-5K',
-  supermarket: 'e.g. SUP-SUGAR-DAN-1K',
-  pos:         'e.g. PRD-001',
+  general_trade:      'e.g. GEN-SUGAR-DAN-1K',
+  fashion:            'e.g. POLO-SLIM-BLK-M',
+  electronics:        'e.g. SAM-65W-USBC',
+  food:               'e.g. FOOD-RICE-BAS-5K',
+  pharmacy:           'e.g. PARA-500-S10',
+  building_materials: 'e.g. BLD-CEM-DAN-50',
+  stationery:         'e.g. STN-PEN-BIC-BX',
+  technical_services: 'e.g. SVC-SCR-REPL',
+  hotel:              'e.g. HTL-STD-ROOM-D',
 }
 
 function Modal({ title, onClose, children }) {
@@ -71,10 +71,13 @@ function FormField({ label, children, error }) {
 export default function ProductsPage() {
   const [products, setProducts]       = useState([])
   const [activeModules, setActiveModules] = useState([])
+  const [branches, setBranches]       = useState([])
   const [loading, setLoading]         = useState(true)
   const [search, setSearch]           = useState('')
-  const [modal, setModal]             = useState(null) // null | 'add' | 'edit'
+  const [modal, setModal]             = useState(null) // null | 'add' | 'edit' | 'restock'
   const [editing, setEditing]         = useState(null)
+  const [restockTarget, setRestockTarget] = useState(null)
+  const [restockForm, setRestockForm] = useState({ branch_id: '', quantity_change: '', notes: '' })
   const [form, setForm]               = useState(EMPTY_FORM)
   const [formErrors, setFormErrors]   = useState({})
   const [saving, setSaving]           = useState(false)
@@ -84,13 +87,16 @@ export default function ProductsPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [prodRes, modRes] = await Promise.all([
+      const [prodRes, modRes, branchRes] = await Promise.all([
         productsAPI.list({ search: search || undefined }),
         modulesAPI.active(),
+        branchesAPI.list(),
       ])
       const raw = prodRes.data
       setProducts(Array.isArray(raw) ? raw : (raw.results ?? []))
       setActiveModules(modRes.data.filter(bm => bm.is_active))
+      const br = branchRes.data
+      setBranches(Array.isArray(br) ? br : (br.results ?? []))
     } catch (err) {
       setError(parseApiError(err))
     } finally {
@@ -99,6 +105,34 @@ export default function ProductsPage() {
   }, [search])
 
   useEffect(() => { load() }, [load])
+
+  const openRestock = (p) => {
+    setRestockTarget(p)
+    setRestockForm({ branch_id: branches[0]?.id || '', quantity_change: '', notes: '' })
+    setError('')
+    setModal('restock')
+  }
+
+  const handleRestock = async (e) => {
+    e.preventDefault()
+    const qty = parseInt(restockForm.quantity_change, 10)
+    if (!restockForm.branch_id) { setError('Select a branch.'); return }
+    if (!qty || qty === 0) { setError('Enter a non-zero quantity. Use negative to reduce stock.'); return }
+    setSaving(true); setError('')
+    try {
+      await productsAPI.adjustStock(restockTarget.id, {
+        branch_id:       restockForm.branch_id,
+        quantity_change: qty,
+        notes:           restockForm.notes.trim() || undefined,
+      })
+      setModal(null)
+      load()
+    } catch (err) {
+      setError(parseApiError(err))
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const openAdd = () => {
     setForm(EMPTY_FORM)
@@ -261,8 +295,11 @@ export default function ProductsPage() {
                     </span>
                   </td>
                   <td style={{ padding: '12px 16px' }}>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button onClick={() => openEdit(p)} className="btn-ghost" style={{ padding: '4px 8px' }}>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button onClick={() => openRestock(p)} className="btn-ghost" style={{ padding: '4px 8px' }} title="Adjust stock">
+                        <PackagePlus size={13} />
+                      </button>
+                      <button onClick={() => openEdit(p)} className="btn-ghost" style={{ padding: '4px 8px' }} title="Edit">
                         <Edit2 size={13} />
                       </button>
                       <button
@@ -270,6 +307,7 @@ export default function ProductsPage() {
                         disabled={deleting === p.id}
                         className="btn-ghost"
                         style={{ padding: '4px 8px', color: 'var(--error)' }}
+                        title="Delete"
                       >
                         <Trash2 size={13} />
                       </button>
@@ -372,6 +410,56 @@ export default function ProductsPage() {
               </button>
               <button type="submit" className="btn-gold" style={{ flex: 2 }} disabled={saving}>
                 {saving ? 'Saving…' : modal === 'add' ? 'Add Product' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Restock / Stock Adjust Modal */}
+      {modal === 'restock' && restockTarget && (
+        <Modal title={`Adjust Stock — ${restockTarget.name}`} onClose={() => setModal(null)}>
+          {error && (
+            <div style={{
+              background: 'rgba(224,85,85,0.12)', border: '1px solid rgba(224,85,85,0.3)',
+              borderRadius: 8, padding: '10px 14px',
+              display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14,
+            }}>
+              <AlertCircle size={14} color="var(--error)" />
+              <span style={{ fontSize: 13, color: 'var(--error)' }}>{error}</span>
+            </div>
+          )}
+          <div style={{ background: 'var(--navy)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: 'var(--muted)' }}>
+            Current stock: <strong style={{ color: 'var(--light)' }}>{totalStock(restockTarget)} units</strong>
+          </div>
+          <form onSubmit={handleRestock} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Branch *</label>
+              <select className="input" value={restockForm.branch_id}
+                onChange={e => setRestockForm(f => ({ ...f, branch_id: e.target.value }))}>
+                <option value="">Select branch…</option>
+                {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>
+                Quantity change * <span style={{ color: 'var(--muted)', fontSize: 11 }}>(positive to add, negative to remove)</span>
+              </label>
+              <input className="input" type="number" step="1"
+                value={restockForm.quantity_change}
+                onChange={e => setRestockForm(f => ({ ...f, quantity_change: e.target.value }))}
+                placeholder="e.g. 50 or -5" />
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Reason / notes</label>
+              <input className="input" value={restockForm.notes}
+                onChange={e => setRestockForm(f => ({ ...f, notes: e.target.value }))}
+                placeholder="e.g. New delivery, Stock correction…" />
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+              <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>
+              <button type="submit" className="btn-gold" style={{ flex: 2 }} disabled={saving}>
+                {saving ? 'Saving…' : 'Update Stock'}
               </button>
             </div>
           </form>

@@ -88,11 +88,12 @@ export default api
 // ── Typed API helpers ──
 
 export const authAPI = {
-  register: (data) => api.post('/auth/register/', data),
-  login:   (data) => api.post('/auth/login/', data),
-  logout:  ()     => api.post('/auth/logout/'),
-  me:      ()     => api.get('/auth/me/'),
-  refresh: ()     => api.post('/auth/token/refresh/'),
+  register:       (data) => api.post('/auth/register/', data),
+  login:          (data) => api.post('/auth/login/', data),
+  logout:         ()     => api.post('/auth/logout/'),
+  me:             ()     => api.get('/auth/me/'),
+  refresh:        ()     => api.post('/auth/token/refresh/'),
+  changePassword: (data) => api.post('/auth/change-password/', data),
 }
 
 export const productsAPI = {
@@ -101,6 +102,7 @@ export const productsAPI = {
   create:       (data)   => api.post('/products/', data),
   update:       (id, d)  => api.patch(`/products/${id}/`, d),
   delete:       (id)     => api.delete(`/products/${id}/`),
+  adjustStock:  (id, d)  => api.post(`/products/${id}/adjust-stock/`, d),
   stockHistory: (id)     => api.get(`/products/${id}/stock-history/`),
 }
 
@@ -138,6 +140,23 @@ export const jobCardsAPI = {
 
 export const branchesAPI = {
   list: () => api.get('/branches/'),
+}
+
+export const hotelAPI = {
+  // Rooms
+  listRooms:    (params) => api.get('/hotel/rooms/', { params }),
+  createRoom:   (data)   => api.post('/hotel/rooms/', data),
+  updateRoom:   (id, d)  => api.patch(`/hotel/rooms/${id}/`, d),
+  deleteRoom:   (id)     => api.delete(`/hotel/rooms/${id}/`),
+  // Bookings
+  listBookings: (params) => api.get('/hotel/bookings/', { params }),
+  getBooking:   (id)     => api.get(`/hotel/bookings/${id}/`),
+  createBooking:(data)   => api.post('/hotel/bookings/', data),
+  checkIn:      (id)     => api.post(`/hotel/bookings/${id}/check-in/`),
+  checkOut:     (id)     => api.post(`/hotel/bookings/${id}/check-out/`),
+  pay:          (id, d)  => api.post(`/hotel/bookings/${id}/payment/`, d),
+  // Stats
+  occupancy:    ()       => api.get('/hotel/occupancy/'),
 }
 
 export const modulesAPI = {

@@ -51,6 +51,12 @@ MODULES = [
         'description': 'For repair shops and technicians. Supports job cards, repair status tracking, parts logging, and labour charges.',
         'sort_order': 8,
     },
+    {
+        'code': 'hotel',
+        'name': 'Hotel & Tourism',
+        'description': 'For hotels, guesthouses, and lodges. Supports room bookings, reservations, check-in/check-out, and occupancy tracking.',
+        'sort_order': 9,
+    },
 ]
 
 

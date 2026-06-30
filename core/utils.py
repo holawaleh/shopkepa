@@ -19,6 +19,21 @@ def generate_sale_number(business_id):
     return f"{prefix}{str(new_number).zfill(5)}"
 
 
+def generate_booking_number(business_id):
+    from core.models import Booking
+    from django.utils import timezone
+    year = timezone.now().year
+    prefix = f"BK-{year}-"
+    last = (
+        Booking.objects
+        .filter(business_id=business_id, booking_number__startswith=prefix)
+        .order_by('-booking_number')
+        .first()
+    )
+    new_number = (int(last.booking_number.split('-')[-1]) + 1) if last else 1
+    return f"{prefix}{str(new_number).zfill(5)}"
+
+
 def generate_job_number(business_id):
     from core.models import JobCard
     year = timezone.now().year
