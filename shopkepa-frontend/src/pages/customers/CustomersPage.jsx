@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Search, Edit2, X, AlertCircle, Users, Printer, CreditCard, Trash2, MessageSquare, Send } from 'lucide-react'
+import { Plus, Search, Edit2, X, AlertCircle, Users, Printer, CreditCard, Trash2, MessageSquare, Send, Eye } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
 import { customersAPI, salesAPI } from '../../api/client'
 import { formatNaira, formatDate, parseApiError } from '../../utils/format'
@@ -19,7 +19,7 @@ const LOYALTY_COLORS = {
   platinum: { bg: 'rgba(229,228,226,0.15)', text: '#E5E4E2' },
 }
 
-function Modal({ title, onClose, children }) {
+function Modal({ title, onClose, children, wide }) {
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
@@ -28,7 +28,7 @@ function Modal({ title, onClose, children }) {
     }}>
       <div style={{
         background: 'var(--blue)', border: '1px solid var(--mid)',
-        borderRadius: 12, padding: 24, width: '100%', maxWidth: 460,
+        borderRadius: 12, padding: 24, width: '100%', maxWidth: wide ? 680 : 460,
         maxHeight: '90vh', overflowY: 'auto',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -56,24 +56,20 @@ export default function CustomersPage() {
   const [saving, setSaving]         = useState(false)
   const [error, setError]           = useState('')
 
-  // ── Repayment ──────────────────────────────────────────────────────────────
-  const [repayCustomer, setRepayCustomer] = useState(null)
-  const [repayLoading, setRepayLoading]   = useState(false)
-  const [repayError, setRepayError]       = useState('')
-  const [openSales, setOpenSales]         = useState([])
-  const [payingId, setPayingId]           = useState('')
-  const [payAmount, setPayAmount]         = useState('')
-  const [payMethod, setPayMethod]         = useState('cash')
-  const [payNotes, setPayNotes]           = useState('')
-  const [paySaving, setPaySaving]         = useState(false)
-
-  // ── Notes ─────────────────────────────────────────────────────────────────
-  const [notesCustomer, setNotesCustomer] = useState(null)
-  const [notes, setNotes]                 = useState([])
-  const [notesLoading, setNotesLoading]   = useState(false)
-  const [noteText, setNoteText]           = useState('')
-  const [noteSaving, setNoteSaving]       = useState(false)
-  const [noteError, setNoteError]         = useState('')
+  // ── Profile (transactions + repayment + notes, all in one view) ────────────
+  const [profileCustomer, setProfileCustomer] = useState(null)
+  const [profileLoading, setProfileLoading]   = useState(false)
+  const [profileError, setProfileError]       = useState('')
+  const [profileSales, setProfileSales]       = useState([])
+  const [openSales, setOpenSales]             = useState([])
+  const [payingId, setPayingId]               = useState('')
+  const [payAmount, setPayAmount]             = useState('')
+  const [payMethod, setPayMethod]             = useState('cash')
+  const [payNotes, setPayNotes]               = useState('')
+  const [paySaving, setPaySaving]             = useState(false)
+  const [notes, setNotes]                     = useState([])
+  const [noteText, setNoteText]               = useState('')
+  const [noteSaving, setNoteSaving]           = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -125,30 +121,50 @@ export default function CustomersPage() {
     } catch (err) { toast.error(parseApiError(err)) }
   }
 
-  const openNotes = async (c) => {
-    setNotesCustomer(c); setNoteText(''); setNoteError(''); setNotesLoading(true)
+  const openProfile = async (c) => {
+    setProfileCustomer(c)
+    setProfileLoading(true)
+    setProfileError('')
+    setProfileSales([])
+    setOpenSales([])
+    setNotes([])
+    setPayingId(''); setPayAmount(''); setPayNotes('')
     try {
-      const res = await customersAPI.get(c.id)
-      setNotes(res.data.notes || [])
-    } catch { setNotes([]) }
-    finally { setNotesLoading(false) }
+      const [salesRes, custRes] = await Promise.allSettled([
+        salesAPI.list({ customer_id: c.id }),
+        customersAPI.get(c.id),
+      ])
+      if (salesRes.status === 'fulfilled') {
+        const raw = salesRes.value.data
+        const all = Array.isArray(raw) ? raw : (raw.results ?? [])
+        setProfileSales(all)
+        setOpenSales(all.filter(s => parseFloat(s.balance_due ?? 0) > 0))
+      } else {
+        setProfileError(parseApiError(salesRes.reason))
+      }
+      if (custRes.status === 'fulfilled') {
+        setNotes(custRes.value.data.notes || [])
+      }
+    } finally {
+      setProfileLoading(false)
+    }
   }
 
   const handleAddNote = async () => {
-    if (!noteText.trim()) { setNoteError('Note text is required.'); return }
-    setNoteSaving(true); setNoteError('')
+    if (!noteText.trim()) { setProfileError('Note text is required.'); return }
+    setNoteSaving(true); setProfileError('')
     try {
-      await customersAPI.addNote(notesCustomer.id, { note: noteText.trim() })
-      const res = await customersAPI.get(notesCustomer.id)
+      await customersAPI.addNote(profileCustomer.id, { note: noteText.trim() })
+      const res = await customersAPI.get(profileCustomer.id)
       setNotes(res.data.notes || [])
       setNoteText('')
-    } catch (err) { setNoteError(parseApiError(err)) }
+    } catch (err) { setProfileError(parseApiError(err)) }
     finally { setNoteSaving(false) }
   }
 
   const handleDeleteNote = async (noteId) => {
     try {
-      await customersAPI.deleteNote(notesCustomer.id, noteId)
+      await customersAPI.deleteNote(profileCustomer.id, noteId)
       setNotes(n => n.filter(x => x.id !== noteId))
     } catch (err) { toast.error(parseApiError(err)) }
   }
@@ -195,35 +211,19 @@ export default function CustomersPage() {
     }
   }
 
-  const openRepay = async (c) => {
-    setRepayCustomer(c)
-    setRepayLoading(true)
-    setRepayError('')
-    setOpenSales([])
-    setPayingId('')
-    setPayAmount('')
-    setPayNotes('')
-    try {
-      const res = await salesAPI.list({ customer_id: c.id })
-      const all = Array.isArray(res.data) ? res.data : (res.data.results ?? [])
-      setOpenSales(all.filter(s => parseFloat(s.balance_due ?? 0) > 0))
-    } catch (err) { setRepayError(parseApiError(err)) }
-    finally { setRepayLoading(false) }
-  }
-
   const handleRepay = async () => {
-    if (!payingId) { setRepayError('Select a sale to pay against.'); return }
+    if (!payingId) { setProfileError('Select a sale to pay against.'); return }
     const amt = parseFloat(payAmount)
-    if (!amt || amt <= 0) { setRepayError('Enter a valid amount.'); return }
-    setPaySaving(true); setRepayError('')
+    if (!amt || amt <= 0) { setProfileError('Enter a valid amount.'); return }
+    setPaySaving(true); setProfileError('')
     try {
       await salesAPI.addPayment(payingId, { amount: amt, payment_method: payMethod, notes: payNotes.trim() || undefined })
       const sale = openSales.find(s => s.id === payingId)
       const saleLabel = sale?.sale_number ? `Sale #${sale.sale_number}` : 'sale'
-      toast.success(`Payment of ${formatNaira(amt)} recorded for ${repayCustomer.full_name} — ${saleLabel}`)
-      setRepayCustomer(null)
+      toast.success(`Payment of ${formatNaira(amt)} recorded for ${profileCustomer.full_name} — ${saleLabel}`)
+      await openProfile(profileCustomer)
       load()
-    } catch (err) { setRepayError(parseApiError(err)) }
+    } catch (err) { setProfileError(parseApiError(err)) }
     finally { setPaySaving(false) }
   }
 
@@ -318,30 +318,21 @@ export default function CustomersPage() {
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        <button onClick={() => openEdit(c)} className="btn-ghost" style={{ padding: '4px 8px' }} title="Edit customer">
-                          <Edit2 size={13} />
-                        </button>
-                        <button onClick={() => openNotes(c)} className="btn-ghost" style={{ padding: '4px 8px' }} title="View / add notes">
-                          <MessageSquare size={13} />
+                        <button onClick={() => openProfile(c)} className="btn-ghost"
+                          style={{ padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--gold)' }}
+                          title="View profile, transactions & repayment plan">
+                          <Eye size={13} /> View
                         </button>
                         {parseFloat(c.total_outstanding_debt || 0) > 0 && (
-                          <button onClick={() => openRepay(c)} className="btn-ghost"
-                            style={{ padding: '4px 8px', color: 'var(--warning)' }}
-                            title="Record repayment">
-                            <CreditCard size={13} />
-                          </button>
+                          <span style={{
+                            fontSize: 10, padding: '3px 7px', borderRadius: 20,
+                            background: 'rgba(224,170,60,0.12)', color: 'var(--warning)', whiteSpace: 'nowrap',
+                          }} title="Has outstanding debt">
+                            Owes {formatNaira(c.total_outstanding_debt)}
+                          </span>
                         )}
-                        <button
-                          onClick={async () => {
-                            try {
-                              const res = await salesAPI.list({ customer_id: c.id })
-                              const raw = res.data
-                              const sales = Array.isArray(raw) ? raw : (raw.results ?? [])
-                              printCustomerStatement(c, sales, user?.business_name)
-                            } catch { printCustomerStatement(c, [], user?.business_name) }
-                          }}
-                          className="btn-ghost" style={{ padding: '4px 8px' }} title="Print transaction statement">
-                          <Printer size={13} />
+                        <button onClick={() => openEdit(c)} className="btn-ghost" style={{ padding: '4px 8px' }} title="Edit customer">
+                          <Edit2 size={13} />
                         </button>
                         <button onClick={() => handleDeleteCustomer(c)} className="btn-ghost"
                           style={{ padding: '4px 8px', color: 'var(--error)' }} title="Delete customer">
@@ -419,74 +410,51 @@ export default function CustomersPage() {
         </Modal>
       )}
 
-      {notesCustomer && (
-        <Modal title={`Notes — ${notesCustomer.full_name}`} onClose={() => setNotesCustomer(null)}>
-          {noteError && (
-            <div style={{ fontSize: 12, color: 'var(--error)', marginBottom: 10 }}>{noteError}</div>
+      {profileCustomer && (
+        <Modal title={`${profileCustomer.full_name} — Profile`} onClose={() => setProfileCustomer(null)} wide>
+          {profileError && (
+            <div style={{ fontSize: 12, color: 'var(--error)', marginBottom: 14 }}>{profileError}</div>
           )}
 
-          {notesLoading ? (
-            <p style={{ fontSize: 13, color: 'var(--muted)' }}>Loading…</p>
-          ) : notes.length === 0 ? (
-            <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16 }}>No notes yet.</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-              {notes.map(n => (
-                <div key={n.id} style={{ background: 'var(--navy)', borderRadius: 8, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
-                  <div>
-                    <p style={{ fontSize: 13, color: 'var(--light)', margin: 0, lineHeight: 1.5 }}>{n.note}</p>
-                    <p style={{ fontSize: 11, color: 'var(--muted)', margin: '4px 0 0' }}>{formatDate(n.created_at)}</p>
-                  </div>
-                  <button onClick={() => handleDeleteNote(n.id)} className="btn-ghost"
-                    style={{ padding: '3px 6px', color: 'var(--error)', flexShrink: 0 }} title="Delete note">
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              ))}
+          {/* Overview */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 14,
+            background: 'var(--navy)', borderRadius: 8, padding: '14px 16px', marginBottom: 22,
+          }}>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Phone</div>
+              <div style={{ fontSize: 13, color: 'var(--light)' }}>{profileCustomer.phone_number || '—'}</div>
             </div>
-          )}
-
-          <div style={{ borderTop: notes.length ? '1px solid var(--mid)' : 'none', paddingTop: notes.length ? 16 : 0, display: 'flex', gap: 8 }}>
-            <input className="input" style={{ flex: 1, fontSize: 13 }} placeholder="Add a note…"
-              value={noteText} onChange={e => setNoteText(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleAddNote() }} />
-            <button className="btn-gold" style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 6 }}
-              onClick={handleAddNote} disabled={noteSaving}>
-              <Send size={13} />
-            </button>
-          </div>
-        </Modal>
-      )}
-
-      {repayCustomer && (
-        <Modal title={`Repayment — ${repayCustomer.full_name}`} onClose={() => setRepayCustomer(null)}>
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>Outstanding balance</div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--warning)' }}>
-              {formatNaira(repayCustomer.total_outstanding_debt || 0)}
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Type</div>
+              <div style={{ fontSize: 13, color: 'var(--light)', textTransform: 'capitalize' }}>{profileCustomer.customer_type || 'retail'}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Lifetime spend</div>
+              <div style={{ fontSize: 13, color: 'var(--gold)', fontWeight: 600 }}>{formatNaira(profileCustomer.lifetime_spend || 0)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Last purchase</div>
+              <div style={{ fontSize: 13, color: 'var(--light)' }}>{formatDate(profileCustomer.last_purchase_date)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Outstanding balance</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: openSales.length ? 'var(--warning)' : 'var(--success)' }}>
+                {formatNaira(openSales.reduce((sum, s) => sum + parseFloat(s.balance_due ?? 0), 0))}
+              </div>
             </div>
           </div>
 
-          {repayLoading && <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>Loading open sales…</div>}
-
-          {repayError && (
-            <div style={{ fontSize: 12, color: 'var(--error)', marginBottom: 12 }}>{repayError}</div>
-          )}
-
-          {!repayLoading && openSales.length === 0 && !repayError && (
-            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>
-              No open sales with outstanding balance found.
-            </div>
-          )}
-
+          {/* Repayment plan */}
           {openSales.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div>
-                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>
-                  Apply payment to
-                </label>
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <CreditCard size={14} color="var(--warning)" />
+                <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--light)', margin: 0 }}>Repayment plan</h3>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <select className="input" value={payingId} onChange={e => setPayingId(e.target.value)} style={{ fontSize: 13 }}>
-                  <option value="">Select sale…</option>
+                  <option value="">Select sale to pay against…</option>
                   {openSales.map(s => (
                     <option key={s.id} value={s.id}>
                       {s.sale_number ? `Sale #${s.sale_number}` : s.id.slice(0, 8)} — Balance due: {formatNaira(s.balance_due)}
@@ -494,39 +462,102 @@ export default function CustomersPage() {
                     </option>
                   ))}
                 </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>Amount (₦)</label>
-                <input className="input" type="number" min="1" style={{ fontSize: 13 }}
-                  placeholder="0.00"
-                  value={payAmount} onChange={e => setPayAmount(e.target.value)} />
-              </div>
-
-              <div>
-                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>Payment method</label>
-                <select className="input" value={payMethod} onChange={e => setPayMethod(e.target.value)} style={{ fontSize: 13 }}>
-                  <option value="cash">Cash</option>
-                  <option value="transfer">Bank Transfer</option>
-                  <option value="pos">POS / Card</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 6 }}>Notes (optional)</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <input className="input" type="number" min="1" style={{ fontSize: 13 }}
+                    placeholder="Amount (₦)" value={payAmount} onChange={e => setPayAmount(e.target.value)} />
+                  <select className="input" value={payMethod} onChange={e => setPayMethod(e.target.value)} style={{ fontSize: 13 }}>
+                    <option value="cash">Cash</option>
+                    <option value="transfer">Bank Transfer</option>
+                    <option value="pos">POS / Card</option>
+                  </select>
+                </div>
                 <input className="input" style={{ fontSize: 13 }}
-                  placeholder="e.g. Paid via WhatsApp transfer"
-                  value={payNotes} onChange={e => setPayNotes(e.target.value)} />
-              </div>
-
-              <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                <button className="btn-ghost" style={{ flex: 1 }} onClick={() => setRepayCustomer(null)}>Cancel</button>
-                <button className="btn-gold" style={{ flex: 2 }} onClick={handleRepay} disabled={paySaving}>
+                  placeholder="Notes (optional)" value={payNotes} onChange={e => setPayNotes(e.target.value)} />
+                <button className="btn-gold" onClick={handleRepay} disabled={paySaving}
+                  style={{ alignSelf: 'flex-start', padding: '8px 18px' }}>
                   {paySaving ? 'Recording…' : 'Record Payment'}
                 </button>
               </div>
             </div>
           )}
+
+          {/* Transactions */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--light)', margin: 0 }}>Transactions</h3>
+              <button className="btn-ghost" style={{ padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}
+                onClick={() => printCustomerStatement(profileCustomer, profileSales, user?.business_name)}>
+                <Printer size={12} /> Print statement
+              </button>
+            </div>
+            {profileLoading ? (
+              <p style={{ fontSize: 13, color: 'var(--muted)' }}>Loading…</p>
+            ) : profileSales.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--muted)' }}>No transactions yet.</p>
+            ) : (
+              <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid var(--mid)', borderRadius: 8 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--mid)', position: 'sticky', top: 0, background: 'var(--blue)' }}>
+                      {['Date', 'Sale #', 'Total', 'Balance due', 'Status'].map(h => (
+                        <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--muted)', fontWeight: 500 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {profileSales.map(s => (
+                      <tr key={s.id} style={{ borderBottom: '1px solid var(--mid)' }}>
+                        <td style={{ padding: '8px 12px', color: 'var(--muted)' }}>{formatDate(s.sale_date || s.created_at)}</td>
+                        <td style={{ padding: '8px 12px', color: 'var(--light)' }}>{s.sale_number || s.id.slice(0, 8)}</td>
+                        <td style={{ padding: '8px 12px', color: 'var(--light)' }}>{formatNaira(s.total_amount ?? s.total ?? 0)}</td>
+                        <td style={{ padding: '8px 12px', color: parseFloat(s.balance_due ?? 0) > 0 ? 'var(--warning)' : 'var(--muted)' }}>
+                          {formatNaira(s.balance_due ?? 0)}
+                        </td>
+                        <td style={{ padding: '8px 12px', color: 'var(--muted)', textTransform: 'capitalize' }}>
+                          {s.payment_status || (parseFloat(s.balance_due ?? 0) > 0 ? 'partial' : 'paid')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Notes */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+              <MessageSquare size={14} color="var(--muted)" />
+              <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--light)', margin: 0 }}>Notes</h3>
+            </div>
+            {notes.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12 }}>No notes yet.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+                {notes.map(n => (
+                  <div key={n.id} style={{ background: 'var(--navy)', borderRadius: 8, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                    <div>
+                      <p style={{ fontSize: 13, color: 'var(--light)', margin: 0, lineHeight: 1.5 }}>{n.note}</p>
+                      <p style={{ fontSize: 11, color: 'var(--muted)', margin: '4px 0 0' }}>{formatDate(n.created_at)}</p>
+                    </div>
+                    <button onClick={() => handleDeleteNote(n.id)} className="btn-ghost"
+                      style={{ padding: '3px 6px', color: 'var(--error)', flexShrink: 0 }} title="Delete note">
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input className="input" style={{ flex: 1, fontSize: 13 }} placeholder="Add a note…"
+                value={noteText} onChange={e => setNoteText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleAddNote() }} />
+              <button className="btn-gold" style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 6 }}
+                onClick={handleAddNote} disabled={noteSaving}>
+                <Send size={13} />
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </AppLayout>
