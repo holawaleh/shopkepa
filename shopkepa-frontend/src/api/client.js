@@ -133,10 +133,22 @@ export const jobCardsAPI = {
   get:    (id)     => api.get(`/jobcards/${id}/`),
   create: (data)   => api.post('/jobcards/', data),
   update: (id, d)  => api.patch(`/jobcards/${id}/`, d),
+  pay:    (id, d)  => api.post(`/jobcards/${id}/payment/`, d),
 }
 
 export const branchesAPI = {
   list: () => api.get('/branches/'),
+}
+
+export const modulesAPI = {
+  list:     ()              => api.get('/modules/'),
+  active:   ()              => api.get('/modules/active/'),
+  activate: (ids)           => api.post('/modules/activate/', { module_ids: ids }),
+  toggle:   (id, is_active) => api.patch(`/modules/${id}/toggle/`, { is_active }),
+}
+
+export const staffAPI = {
+  list: () => api.get('/staff/'),
 }
 
 // /health/ lives at backend root, not under /api/v1/

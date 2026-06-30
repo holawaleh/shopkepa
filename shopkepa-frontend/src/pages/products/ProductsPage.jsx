@@ -1,9 +1,344 @@
+import { useState, useEffect, useCallback } from 'react'
+import { Plus, Search, Edit2, Trash2, X, AlertCircle, Package } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
+import { productsAPI, modulesAPI } from '../../api/client'
+import { formatNaira, parseApiError } from '../../utils/format'
+
+const EMPTY_FORM = {
+  name: '', sku: '', description: '', module_id: '',
+  unit_type: '', retail_price: '', wholesale_price: '',
+  cost_price: '', reorder_level: '0',
+}
+
+function Modal({ title, onClose, children }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      zIndex: 200, padding: 16,
+    }}>
+      <div style={{
+        background: 'var(--blue)', border: '1px solid var(--mid)',
+        borderRadius: 12, padding: 24, width: '100%', maxWidth: 480,
+        maxHeight: '90vh', overflowY: 'auto',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 600, color: 'var(--light)' }}>{title}</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}>
+            <X size={18} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function FormField({ label, children, error }) {
+  return (
+    <div>
+      <label style={{ display: 'block', fontSize: 12, color: 'var(--muted)', marginBottom: 5 }}>{label}</label>
+      {children}
+      {error && <span style={{ fontSize: 11, color: 'var(--error)', marginTop: 3, display: 'block' }}>{error}</span>}
+    </div>
+  )
+}
+
 export default function ProductsPage() {
+  const [products, setProducts]       = useState([])
+  const [activeModules, setActiveModules] = useState([])
+  const [loading, setLoading]         = useState(true)
+  const [search, setSearch]           = useState('')
+  const [modal, setModal]             = useState(null) // null | 'add' | 'edit'
+  const [editing, setEditing]         = useState(null)
+  const [form, setForm]               = useState(EMPTY_FORM)
+  const [formErrors, setFormErrors]   = useState({})
+  const [saving, setSaving]           = useState(false)
+  const [error, setError]             = useState('')
+  const [deleting, setDeleting]       = useState(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [prodRes, modRes] = await Promise.all([
+        productsAPI.list({ search: search || undefined }),
+        modulesAPI.active(),
+      ])
+      const raw = prodRes.data
+      setProducts(Array.isArray(raw) ? raw : (raw.results ?? []))
+      setActiveModules(modRes.data.filter(bm => bm.is_active))
+    } catch (err) {
+      setError(parseApiError(err))
+    } finally {
+      setLoading(false)
+    }
+  }, [search])
+
+  useEffect(() => { load() }, [load])
+
+  const openAdd = () => {
+    setForm(EMPTY_FORM)
+    setFormErrors({})
+    setModal('add')
+  }
+
+  const openEdit = (p) => {
+    setEditing(p)
+    setForm({
+      name: p.name, sku: p.sku || '', description: p.description || '',
+      module_id: p.module || '',
+      unit_type: p.unit_type || '',
+      retail_price: p.retail_price,
+      wholesale_price: p.wholesale_price,
+      cost_price: p.cost_price || '',
+      reorder_level: String(p.reorder_level ?? 0),
+    })
+    setFormErrors({})
+    setModal('edit')
+  }
+
+  const set = (field) => (e) => {
+    setForm(f => ({ ...f, [field]: e.target.value }))
+    setFormErrors(fe => ({ ...fe, [field]: '' }))
+  }
+
+  const validate = () => {
+    const e = {}
+    if (!form.name.trim())        e.name          = 'Product name is required'
+    if (!form.module_id)          e.module_id     = 'Select a module'
+    if (!form.retail_price)       e.retail_price  = 'Retail price is required'
+    if (!form.wholesale_price)    e.wholesale_price = 'Wholesale price is required'
+    if (parseFloat(form.retail_price) <= 0) e.retail_price = 'Must be greater than zero'
+    setFormErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  const handleSave = async (e) => {
+    e.preventDefault()
+    if (!validate()) return
+    setSaving(true)
+    setError('')
+    try {
+      const payload = {
+        name:             form.name.trim(),
+        sku:              form.sku.trim(),
+        description:      form.description.trim(),
+        module_id:        form.module_id,
+        unit_type:        form.unit_type.trim(),
+        retail_price:     parseFloat(form.retail_price),
+        wholesale_price:  parseFloat(form.wholesale_price),
+        cost_price:       form.cost_price ? parseFloat(form.cost_price) : undefined,
+        reorder_level:    parseInt(form.reorder_level) || 0,
+      }
+      if (modal === 'add') {
+        await productsAPI.create(payload)
+      } else {
+        await productsAPI.update(editing.id, payload)
+      }
+      setModal(null)
+      load()
+    } catch (err) {
+      setError(parseApiError(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (p) => {
+    if (!confirm(`Delete "${p.name}"? This cannot be undone.`)) return
+    setDeleting(p.id)
+    try {
+      await productsAPI.delete(p.id)
+      load()
+    } catch (err) {
+      setError(parseApiError(err))
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  const totalStock = (p) => {
+    if (Array.isArray(p.stock)) {
+      return p.stock.reduce((sum, s) => sum + (s.quantity_in_stock ?? 0), 0)
+    }
+    return typeof p.stock === 'number' ? p.stock : '—'
+  }
+
   return (
     <AppLayout>
-      <h1 style={{ fontSize: 22, fontWeight: 600, marginBottom: 8 }}>Products</h1>
-      <p style={{ color: 'var(--muted)', fontSize: 14 }}>Coming soon — this screen is next in the build queue.</p>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--light)' }}>Products</h1>
+        <button className="btn-gold" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={openAdd}>
+          <Plus size={15} /> Add Product
+        </button>
+      </div>
+
+      {error && (
+        <div style={{
+          background: 'rgba(224,85,85,0.12)', border: '1px solid rgba(224,85,85,0.3)',
+          borderRadius: 'var(--r-sm)', padding: '10px 14px',
+          display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16,
+        }}>
+          <AlertCircle size={15} color="var(--error)" />
+          <span style={{ fontSize: 13, color: 'var(--error)' }}>{error}</span>
+        </div>
+      )}
+
+      {/* Search */}
+      <div style={{ position: 'relative', marginBottom: 16, maxWidth: 340 }}>
+        <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+        <input
+          className="input"
+          placeholder="Search name, SKU…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ paddingLeft: 34 }}
+        />
+      </div>
+
+      {/* Table */}
+      <div style={{ background: 'var(--blue)', border: '1px solid var(--mid)', borderRadius: 10, overflow: 'hidden' }}>
+        {loading ? (
+          <p style={{ padding: 24, color: 'var(--muted)', fontSize: 13 }}>Loading…</p>
+        ) : products.length === 0 ? (
+          <div style={{ padding: 48, textAlign: 'center' }}>
+            <Package size={32} color="var(--muted)" style={{ marginBottom: 12 }} />
+            <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+              {search ? 'No products match your search.' : 'No products yet. Add your first product.'}
+            </p>
+          </div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--mid)' }}>
+                {['Name', 'SKU', 'Module', 'Retail Price', 'Stock', 'Status', ''].map(h => (
+                  <th key={h} style={{
+                    padding: '10px 16px', textAlign: 'left', fontSize: 11,
+                    color: 'var(--muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.4,
+                  }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {products.map(p => (
+                <tr key={p.id} style={{ borderBottom: '1px solid var(--mid)' }}>
+                  <td style={{ padding: '12px 16px', color: 'var(--light)', fontWeight: 500 }}>{p.name}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>{p.sku || '—'}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>{p.module_name || '—'}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--gold)', fontWeight: 500 }}>{formatNaira(p.retail_price)}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--light)' }}>{totalStock(p)}</td>
+                  <td style={{ padding: '12px 16px' }}>
+                    <span style={{
+                      fontSize: 11, padding: '2px 8px', borderRadius: 20,
+                      background: p.is_active ? 'rgba(76,175,125,0.15)' : 'rgba(224,85,85,0.12)',
+                      color: p.is_active ? 'var(--success)' : 'var(--error)',
+                    }}>
+                      {p.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '12px 16px' }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => openEdit(p)} className="btn-ghost" style={{ padding: '4px 8px' }}>
+                        <Edit2 size={13} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(p)}
+                        disabled={deleting === p.id}
+                        className="btn-ghost"
+                        style={{ padding: '4px 8px', color: 'var(--error)' }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Add / Edit Modal */}
+      {modal && (
+        <Modal title={modal === 'add' ? 'Add Product' : 'Edit Product'} onClose={() => setModal(null)}>
+          {error && (
+            <div style={{
+              background: 'rgba(224,85,85,0.12)', border: '1px solid rgba(224,85,85,0.3)',
+              borderRadius: 'var(--r-sm)', padding: '10px 14px',
+              display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16,
+            }}>
+              <AlertCircle size={14} color="var(--error)" />
+              <span style={{ fontSize: 13, color: 'var(--error)' }}>{error}</span>
+            </div>
+          )}
+          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <FormField label="Product name *" error={formErrors.name}>
+              <input className={`input ${formErrors.name ? 'input-error' : ''}`}
+                value={form.name} onChange={set('name')} placeholder="e.g. Paracetamol 500mg" />
+            </FormField>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <FormField label="SKU" error={formErrors.sku}>
+                <input className="input" value={form.sku} onChange={set('sku')} placeholder="e.g. PARA-500" />
+              </FormField>
+              <FormField label="Unit type" error={formErrors.unit_type}>
+                <input className="input" value={form.unit_type} onChange={set('unit_type')} placeholder="e.g. pcs, kg, box" />
+              </FormField>
+            </div>
+
+            <FormField label="Module *" error={formErrors.module_id}>
+              <select
+                className={`input ${formErrors.module_id ? 'input-error' : ''}`}
+                value={form.module_id}
+                onChange={set('module_id')}
+              >
+                <option value="">Select module…</option>
+                {activeModules.map(bm => (
+                  <option key={bm.module.id} value={bm.module.id}>{bm.module.name}</option>
+                ))}
+              </select>
+              {activeModules.length === 0 && (
+                <span style={{ fontSize: 11, color: 'var(--warning)', marginTop: 3, display: 'block' }}>
+                  Activate at least one module in Settings first.
+                </span>
+              )}
+            </FormField>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <FormField label="Retail price (₦) *" error={formErrors.retail_price}>
+                <input className={`input ${formErrors.retail_price ? 'input-error' : ''}`}
+                  type="number" min="0" step="0.01"
+                  value={form.retail_price} onChange={set('retail_price')} placeholder="0.00" />
+              </FormField>
+              <FormField label="Wholesale price (₦) *" error={formErrors.wholesale_price}>
+                <input className={`input ${formErrors.wholesale_price ? 'input-error' : ''}`}
+                  type="number" min="0" step="0.01"
+                  value={form.wholesale_price} onChange={set('wholesale_price')} placeholder="0.00" />
+              </FormField>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <FormField label="Cost price (₦)" error={formErrors.cost_price}>
+                <input className="input" type="number" min="0" step="0.01"
+                  value={form.cost_price} onChange={set('cost_price')} placeholder="0.00" />
+              </FormField>
+              <FormField label="Reorder level" error={formErrors.reorder_level}>
+                <input className="input" type="number" min="0"
+                  value={form.reorder_level} onChange={set('reorder_level')} placeholder="0" />
+              </FormField>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+              <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>
+                Cancel
+              </button>
+              <button type="submit" className="btn-gold" style={{ flex: 2 }} disabled={saving}>
+                {saving ? 'Saving…' : modal === 'add' ? 'Add Product' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </AppLayout>
   )
 }

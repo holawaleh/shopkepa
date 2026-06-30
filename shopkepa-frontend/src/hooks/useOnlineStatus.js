@@ -13,7 +13,9 @@ export function useOnlineStatus() {
         await healthAPI.ping()
         setIsOnline(true)
       } catch {
-        setIsOnline(false)
+        // If navigator.onLine is still true, the failure is likely a browser
+        // extension (e.g. Brave Shields) blocking the request — don't show offline.
+        if (!navigator.onLine) setIsOnline(false)
       }
     }
 
