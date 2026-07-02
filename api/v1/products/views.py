@@ -6,17 +6,65 @@ from django.db import transaction
 from django.db.models import Q
 
 from core.models import (
-    Product, ProductAttribute, BranchInventory,
+    Product, ProductCategory, ProductAttribute, BranchInventory,
     StockAdjustment, Branch, Module
 )
 from core.permissions import IsManagerOrAbove, IsCashierOrAbove
 from core.utils import log_audit, get_client_ip
+from core.services.product_categories import seed_default_product_categories
 from .serializers import (
-    ProductSerializer, CreateProductSerializer,
-    UpdateProductSerializer, StockAdjustmentSerializer,
+    ProductSerializer, ProductCategorySerializer, CreateProductCategorySerializer,
+    CreateProductSerializer, UpdateProductSerializer, StockAdjustmentSerializer,
     BranchStockSerializer
 )
 
+class ProductCategoryListCreateView(APIView):
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsManagerOrAbove()]
+        return [IsCashierOrAbove()]
+
+    def get(self, request):
+        business = request.user.business
+        seed_default_product_categories(business)
+
+        queryset = ProductCategory.objects.filter(
+            business=business,
+            is_active=True,
+        ).select_related('module')
+
+        module_id = request.query_params.get('module_id')
+        if module_id:
+            queryset = queryset.filter(module_id=module_id)
+
+        serializer = ProductCategorySerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        self.permission_classes = [IsManagerOrAbove]
+        self.check_permissions(request)
+
+        serializer = CreateProductCategorySerializer(
+            data=request.data,
+            context={'request': request},
+        )
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        category = ProductCategory.objects.create(
+            business=request.user.business,
+            module_id=data['module_id'],
+            name=data['name'],
+            description=data.get('description', ''),
+            is_custom=True,
+        )
+
+        return Response(
+            ProductCategorySerializer(category).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 class ProductListCreateView(APIView):
 
@@ -30,23 +78,27 @@ class ProductListCreateView(APIView):
         queryset  = Product.objects.filter(
             business=business,
             is_deleted=False
-        ).select_related('module').prefetch_related('attributes', 'inventory')
+        ).select_related('module', 'category').prefetch_related('attributes', 'inventory')
 
         # Filters
         module_id = request.query_params.get('module_id')
         is_active = request.query_params.get('is_active')
         search    = request.query_params.get('search')
         branch_id = request.query_params.get('branch_id')
+        category_id = request.query_params.get('category_id')
 
         if module_id:
             queryset = queryset.filter(module_id=module_id)
         if is_active is not None:
             queryset = queryset.filter(is_active=is_active.lower() == 'true')
+        if category_id:
+            queryset = queryset.filter(category_id=category_id)
         if search:
             queryset = queryset.filter(
                 Q(name__icontains=search) |
                 Q(sku__icontains=search)      |
-                Q(barcode__icontains=search)
+                Q(barcode__icontains=search)  |
+                Q(category__name__icontains=search)
             )
 
         queryset = queryset.order_by('name')
@@ -76,6 +128,7 @@ class ProductListCreateView(APIView):
         product = Product.objects.create(
             business=business,
             module_id=data['module_id'],
+            category_id=data.get('category_id'),
             name=data['name'],
             description=data.get('description', ''),
             sku=data.get('sku', ''),
@@ -167,7 +220,7 @@ class ProductDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        serializer = UpdateProductSerializer(data=request.data)
+        serializer = UpdateProductSerializer(data=request.data, context={'product': product})
         if not serializer.is_valid():
             return Response(
                 serializer.errors,
@@ -178,7 +231,7 @@ class ProductDetailView(APIView):
 
         # Update product fields
         for field in [
-            'name', 'description','sku', 'barcode', 'unit_type',
+            'name', 'description','sku', 'barcode', 'category_id', 'unit_type',
             'wholesale_price', 'retail_price',
             'cost_price', 'reorder_level', 'is_active'
         ]:

@@ -2,11 +2,14 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
+import logging
 
 from core.models import Sale, Branch, Module, Customer
 from core.permissions import IsCashierOrAbove, IsManagerOrAbove
 from core.services.sale_service import create_sale, add_payment_to_sale
 from core.utils import get_client_ip
+logger = logging.getLogger(__name__)
+
 from .serializers import (
     SaleSerializer, SaleDetailSerializer,
     CreateSaleSerializer, AddPaymentSerializer

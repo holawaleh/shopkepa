@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Search, Edit2, Trash2, X, AlertCircle, Package, PackagePlus } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, X, AlertCircle, Package, PackagePlus, Tag } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
 import { productsAPI, modulesAPI, branchesAPI } from '../../api/client'
 import { formatNaira, parseApiError } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 
 const EMPTY_FORM = {
-  name: '', sku: '', description: '', module_id: '',
+  name: '', sku: '', description: '', module_id: '', category_id: '',
   unit_type: '', retail_price: '', wholesale_price: '',
   cost_price: '', reorder_level: '0',
 }
@@ -44,7 +44,7 @@ function Modal({ title, onClose, children }) {
     }}>
       <div style={{
         background: 'var(--blue)', border: '1px solid var(--mid)',
-        borderRadius: 12, padding: 24, width: '100%', maxWidth: 480,
+        borderRadius: 12, padding: 24, width: '100%', maxWidth: 520,
         maxHeight: '90vh', overflowY: 'auto',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -73,14 +73,20 @@ export default function ProductsPage() {
   const toast = useToast()
   const [products, setProducts]       = useState([])
   const [activeModules, setActiveModules] = useState([])
+  const [categories, setCategories]   = useState([])
   const [branches, setBranches]       = useState([])
   const [loading, setLoading]         = useState(true)
   const [search, setSearch]           = useState('')
-  const [modal, setModal]             = useState(null) // null | 'add' | 'edit' | 'restock'
+  const [filterModule, setFilterModule] = useState('')
+  const [filterCategory, setFilterCategory] = useState('')
+  const [modal, setModal]             = useState(null) // null | add | edit | restock | category
   const [editing, setEditing]         = useState(null)
   const [restockTarget, setRestockTarget] = useState(null)
   const [restockForm, setRestockForm] = useState({ branch_id: '', quantity_change: '', reason: '' })
   const [form, setForm]               = useState(EMPTY_FORM)
+  const [categoryForm, setCategoryForm] = useState({ module_id: '', name: '' })
+  const [categoryReturnModal, setCategoryReturnModal] = useState('add')
+  const [categoryError, setCategoryError] = useState('')
   const [formErrors, setFormErrors]   = useState({})
   const [saving, setSaving]           = useState(false)
   const [error, setError]             = useState('')
@@ -89,24 +95,60 @@ export default function ProductsPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [prodRes, modRes, branchRes] = await Promise.all([
-        productsAPI.list({ search: search || undefined }),
+      const [prodRes, modRes, branchRes, catRes] = await Promise.all([
+        productsAPI.list({
+          search: search || undefined,
+          module_id: filterModule || undefined,
+          category_id: filterCategory || undefined,
+        }),
         modulesAPI.active(),
         branchesAPI.list(),
+        productsAPI.listCategories(),
       ])
       const raw = prodRes.data
+      const br = branchRes.data
+      const cats = catRes.data
       setProducts(Array.isArray(raw) ? raw : (raw.results ?? []))
       setActiveModules(modRes.data.filter(bm => bm.is_active))
-      const br = branchRes.data
       setBranches(Array.isArray(br) ? br : (br.results ?? []))
+      setCategories(Array.isArray(cats) ? cats : (cats.results ?? []))
+      setError('')
     } catch (err) {
       setError(parseApiError(err))
     } finally {
       setLoading(false)
     }
-  }, [search])
+  }, [search, filterModule, filterCategory])
 
   useEffect(() => { load() }, [load])
+
+  const categoriesForModule = (moduleId) => categories.filter(c => !moduleId || c.module === moduleId)
+  const filterCategories = categoriesForModule(filterModule)
+  const formCategories = categoriesForModule(form.module_id)
+
+  const openAdd = () => {
+    setEditing(null)
+    setForm({ ...EMPTY_FORM, module_id: filterModule || '' })
+    setFormErrors({})
+    setError('')
+    setModal('add')
+  }
+
+  const openEdit = (p) => {
+    setEditing(p)
+    setForm({
+      name: p.name, sku: p.sku || '', description: p.description || '',
+      module_id: p.module || '', category_id: p.category || '',
+      unit_type: p.unit_type || '',
+      retail_price: p.retail_price,
+      wholesale_price: p.wholesale_price,
+      cost_price: p.cost_price || '',
+      reorder_level: String(p.reorder_level ?? 0),
+    })
+    setFormErrors({})
+    setError('')
+    setModal('edit')
+  }
 
   const openRestock = (p) => {
     setRestockTarget(p)
@@ -115,60 +157,28 @@ export default function ProductsPage() {
     setModal('restock')
   }
 
-  const handleRestock = async (e) => {
-    e.preventDefault()
-    const qty = parseInt(restockForm.quantity_change, 10)
-    if (!restockForm.branch_id) { setError('Select a branch.'); return }
-    if (!qty || qty === 0) { setError('Enter a non-zero quantity. Use negative to reduce stock.'); return }
-    setSaving(true); setError('')
-    try {
-      await productsAPI.adjustStock(restockTarget.id, {
-        branch_id:       restockForm.branch_id,
-        adjustment_type: qty > 0 ? 'restock' : 'manual_decrease',
-        quantity_change: qty,
-        reason:          restockForm.reason.trim() || undefined,
-      })
-      setModal(null)
-      toast.success(`${qty > 0 ? `+${qty}` : qty} units ${qty > 0 ? 'added to' : 'removed from'} ${restockTarget.name}`)
-      load()
-    } catch (err) {
-      setError(parseApiError(err))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const openAdd = () => {
-    setForm(EMPTY_FORM)
-    setFormErrors({})
-    setModal('add')
-  }
-
-  const openEdit = (p) => {
-    setEditing(p)
-    setForm({
-      name: p.name, sku: p.sku || '', description: p.description || '',
-      module_id: p.module || '',
-      unit_type: p.unit_type || '',
-      retail_price: p.retail_price,
-      wholesale_price: p.wholesale_price,
-      cost_price: p.cost_price || '',
-      reorder_level: String(p.reorder_level ?? 0),
-    })
-    setFormErrors({})
-    setModal('edit')
+  const openCategoryModal = () => {
+    setCategoryForm({ module_id: form.module_id || filterModule || activeModules[0]?.module?.id || '', name: '' })
+    setCategoryReturnModal(modal === 'edit' ? 'edit' : 'add')
+    setCategoryError('')
+    setModal('category')
   }
 
   const set = (field) => (e) => {
-    setForm(f => ({ ...f, [field]: e.target.value }))
+    const value = e.target.value
+    setForm(f => ({
+      ...f,
+      [field]: value,
+      ...(field === 'module_id' ? { category_id: '' } : {}),
+    }))
     setFormErrors(fe => ({ ...fe, [field]: '' }))
   }
 
   const validate = () => {
     const e = {}
-    if (!form.name.trim())        e.name          = 'Product name is required'
-    if (!form.module_id)          e.module_id     = 'Select a module'
-    if (!form.retail_price)       e.retail_price  = 'Retail price is required'
+    if (!form.name.trim())        e.name            = 'Product name is required'
+    if (!form.module_id)          e.module_id       = 'Select a module'
+    if (!form.retail_price)       e.retail_price    = 'Retail price is required'
     if (!form.wholesale_price)    e.wholesale_price = 'Wholesale price is required'
     if (parseFloat(form.retail_price) <= 0) e.retail_price = 'Must be greater than zero'
     setFormErrors(e)
@@ -186,6 +196,7 @@ export default function ProductsPage() {
         sku:              form.sku.trim(),
         description:      form.description.trim(),
         module_id:        form.module_id,
+        category_id:      form.category_id || null,
         unit_type:        form.unit_type.trim(),
         retail_price:     parseFloat(form.retail_price),
         wholesale_price:  parseFloat(form.wholesale_price),
@@ -200,6 +211,53 @@ export default function ProductsPage() {
         toast.success(`${payload.name} updated`)
       }
       setModal(null)
+      load()
+    } catch (err) {
+      setError(parseApiError(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleCreateCategory = async (e) => {
+    e.preventDefault()
+    if (!categoryForm.module_id) { setCategoryError('Select a module first.'); return }
+    if (!categoryForm.name.trim()) { setCategoryError('Enter a category name.'); return }
+    setSaving(true)
+    setCategoryError('')
+    try {
+      const res = await productsAPI.createCategory({
+        module_id: categoryForm.module_id,
+        name: categoryForm.name.trim(),
+      })
+      const created = res.data
+      setCategories(cats => [...cats.filter(c => c.id !== created.id), created].sort((a, b) => a.name.localeCompare(b.name)))
+      setForm(f => f.module_id === created.module ? { ...f, category_id: created.id } : f)
+      toast.success(`${created.name} category added`)
+      setModal(form.module_id ? categoryReturnModal : null)
+      load()
+    } catch (err) {
+      setCategoryError(parseApiError(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleRestock = async (e) => {
+    e.preventDefault()
+    const qty = parseInt(restockForm.quantity_change, 10)
+    if (!restockForm.branch_id) { setError('Select a branch.'); return }
+    if (!qty || qty === 0) { setError('Enter a non-zero quantity. Use negative to reduce stock.'); return }
+    setSaving(true); setError('')
+    try {
+      await productsAPI.adjustStock(restockTarget.id, {
+        branch_id:       restockForm.branch_id,
+        adjustment_type: qty > 0 ? 'restock' : 'manual_decrease',
+        quantity_change: qty,
+        reason:          restockForm.reason.trim() || undefined,
+      })
+      setModal(null)
+      toast.success(`${qty > 0 ? `+${qty}` : qty} units ${qty > 0 ? 'added to' : 'removed from'} ${restockTarget.name}`)
       load()
     } catch (err) {
       setError(parseApiError(err))
@@ -226,12 +284,14 @@ export default function ProductsPage() {
     if (Array.isArray(p.stock)) {
       return p.stock.reduce((sum, s) => sum + (s.quantity_in_stock ?? 0), 0)
     }
-    return typeof p.stock === 'number' ? p.stock : '—'
+    return typeof p.stock === 'number' ? p.stock : '-'
   }
+
+  const selectedModule = activeModules.find(bm => bm.module.id === form.module_id)?.module
 
   return (
     <AppLayout>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, gap: 12 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--light)' }}>Products</h1>
         <button className="btn-gold" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={openAdd}>
           <Plus size={15} /> Add Product
@@ -249,34 +309,42 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* Search */}
-      <div style={{ position: 'relative', marginBottom: 16, maxWidth: 340 }}>
-        <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
-        <input
-          className="input"
-          placeholder="Search name, SKU…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{ paddingLeft: 34 }}
-        />
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1.2fr) minmax(180px, 1fr) minmax(180px, 1fr)', gap: 10, marginBottom: 16 }}>
+        <div style={{ position: 'relative' }}>
+          <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+          <input
+            className="input"
+            placeholder="Search name, SKU, category..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ paddingLeft: 34 }}
+          />
+        </div>
+        <select className="input" value={filterModule} onChange={e => { setFilterModule(e.target.value); setFilterCategory('') }}>
+          <option value="">All modules</option>
+          {activeModules.map(bm => <option key={bm.module.id} value={bm.module.id}>{bm.module.name}</option>)}
+        </select>
+        <select className="input" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
+          <option value="">All categories</option>
+          {filterCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
       </div>
 
-      {/* Table */}
       <div style={{ background: 'var(--blue)', border: '1px solid var(--mid)', borderRadius: 10, overflow: 'hidden' }}>
         {loading ? (
-          <p style={{ padding: 24, color: 'var(--muted)', fontSize: 13 }}>Loading…</p>
+          <p style={{ padding: 24, color: 'var(--muted)', fontSize: 13 }}>Loading...</p>
         ) : products.length === 0 ? (
           <div style={{ padding: 48, textAlign: 'center' }}>
             <Package size={32} color="var(--muted)" style={{ marginBottom: 12 }} />
             <p style={{ color: 'var(--muted)', fontSize: 13 }}>
-              {search ? 'No products match your search.' : 'No products yet. Add your first product.'}
+              {search || filterModule || filterCategory ? 'No products match your filters.' : 'No products yet. Add your first product.'}
             </p>
           </div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--mid)' }}>
-                {['Name', 'SKU', 'Module', 'Retail Price', 'Stock', 'Status', ''].map(h => (
+                {['Name', 'SKU', 'Module', 'Category', 'Retail Price', 'Stock', 'Status', ''].map(h => (
                   <th key={h} style={{
                     padding: '10px 16px', textAlign: 'left', fontSize: 11,
                     color: 'var(--muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.4,
@@ -288,8 +356,9 @@ export default function ProductsPage() {
               {products.map(p => (
                 <tr key={p.id} style={{ borderBottom: '1px solid var(--mid)' }}>
                   <td style={{ padding: '12px 16px', color: 'var(--light)', fontWeight: 500 }}>{p.name}</td>
-                  <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>{p.sku || '—'}</td>
-                  <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>{p.module_name || '—'}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>{p.sku || '-'}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>{p.module_name || '-'}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>{p.category_name || 'Uncategorised'}</td>
                   <td style={{ padding: '12px 16px', color: 'var(--gold)', fontWeight: 500 }}>{formatNaira(p.retail_price)}</td>
                   <td style={{ padding: '12px 16px', color: 'var(--light)' }}>{totalStock(p)}</td>
                   <td style={{ padding: '12px 16px' }}>
@@ -327,8 +396,7 @@ export default function ProductsPage() {
         )}
       </div>
 
-      {/* Add / Edit Modal */}
-      {modal && (
+      {(modal === 'add' || modal === 'edit') && (
         <Modal title={modal === 'add' ? 'Add Product' : 'Edit Product'} onClose={() => setModal(null)}>
           {error && (
             <div style={{
@@ -341,97 +409,108 @@ export default function ProductsPage() {
             </div>
           )}
           <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <FormField label="Module *" error={formErrors.module_id}>
+              <select className={`input ${formErrors.module_id ? 'input-error' : ''}`} value={form.module_id} onChange={set('module_id')} disabled={modal === 'edit'}>
+                <option value="">Select module...</option>
+                {activeModules.map(bm => <option key={bm.module.id} value={bm.module.id}>{bm.module.name}</option>)}
+              </select>
+              {activeModules.length === 0 && <span style={{ fontSize: 11, color: 'var(--warning)', marginTop: 3, display: 'block' }}>Activate at least one module in Settings first.</span>}
+            </FormField>
+
+            <FormField label="Category" error={formErrors.category_id}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <select className="input" value={form.category_id} onChange={set('category_id')} disabled={!form.module_id} style={{ flex: 1 }}>
+                  <option value="">Uncategorised</option>
+                  {formCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <button type="button" className="btn-ghost" onClick={openCategoryModal} disabled={!form.module_id} style={{ padding: '0 10px', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <Tag size={13} /> New
+                </button>
+              </div>
+              {selectedModule && formCategories.length === 0 && <span style={{ fontSize: 11, color: 'var(--warning)', marginTop: 3, display: 'block' }}>No categories yet for {selectedModule.name}. Add one now.</span>}
+            </FormField>
+
             <FormField label="Product name *" error={formErrors.name}>
               {(() => {
-                const selMod = activeModules.find(bm => bm.module.id === form.module_id)
-                const ph = selMod
-                  ? (MODULE_PLACEHOLDERS[selMod.module.code?.toLowerCase()] || `e.g. ${selMod.module.name} item`)
-                  : 'e.g. Product name'
-                return (
-                  <input className={`input ${formErrors.name ? 'input-error' : ''}`}
-                    value={form.name} onChange={set('name')} placeholder={ph} />
-                )
+                const ph = selectedModule ? (MODULE_PLACEHOLDERS[selectedModule.code?.toLowerCase()] || `e.g. ${selectedModule.name} item`) : 'e.g. Product name'
+                return <input className={`input ${formErrors.name ? 'input-error' : ''}`} value={form.name} onChange={set('name')} placeholder={ph} />
               })()}
             </FormField>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <FormField label="SKU" error={formErrors.sku}>
                 {(() => {
-                  const selMod = activeModules.find(bm => bm.module.id === form.module_id)
-                  const skuPh = selMod
-                    ? (MODULE_SKU_PLACEHOLDERS[selMod.module.code?.toLowerCase()] || 'e.g. PRD-001')
-                    : 'e.g. PRD-001'
+                  const skuPh = selectedModule ? (MODULE_SKU_PLACEHOLDERS[selectedModule.code?.toLowerCase()] || 'e.g. PRD-001') : 'e.g. PRD-001'
                   return <input className="input" value={form.sku} onChange={set('sku')} placeholder={skuPh} />
                 })()}
               </FormField>
               <FormField label="Unit type" error={formErrors.unit_type}>
-                <input className="input" value={form.unit_type} onChange={set('unit_type')} placeholder="e.g. pcs, kg, box" />
+                <input className="input" value={form.unit_type} onChange={set('unit_type')} placeholder="e.g. pcs, kg, carton" />
               </FormField>
             </div>
 
-            <FormField label="Module *" error={formErrors.module_id}>
-              <select
-                className={`input ${formErrors.module_id ? 'input-error' : ''}`}
-                value={form.module_id}
-                onChange={set('module_id')}
-              >
-                <option value="">Select module…</option>
-                {activeModules.map(bm => (
-                  <option key={bm.module.id} value={bm.module.id}>{bm.module.name}</option>
-                ))}
-              </select>
-              {activeModules.length === 0 && (
-                <span style={{ fontSize: 11, color: 'var(--warning)', marginTop: 3, display: 'block' }}>
-                  Activate at least one module in Settings first.
-                </span>
-              )}
+            <FormField label="Description" error={formErrors.description}>
+              <input className="input" value={form.description} onChange={set('description')} placeholder="Optional notes, size, brand, pack count..." />
             </FormField>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <FormField label="Retail price (₦) *" error={formErrors.retail_price}>
-                <input className={`input ${formErrors.retail_price ? 'input-error' : ''}`}
-                  type="number" min="0" step="0.01"
-                  value={form.retail_price} onChange={set('retail_price')} placeholder="0.00" />
+              <FormField label="Retail price (NGN) *" error={formErrors.retail_price}>
+                <input className={`input ${formErrors.retail_price ? 'input-error' : ''}`} type="number" min="0" step="0.01" value={form.retail_price} onChange={set('retail_price')} placeholder="0.00" />
               </FormField>
-              <FormField label="Wholesale price (₦) *" error={formErrors.wholesale_price}>
-                <input className={`input ${formErrors.wholesale_price ? 'input-error' : ''}`}
-                  type="number" min="0" step="0.01"
-                  value={form.wholesale_price} onChange={set('wholesale_price')} placeholder="0.00" />
+              <FormField label="Wholesale price (NGN) *" error={formErrors.wholesale_price}>
+                <input className={`input ${formErrors.wholesale_price ? 'input-error' : ''}`} type="number" min="0" step="0.01" value={form.wholesale_price} onChange={set('wholesale_price')} placeholder="0.00" />
               </FormField>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <FormField label="Cost price (₦)" error={formErrors.cost_price}>
-                <input className="input" type="number" min="0" step="0.01"
-                  value={form.cost_price} onChange={set('cost_price')} placeholder="0.00" />
+              <FormField label="Cost price (NGN)" error={formErrors.cost_price}>
+                <input className="input" type="number" min="0" step="0.01" value={form.cost_price} onChange={set('cost_price')} placeholder="0.00" />
               </FormField>
               <FormField label="Reorder level" error={formErrors.reorder_level}>
-                <input className="input" type="number" min="0"
-                  value={form.reorder_level} onChange={set('reorder_level')} placeholder="0" />
+                <input className="input" type="number" min="0" value={form.reorder_level} onChange={set('reorder_level')} placeholder="0" />
               </FormField>
             </div>
 
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-              <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>
-                Cancel
-              </button>
-              <button type="submit" className="btn-gold" style={{ flex: 2 }} disabled={saving}>
-                {saving ? 'Saving…' : modal === 'add' ? 'Add Product' : 'Save Changes'}
-              </button>
+              <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>
+              <button type="submit" className="btn-gold" style={{ flex: 2 }} disabled={saving}>{saving ? 'Saving...' : modal === 'add' ? 'Add Product' : 'Save Changes'}</button>
             </div>
           </form>
         </Modal>
       )}
 
-      {/* Restock / Stock Adjust Modal */}
+      {modal === 'category' && (
+        <Modal title="Add Product Category" onClose={() => setModal(form.module_id ? categoryReturnModal : null)}>
+          {categoryError && (
+            <div style={{ background: 'rgba(224,85,85,0.12)', border: '1px solid rgba(224,85,85,0.3)', borderRadius: 8, padding: '10px 14px', marginBottom: 14, color: 'var(--error)', fontSize: 13 }}>
+              {categoryError}
+            </div>
+          )}
+          <form onSubmit={handleCreateCategory} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <FormField label="Module *">
+              <select className="input" value={categoryForm.module_id} onChange={e => { setCategoryForm(f => ({ ...f, module_id: e.target.value })); setCategoryError('') }}>
+                <option value="">Select module...</option>
+                {activeModules.map(bm => <option key={bm.module.id} value={bm.module.id}>{bm.module.name}</option>)}
+              </select>
+            </FormField>
+            <FormField label="Category name *">
+              <input className="input" value={categoryForm.name} onChange={e => { setCategoryForm(f => ({ ...f, name: e.target.value })); setCategoryError('') }} placeholder="e.g. Phone Accessories" />
+            </FormField>
+            <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6 }}>
+              Defaults are already added for common Nigerian shops. Use this for your own labels like Imported Creams, Fairly Used Phones, Lace Materials, or POS Paper Rolls.
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+              <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(form.module_id ? categoryReturnModal : null)}>Cancel</button>
+              <button type="submit" className="btn-gold" style={{ flex: 2 }} disabled={saving}>{saving ? 'Saving...' : 'Add Category'}</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
       {modal === 'restock' && restockTarget && (
-        <Modal title={`Adjust Stock — ${restockTarget.name}`} onClose={() => setModal(null)}>
+        <Modal title={`Adjust Stock - ${restockTarget.name}`} onClose={() => setModal(null)}>
           {error && (
-            <div style={{
-              background: 'rgba(224,85,85,0.12)', border: '1px solid rgba(224,85,85,0.3)',
-              borderRadius: 8, padding: '10px 14px',
-              display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14,
-            }}>
+            <div style={{ background: 'rgba(224,85,85,0.12)', border: '1px solid rgba(224,85,85,0.3)', borderRadius: 8, padding: '10px 14px', display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 }}>
               <AlertCircle size={14} color="var(--error)" />
               <span style={{ fontSize: 13, color: 'var(--error)' }}>{error}</span>
             </div>
@@ -440,34 +519,21 @@ export default function ProductsPage() {
             Current stock: <strong style={{ color: 'var(--light)' }}>{totalStock(restockTarget)} units</strong>
           </div>
           <form onSubmit={handleRestock} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Branch *</label>
-              <select className="input" value={restockForm.branch_id}
-                onChange={e => setRestockForm(f => ({ ...f, branch_id: e.target.value }))}>
-                <option value="">Select branch…</option>
+            <FormField label="Branch *">
+              <select className="input" value={restockForm.branch_id} onChange={e => setRestockForm(f => ({ ...f, branch_id: e.target.value }))}>
+                <option value="">Select branch...</option>
                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>
-                Quantity change * <span style={{ color: 'var(--muted)', fontSize: 11 }}>(positive to add, negative to remove)</span>
-              </label>
-              <input className="input" type="number" step="1"
-                value={restockForm.quantity_change}
-                onChange={e => setRestockForm(f => ({ ...f, quantity_change: e.target.value }))}
-                placeholder="e.g. 50 or -5" />
-            </div>
-            <div>
-              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Reason / notes</label>
-              <input className="input" value={restockForm.reason}
-                onChange={e => setRestockForm(f => ({ ...f, reason: e.target.value }))}
-                placeholder="e.g. New delivery, Stock correction…" />
-            </div>
+            </FormField>
+            <FormField label="Quantity change *">
+              <input className="input" type="number" step="1" value={restockForm.quantity_change} onChange={e => setRestockForm(f => ({ ...f, quantity_change: e.target.value }))} placeholder="e.g. 50 or -5" />
+            </FormField>
+            <FormField label="Reason / notes">
+              <input className="input" value={restockForm.reason} onChange={e => setRestockForm(f => ({ ...f, reason: e.target.value }))} placeholder="e.g. New delivery, stock correction" />
+            </FormField>
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>
-              <button type="submit" className="btn-gold" style={{ flex: 2 }} disabled={saving}>
-                {saving ? 'Saving…' : 'Update Stock'}
-              </button>
+              <button type="submit" className="btn-gold" style={{ flex: 2 }} disabled={saving}>{saving ? 'Saving...' : 'Update Stock'}</button>
             </div>
           </form>
         </Modal>

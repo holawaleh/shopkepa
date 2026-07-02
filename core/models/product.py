@@ -4,10 +4,35 @@ from .business import Business
 from .module import Module
 
 
+
+class ProductCategory(models.Model):
+    id          = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    business    = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='product_categories')
+    module      = models.ForeignKey(Module, on_delete=models.CASCADE, related_name='product_categories')
+    name        = models.CharField(max_length=100)
+    description = models.CharField(max_length=255, null=True, blank=True)
+    is_custom   = models.BooleanField(default=False)
+    is_active   = models.BooleanField(default=True)
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'product_categories'
+        ordering = ['module__sort_order', 'name']
+        unique_together = ('business', 'module', 'name')
+        indexes = [
+            models.Index(fields=['business', 'module']),
+            models.Index(fields=['business', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f"{self.module.name} - {self.name}"
+
 class Product(models.Model):
     id            = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     business      = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='products')
     module        = models.ForeignKey(Module, on_delete=models.CASCADE, related_name='products')
+    category      = models.ForeignKey('ProductCategory', on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
     name          = models.CharField(max_length=200)
     description   = models.TextField(null=True, blank=True)
     sku           = models.CharField(max_length=100, null=True, blank=True)
@@ -28,6 +53,7 @@ class Product(models.Model):
         db_table = 'products'
         indexes = [
             models.Index(fields=['business', 'module']),
+            models.Index(fields=['business', 'category']),
             models.Index(fields=['business', 'is_active']),
             models.Index(fields=['business', 'is_deleted']),
         ]

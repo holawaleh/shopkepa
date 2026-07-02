@@ -110,16 +110,18 @@ export const authAPI = {
 }
 
 export const productsAPI = {
-  list:         (params) => api.get('/products/', { params }),
+  list:           (params) => api.get('/products/', { params }),
+  listCategories: (params) => api.get('/products/categories/', { params }),
+  createCategory: (data)   => api.post('/products/categories/', data),
   get:          (id)     => api.get(`/products/${id}/`),
-  create:       (data)   => api.post('/products/', data),
+  create:         (data)   => api.post('/products/', data),
   update:       (id, d)  => api.patch(`/products/${id}/`, d),
   delete:       (id)     => api.delete(`/products/${id}/`),
   adjustStock:  (id, d)  => api.post(`/products/${id}/adjust-stock/`, d),
   stockHistory: (id)     => api.get(`/products/${id}/stock-history/`),
   inventory:    (id)     => api.get(`/products/${id}/inventory/`),
-  lowStock:     (params) => api.get('/products/low-stock/',  { params }),
-  expiring:     (params) => api.get('/products/expiring/',   { params }),
+  lowStock:       (params) => api.get('/products/low-stock/',  { params }),
+  expiring:       (params) => api.get('/products/expiring/',   { params }),
 }
 
 export const salesAPI = {

@@ -153,6 +153,34 @@ class CreateSaleSerializer(serializers.Serializer):
                 )
         return items
 
+    def validate(self, data):
+        from core.models import Product, BranchInventory
+        business = self.context['request'].user.business
+        branch_id = data['branch_id']
+        module_id = data['module_id']
+
+        for item in data['items']:
+            product = Product.objects.get(id=item['product_id'], business=business)
+            if product.module_id != module_id:
+                raise serializers.ValidationError({
+                    'items': f'{product.name} does not belong to the selected module.'
+                })
+
+            inventory = BranchInventory.objects.filter(
+                business=business,
+                branch_id=branch_id,
+                product=product,
+            ).first()
+            if not inventory:
+                raise serializers.ValidationError({
+                    'items': f'{product.name} has no stock record for this branch. Restock it from Products first.'
+                })
+            if inventory.quantity_in_stock < item['quantity']:
+                raise serializers.ValidationError({
+                    'items': f"Insufficient stock for {product.name}. Available: {inventory.quantity_in_stock}, requested: {item['quantity']}."
+                })
+
+        return data
 
 class AddPaymentSerializer(serializers.Serializer):
     payment_method   = serializers.ChoiceField(

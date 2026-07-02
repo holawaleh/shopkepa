@@ -2,7 +2,7 @@ from .business import Business, BusinessSettings
 from .user import User, UserManager
 from .branch import Branch, UserBranch
 from .module import Module, BusinessModule
-from .product import Product, ProductAttribute, BranchInventory, StockAdjustment
+from .product import Product, ProductCategory, ProductAttribute, BranchInventory, StockAdjustment
 from .customer import Customer, CustomerNote
 from .expense import ExpenseCategory, Expense
 from .sale import Sale, SaleItem, Payment

@@ -150,7 +150,7 @@ export default function POSPage() {
       finally { setLoadingProducts(false) }
     }, delay)
     return () => clearTimeout(searchTimer.current)
-  }, [setupDone, branchId, query, page])
+  }, [setupDone, branchId, moduleId, query, page])
 
   const handleQueryChange = (val) => { setQuery(val); setPage(1) }
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))

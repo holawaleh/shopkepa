@@ -5,6 +5,7 @@ from core.models import (
     Business, BusinessSettings, User,
     Branch, ExpenseCategory,
 )
+from core.services.product_categories import seed_default_product_categories
 
 DEFAULT_EXPENSE_CATEGORIES = [
     'Generator Fuel',
@@ -78,7 +79,10 @@ def register_business(validated_data):
     # 4. Create Business Settings
     BusinessSettings.objects.create(business=business)
 
-    # 5. Seed Default Expense Categories
+    # 5. Seed Default Product Categories
+    seed_default_product_categories(business)
+
+    # 6. Seed Default Expense Categories
     for category_name in DEFAULT_EXPENSE_CATEGORIES:
         ExpenseCategory.objects.create(
             business=business,
