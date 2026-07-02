@@ -122,6 +122,12 @@ class SaleListCreateView(APIView):
                 {'error': str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        except Exception:
+            logger.exception('Unexpected error while creating sale')
+            return Response(
+                {'error': 'Could not complete sale. Please retry or contact support if it continues.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
         return Response(
             SaleDetailSerializer(result['sale']).data,
@@ -217,6 +223,12 @@ class AddPaymentView(APIView):
             return Response(
                 {'error': str(e)},
                 status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception:
+            logger.exception('Unexpected error while creating sale')
+            return Response(
+                {'error': 'Could not complete sale. Please retry or contact support if it continues.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
         return Response({

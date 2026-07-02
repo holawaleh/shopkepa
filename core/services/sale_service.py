@@ -20,11 +20,17 @@ def create_sale(business, branch, module, items, payment_data,
 
     # ── 1. Validate stock for all items first ─────────────────────────
     for item in items:
-        inventory = BranchInventory.objects.select_for_update().get(
-            business=business,
-            branch=branch,
-            product_id=item['product_id'],
-        )
+        try:
+            inventory = BranchInventory.objects.select_for_update().get(
+                business=business,
+                branch=branch,
+                product_id=item['product_id'],
+            )
+        except BranchInventory.DoesNotExist:
+            raise ValueError(
+                f"{item['product_name']} has no stock record for {branch.name}. "
+                "Restock it from Products before selling."
+            )
         if inventory.quantity_in_stock < item['quantity']:
             raise ValueError(
                 f"Insufficient stock for {item['product_name']}. "
@@ -91,11 +97,17 @@ def create_sale(business, branch, module, items, payment_data,
         )
 
         # Deduct stock
-        inventory = BranchInventory.objects.select_for_update().get(
-            business=business,
-            branch=branch,
-            product_id=item['product_id'],
-        )
+        try:
+            inventory = BranchInventory.objects.select_for_update().get(
+                business=business,
+                branch=branch,
+                product_id=item['product_id'],
+            )
+        except BranchInventory.DoesNotExist:
+            raise ValueError(
+                f"{item['product_name']} has no stock record for {branch.name}. "
+                "Restock it from Products before selling."
+            )
         qty_before = inventory.quantity_in_stock
         qty_after  = qty_before - item['quantity']
 

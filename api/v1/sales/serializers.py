@@ -154,11 +154,13 @@ class CreateSaleSerializer(serializers.Serializer):
         return items
 
     def validate(self, data):
+        from decimal import Decimal
         from core.models import Product, BranchInventory
         business = self.context['request'].user.business
         branch_id = data['branch_id']
         module_id = data['module_id']
 
+        total_amount = Decimal('0')
         for item in data['items']:
             product = Product.objects.get(id=item['product_id'], business=business)
             if product.module_id != module_id:
@@ -179,6 +181,17 @@ class CreateSaleSerializer(serializers.Serializer):
                 raise serializers.ValidationError({
                     'items': f"Insufficient stock for {product.name}. Available: {inventory.quantity_in_stock}, requested: {item['quantity']}."
                 })
+
+            total_amount += (
+                Decimal(str(item['unit_price'])) * item['quantity']
+                - Decimal(str(item.get('discount_amount', 0)))
+            )
+
+        total_amount -= Decimal(str(data.get('discount_amount', 0)))
+        if data['amount_paid'] < total_amount and not data.get('customer_id'):
+            raise serializers.ValidationError({
+                'customer_id': 'Attach a customer before recording a partial or unpaid sale.'
+            })
 
         return data
 

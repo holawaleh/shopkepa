@@ -133,7 +133,7 @@ export default function POSPage() {
       setLoadingProducts(true)
       try {
         const res = await productsAPI.list({
-          branch_id: branchId, is_active: true,
+          branch_id: branchId, module_id: moduleId, is_active: true,
           page, page_size: PAGE_SIZE,
           ...(query ? { search: query } : {}),
         })
@@ -260,6 +260,10 @@ export default function POSPage() {
     setSaleError('')
     const paid = parseFloat(amountPaid)
     if (isNaN(paid) || paid < 0) { setSaleError('Please enter the amount paid by the customer.'); return }
+    if (paid < cartTotal && !selectedCustomer) {
+      setSaleError('Attach a customer before recording a partial or unpaid sale.')
+      return
+    }
     setSaving(true)
     try {
       const res = await salesAPI.create({
