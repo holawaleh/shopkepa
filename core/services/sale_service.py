@@ -1,4 +1,4 @@
-from django.db import transaction
+from django.db import transaction, IntegrityError
 from django.utils import timezone
 from decimal import Decimal
 import logging
@@ -69,22 +69,32 @@ def create_sale(business, branch, module, items, payment_data,
         payment_status = Sale.STATUS_UNPAID
 
     # ── 3. Create Sale ────────────────────────────────────────────────
-    sale = Sale.objects.create(
-        business=business,
-        branch=branch,
-        module=module,
-        customer=customer,
-        sale_number=generate_sale_number(business.id),
-        subtotal=subtotal,
-        discount_amount=money(discount_amount),
-        total_amount=total_amount,
-        amount_paid=amount_paid,
-        balance_due=balance_due,
-        payment_status=payment_status,
-        has_installment_plan=balance_due > 0 and customer is not None,
-        notes=notes,
-        created_by=created_by,
-    )
+    sale = None
+    for attempt in range(5):
+        try:
+            with transaction.atomic():
+                sale = Sale.objects.create(
+                    business=business,
+                    branch=branch,
+                    module=module,
+                    customer=customer,
+                    sale_number=generate_sale_number(business.id),
+                    subtotal=subtotal,
+                    discount_amount=money(discount_amount),
+                    total_amount=total_amount,
+                    amount_paid=amount_paid,
+                    balance_due=balance_due,
+                    payment_status=payment_status,
+                    has_installment_plan=balance_due > 0 and customer is not None,
+                    notes=notes,
+                    created_by=created_by,
+                )
+            break
+        except IntegrityError as exc:
+            if 'sale_number' not in str(exc) or attempt == 4:
+                raise
+    if sale is None:
+        raise ValueError('Could not generate a unique sale number. Please retry.')
 
     # ── 4. Create Sale Items + Deduct Stock ───────────────────────────
     for item in items:
