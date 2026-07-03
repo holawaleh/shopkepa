@@ -172,15 +172,21 @@ function SalesSection({ activeCodes }) {
       const customersData = results[1].status === 'fulfilled' ? results[1].value.data : null
       const productsData  = hasProducts && results[2]?.status === 'fulfilled' ? results[2].value.data : null
       const allSales  = salesData?.results ?? salesData ?? []
+      const customerCount = Array.isArray(customersData)
+        ? customersData.length
+        : (customersData?.count ?? customersData?.results?.length ?? 0)
+      const productCount = hasProducts
+        ? (Array.isArray(productsData) ? productsData.length : (productsData?.count ?? productsData?.results?.length ?? 0))
+        : null
       const today     = todayStr()
-      // sale_date is YYYY-MM-DD; created_at is ISO datetime — check both
+      // sale_date is YYYY-MM-DD; created_at is ISO datetime - check both
       const todaySales   = allSales.filter(s =>
         (s.sale_date || '').startsWith(today) || (s.created_at || '').startsWith(today)
       )
       const todayRevenue = todaySales.reduce((sum, s) =>
         sum + parseFloat(s.total_amount ?? s.total ?? s.amount ?? 0), 0
       )
-      setStats({ revenue: todayRevenue, sales: todaySales.length, products: productsData?.count ?? null, customers: customersData?.count ?? 0 })
+      setStats({ revenue: todayRevenue, sales: todaySales.length, products: productCount, customers: customerCount })
       setRecentSales(allSales.slice(0, 6))
       setLoading(false)
     }
