@@ -1,8 +1,8 @@
-// Always format money through these — never raw JS floats on currency
+// Always format money through these helpers. Do not use raw JS floats for currency.
 
 export const formatNaira = (amount) => {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount
-  if (isNaN(num)) return '₦0.00'
+  if (isNaN(num)) return 'NGN 0.00'
   return new Intl.NumberFormat('en-NG', {
     style: 'currency',
     currency: 'NGN',
@@ -13,28 +13,28 @@ export const formatNaira = (amount) => {
 
 export const formatNairaShort = (amount) => {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount
-  if (isNaN(num)) return '₦0'
-  if (num >= 1_000_000) return `₦${(num / 1_000_000).toFixed(1)}M`
-  if (num >= 1_000)     return `₦${(num / 1_000).toFixed(1)}k`
-  return `₦${num.toFixed(0)}`
+  if (isNaN(num)) return 'NGN 0'
+  if (num >= 1_000_000) return `NGN ${(num / 1_000_000).toFixed(1)}M`
+  if (num >= 1_000) return `NGN ${(num / 1_000).toFixed(1)}k`
+  return `NGN ${num.toFixed(0)}`
 }
 
 export const formatDate = (dateStr) => {
-  if (!dateStr) return '—'
+  if (!dateStr) return '-'
   return new Intl.DateTimeFormat('en-NG', {
     day: 'numeric', month: 'short', year: 'numeric',
   }).format(new Date(dateStr))
 }
 
 export const formatTime = (dateStr) => {
-  if (!dateStr) return '—'
+  if (!dateStr) return '-'
   return new Intl.DateTimeFormat('en-NG', {
     hour: '2-digit', minute: '2-digit',
   }).format(new Date(dateStr))
 }
 
 export const formatDateTime = (dateStr) => {
-  if (!dateStr) return '—'
+  if (!dateStr) return '-'
   return `${formatDate(dateStr)}, ${formatTime(dateStr)}`
 }
 
@@ -58,10 +58,10 @@ export const parseApiError = (error) => {
   const status = error?.response?.status
   const data   = error?.response?.data
 
-  // No response at all → network failure
+  // No response at all means a network failure.
   if (!data && !status) return 'Could not reach the server. Check your connection and try again.'
 
-  // Try to get a meaningful message from the response body first
+  // Try to get a meaningful message from the response body first.
   if (data) {
     if (typeof data === 'string')  return data
     if (data.detail)               return data.detail
@@ -73,7 +73,7 @@ export const parseApiError = (error) => {
     if (typeof first === 'string') return first
   }
 
-  // Fall back to HTTP status message
+  // Fall back to HTTP status message.
   if (status && HTTP_STATUS_MESSAGES[status]) return HTTP_STATUS_MESSAGES[status]
 
   return 'Something went wrong. Please try again.'

@@ -52,11 +52,11 @@ function StockBadge({ remaining }) {
 }
 
 export default function POSPage() {
-  // Keep hooks at the very top — must never be below an early return
+  // Keep hooks at the very top - must never be below an early return
   const { user } = useAuth()
   const toast    = useToast()
 
-  // ── Setup ─────────────────────────────────────────────────────────────────
+  // -- Setup -----------------------------------------------------------------
   const [branches, setBranches]           = useState([])
   const [activeModules, setActiveModules] = useState([])
   const [branchId, setBranchId]           = useState('')
@@ -64,7 +64,7 @@ export default function POSPage() {
   const [setupDone, setSetupDone]         = useState(false)
   const [setupError, setSetupError]       = useState('')
 
-  // ── Products grid ─────────────────────────────────────────────────────────
+  // -- Products grid ---------------------------------------------------------
   const [products, setProducts]               = useState([])
   const [page, setPage]                       = useState(1)
   const [totalCount, setTotalCount]           = useState(0)
@@ -72,10 +72,10 @@ export default function POSPage() {
   const [query, setQuery]                     = useState('')
   const searchTimer                           = useRef(null)
 
-  // ── Cart: { product, qty, unit_price, price_type, stock } ─────────────────
+  // -- Cart: { product, qty, unit_price, price_type, stock } -----------------
   const [cart, setCart] = useState([])
 
-  // ── Customer ──────────────────────────────────────────────────────────────
+  // -- Customer --------------------------------------------------------------
   const [customerSearch, setCustomerSearch]     = useState('')
   const [customers, setCustomers]               = useState([])
   const [selectedCustomer, setSelectedCustomer] = useState(null)
@@ -85,7 +85,7 @@ export default function POSPage() {
   const [quickSaving, setQuickSaving]           = useState(false)
   const [quickError, setQuickError]             = useState('')
 
-  // ── Checkout ──────────────────────────────────────────────────────────────
+  // -- Checkout --------------------------------------------------------------
   const [modal, setModal]         = useState(false)
   const [payMethod, setPayMethod] = useState('cash')
   const [amountPaid, setAmountPaid] = useState('')
@@ -94,14 +94,14 @@ export default function POSPage() {
   const [saleError, setSaleError] = useState('')
   const [success, setSuccess]     = useState(null)
 
-  // ── Load branches + modules ───────────────────────────────────────────────
+  // -- Load branches + modules -----------------------------------------------
   useEffect(() => {
     Promise.all([branchesAPI.list(), modulesAPI.active()])
       .then(([bRes, mRes]) => {
         const allBranches = Array.isArray(bRes.data) ? bRes.data : (bRes.data.results ?? [])
         const ms = (Array.isArray(mRes.data) ? mRes.data : (mRes.data.results ?? [])).filter(bm => bm.is_active)
 
-        // Cashiers are assigned to specific branches — filter to their branches
+        // Cashiers are assigned to specific branches - filter to their branches
         const userBranchIds = new Set(user?.branch_ids ?? [])
         const bs = userBranchIds.size > 0
           ? allBranches.filter(b => userBranchIds.has(b.id))
@@ -124,7 +124,7 @@ export default function POSPage() {
     setSetupDone(true)
   }
 
-  // ── Load product grid ─────────────────────────────────────────────────────
+  // -- Load product grid -----------------------------------------------------
   useEffect(() => {
     if (!setupDone || !branchId) return
     clearTimeout(searchTimer.current)
@@ -155,7 +155,7 @@ export default function POSPage() {
   const handleQueryChange = (val) => { setQuery(val); setPage(1) }
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
 
-  // ── Cart helpers ──────────────────────────────────────────────────────────
+  // -- Cart helpers ----------------------------------------------------------
   const getStock = (product) => typeof product.stock === 'number' ? product.stock : 9999
   const cartMap  = Object.fromEntries(cart.map(i => [i.product.id, i.qty]))
 
@@ -211,7 +211,7 @@ export default function POSPage() {
   const cartTotal     = cart.reduce((s, i) => s + i.qty * i.unit_price, 0)
   const cartItemCount = cart.reduce((s, i) => s + i.qty, 0)
 
-  // ── Customer search ───────────────────────────────────────────────────────
+  // -- Customer search -------------------------------------------------------
   useEffect(() => {
     if (!customerSearch.trim()) { setCustomers([]); return }
     const t = setTimeout(async () => {
@@ -243,7 +243,7 @@ export default function POSPage() {
     finally { setQuickSaving(false) }
   }
 
-  // ── Checkout ──────────────────────────────────────────────────────────────
+  // -- Checkout --------------------------------------------------------------
   const openCheckout = () => {
     if (cart.length === 0) return
     setAmountPaid(cartTotal.toFixed(2))
@@ -255,13 +255,14 @@ export default function POSPage() {
 
   const balanceDue = Math.max(0, cartTotal - parseFloat(amountPaid || 0))
   const change     = Math.max(0, parseFloat(amountPaid || 0) - cartTotal)
+  const requiresCustomer = balanceDue > 0
 
   const handleCheckout = async () => {
     setSaleError('')
     const paid = parseFloat(amountPaid)
     if (isNaN(paid) || paid < 0) { setSaleError('Please enter the amount paid by the customer.'); return }
     if (paid < cartTotal && !selectedCustomer) {
-      setSaleError('Attach a customer before recording a partial or unpaid sale.')
+      setSaleError('Select an existing customer below or add a new customer before recording this credit sale.')
       return
     }
     setSaving(true)
@@ -285,7 +286,7 @@ export default function POSPage() {
       const saleData = res.data
       setSuccess(saleData)
       // Fire success toast
-      toast.success(`Sale complete — ${formatNaira(saleData.total ?? saleData.amount ?? cartTotal)}`)
+      toast.success(`Sale complete - ${formatNaira(saleData.total ?? saleData.amount ?? cartTotal)}`)
       // Stock-level warnings from sale items
       const saleItems = saleData.items ?? []
       saleItems.forEach(item => {
@@ -311,7 +312,7 @@ export default function POSPage() {
     }
   }
 
-  // ── Setup screen ──────────────────────────────────────────────────────────
+  // -- Setup screen ----------------------------------------------------------
   if (!setupDone) {
     return (
       <AppLayout>
@@ -334,26 +335,26 @@ export default function POSPage() {
             <div>
               <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Branch</label>
               <select className="input" value={branchId} onChange={e => setBranchId(e.target.value)}>
-                <option value="">Select branch…</option>
+                <option value="">Select branch...</option>
                 {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
               </select>
             </div>
             <div>
               <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Module</label>
               <select className="input" value={moduleId} onChange={e => setModuleId(e.target.value)}>
-                <option value="">Select module…</option>
+                <option value="">Select module...</option>
                 {activeModules.map(bm => (
                   <option key={bm.module.id} value={bm.module.id}>{bm.module.name}</option>
                 ))}
               </select>
               {activeModules.length === 0 && (
                 <p style={{ fontSize: 11, color: 'var(--warning)', marginTop: 4 }}>
-                  No active modules — enable modules in Settings first.
+                  No active modules - enable modules in Settings first.
                 </p>
               )}
             </div>
             <button className="btn-gold" onClick={confirmSetup} style={{ marginTop: 4 }}>
-              Start Selling →
+              Start Selling -&gt;
             </button>
           </div>
         </div>
@@ -361,7 +362,7 @@ export default function POSPage() {
     )
   }
 
-  // ── Main POS ──────────────────────────────────────────────────────────────
+  // -- Main POS --------------------------------------------------------------
   return (
     <AppLayout>
       {/* Header */}
@@ -382,7 +383,7 @@ export default function POSPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Check size={16} color="var(--success)" />
             <span style={{ fontSize: 13, color: 'var(--success)' }}>
-              Sale {success.sale_number} recorded — {formatNaira(success.amount_paid)} paid.
+              Sale {success.sale_number} recorded - {formatNaira(success.amount_paid)} paid.
             </span>
             {parseFloat(success.balance_due || 0) > 0 && (
               <span style={{ fontSize: 13, color: 'var(--warning)' }}>
@@ -410,14 +411,14 @@ export default function POSPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16, alignItems: 'start' }}>
 
-        {/* ── Left: Products + Customer ── */}
+        {/* -- Left: Products + Customer -- */}
         <div>
           {/* Search */}
           <div style={{ position: 'relative', marginBottom: 12 }}>
             <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
             <input
               className="input"
-              placeholder="Search products by name or SKU…"
+              placeholder="Search products by name or SKU..."
               value={query}
               onChange={e => handleQueryChange(e.target.value)}
               style={{ paddingLeft: 36 }}
@@ -448,7 +449,7 @@ export default function POSPage() {
                   <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{selectedCustomer.phone_number}</div>
                   {parseFloat(selectedCustomer.total_outstanding_debt || 0) > 0 && (
                     <div style={{ fontSize: 11, color: 'var(--warning)', marginTop: 2 }}>
-                      ⚠ Outstanding debt: {formatNaira(selectedCustomer.total_outstanding_debt)}
+                      Warning: Outstanding debt: {formatNaira(selectedCustomer.total_outstanding_debt)}
                     </div>
                   )}
                 </div>
@@ -470,7 +471,7 @@ export default function POSPage() {
                     onClick={() => { setQuickAddCustomer(false); setQuickError('') }}>Cancel</button>
                   <button className="btn-gold" style={{ flex: 2, padding: '6px 10px', fontSize: 12 }}
                     onClick={handleQuickAddCustomer} disabled={quickSaving}>
-                    {quickSaving ? 'Saving…' : 'Add & Select'}
+                    {quickSaving ? 'Saving...' : 'Add & Select'}
                   </button>
                 </div>
               </div>
@@ -478,7 +479,7 @@ export default function POSPage() {
               <div style={{ position: 'relative' }}>
                 <input
                   className="input"
-                  placeholder="Search customer by name or phone…"
+                  placeholder="Search customer by name or phone..."
                   value={customerSearch}
                   onChange={e => setCustomerSearch(e.target.value)}
                   style={{ fontSize: 13 }}
@@ -531,7 +532,7 @@ export default function POSPage() {
 
           {/* Product grid */}
           {loadingProducts ? (
-            <p style={{ color: 'var(--muted)', fontSize: 13, padding: '24px 0' }}>Loading products…</p>
+            <p style={{ color: 'var(--muted)', fontSize: 13, padding: '24px 0' }}>Loading products...</p>
           ) : products.length === 0 ? (
             <div style={{
               background: 'var(--blue)', border: '1px solid var(--mid)',
@@ -604,7 +605,7 @@ export default function POSPage() {
                     <ChevronLeft size={14} /> Prev
                   </button>
                   <span style={{ fontSize: 12, color: 'var(--muted)' }}>
-                    {page} / {totalPages} · {totalCount} products
+                    {page} / {totalPages} - {totalCount} products
                   </span>
                   <button className="btn-ghost"
                     style={{ padding: '5px 10px', display: 'flex', alignItems: 'center', gap: 4 }}
@@ -617,7 +618,7 @@ export default function POSPage() {
           )}
         </div>
 
-        {/* ── Right: Cart ── */}
+        {/* -- Right: Cart -- */}
         <div style={{
           background: 'var(--blue)', border: '1px solid var(--mid)',
           borderRadius: 10, padding: 14, position: 'sticky', top: 72,
@@ -703,7 +704,7 @@ export default function POSPage() {
                           </button>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                          <span style={{ fontSize: 10, color: 'var(--muted)' }}>₦</span>
+                          <span style={{ fontSize: 10, color: 'var(--muted)' }}>NGN</span>
                           <input
                             type="number" min="0" step="0.01"
                             value={item.unit_price}
@@ -738,7 +739,7 @@ export default function POSPage() {
                   <span style={{ fontSize: 20, fontWeight: 700, color: 'var(--gold)' }}>{formatNaira(cartTotal)}</span>
                 </div>
                 <button className="btn-gold" style={{ width: '100%', fontSize: 14 }} onClick={openCheckout}>
-                  Checkout →
+                  Checkout -&gt;
                 </button>
                 <button className="btn-ghost" style={{ width: '100%', marginTop: 6, fontSize: 12 }}
                   onClick={() => setCart([])}>
@@ -750,7 +751,7 @@ export default function POSPage() {
         </div>
       </div>
 
-      {/* ── Checkout modal ── */}
+      {/* -- Checkout modal -- */}
       {modal && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
@@ -792,7 +793,7 @@ export default function POSPage() {
                 </div>
                 {parseFloat(selectedCustomer.total_outstanding_debt || 0) > 0 && (
                   <div style={{ fontSize: 11, color: 'var(--warning)', marginTop: 3 }}>
-                    ⚠ Existing debt: {formatNaira(selectedCustomer.total_outstanding_debt)}
+                    Warning: Existing debt: {formatNaira(selectedCustomer.total_outstanding_debt)}
                   </div>
                 )}
               </div>
@@ -806,7 +807,7 @@ export default function POSPage() {
                   padding: '4px 0', borderBottom: '1px solid var(--mid)',
                 }}>
                   <span style={{ color: 'var(--light)' }}>
-                    {item.product.name} × {item.qty}
+                    {item.product.name} x {item.qty}
                     {item.price_type !== 'retail' && (
                       <span style={{ fontSize: 10, color: 'var(--muted)', marginLeft: 4, textTransform: 'capitalize' }}>
                         ({item.price_type})
@@ -846,15 +847,15 @@ export default function POSPage() {
 
               {/* Amount paid */}
               <div>
-                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Amount paid (₦)</label>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Amount paid (NGN)</label>
                 <input className="input" type="number" min="0" step="0.01"
                   value={amountPaid} onChange={e => setAmountPaid(e.target.value)} />
                 {balanceDue > 0 && (
                   <div style={{ fontSize: 11, color: 'var(--warning)', marginTop: 4, lineHeight: 1.5 }}>
                     Balance due: {formatNaira(balanceDue)}
                     {selectedCustomer
-                      ? ' — an installment plan will be created for this customer (up to 5 payments).'
-                      : ' — sale will be recorded as unpaid. Attach a customer to enable installment tracking.'}
+                      ? ' - an installment plan will be created for this customer (up to 5 payments).'
+                      : ' - select or add a customer below to record this as a credit sale.'}
                   </div>
                 )}
                 {change > 0 && (
@@ -863,6 +864,110 @@ export default function POSPage() {
                   </div>
                 )}
               </div>
+
+              {(requiresCustomer || selectedCustomer) && (
+                <div style={{
+                  background: 'var(--navy)', border: '1px solid var(--mid)',
+                  borderRadius: 8, padding: '10px 12px',
+                }}>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>
+                    Customer for credit sale
+                  </div>
+                  {!selectedCustomer && (
+                    <div style={{ fontSize: 11, color: 'var(--warning)', marginBottom: 8, lineHeight: 1.4 }}>
+                      Search an existing customer or add a new one so the balance can be tracked.
+                    </div>
+                  )}
+                  {selectedCustomer ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 13, color: 'var(--light)', fontWeight: 500 }}>{selectedCustomer.full_name}</span>
+                          <LoyaltyBadge tag={selectedCustomer.loyalty_tag} />
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{selectedCustomer.phone_number}</div>
+                        {parseFloat(selectedCustomer.total_outstanding_debt || 0) > 0 && (
+                          <div style={{ fontSize: 11, color: 'var(--warning)', marginTop: 2 }}>
+                            Existing debt: {formatNaira(selectedCustomer.total_outstanding_debt)}
+                          </div>
+                        )}
+                      </div>
+                      <button onClick={() => { setSelectedCustomer(null); setCustomerSearch('') }}
+                        style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', flexShrink: 0 }}
+                        title="Change customer">
+                        <X size={15} />
+                      </button>
+                    </div>
+                  ) : quickAddCustomer ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {quickError && <div style={{ fontSize: 12, color: 'var(--error)' }}>{quickError}</div>}
+                      <input className="input" placeholder="Customer name" style={{ fontSize: 13 }}
+                        value={quickForm.full_name} onChange={e => setQuickForm(f => ({ ...f, full_name: e.target.value }))} />
+                      <input className="input" placeholder="Phone number" style={{ fontSize: 13 }}
+                        value={quickForm.phone_number} onChange={e => setQuickForm(f => ({ ...f, phone_number: e.target.value }))} />
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button className="btn-ghost" style={{ flex: 1, padding: '6px 10px', fontSize: 12 }}
+                          onClick={() => { setQuickAddCustomer(false); setQuickError('') }}>Cancel</button>
+                        <button className="btn-gold" style={{ flex: 2, padding: '6px 10px', fontSize: 12 }}
+                          onClick={handleQuickAddCustomer} disabled={quickSaving}>
+                          {quickSaving ? 'Saving...' : 'Add and Select'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        className="input"
+                        placeholder="Search customer by name or phone..."
+                        value={customerSearch}
+                        onChange={e => setCustomerSearch(e.target.value)}
+                        style={{ fontSize: 13 }}
+                      />
+                      {showCustomerList && (
+                        <div style={{
+                          position: 'absolute', top: '100%', left: 0, right: 0,
+                          background: 'var(--blue)', border: '1px solid var(--mid)',
+                          borderRadius: 6, zIndex: 30, overflow: 'hidden', marginTop: 2,
+                        }}>
+                          {customers.map(c => (
+                            <button key={c.id}
+                              onClick={() => { setSelectedCustomer(c); setCustomerSearch(''); setShowCustomerList(false) }}
+                              style={{
+                                width: '100%', padding: '10px 14px', background: 'none', border: 'none',
+                                borderBottom: '1px solid var(--mid)', cursor: 'pointer', textAlign: 'left',
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                              }}>
+                              <div>
+                                <div style={{ fontSize: 13, color: 'var(--light)' }}>{c.full_name}</div>
+                                <div style={{ fontSize: 11, color: 'var(--muted)' }}>{c.phone_number}</div>
+                              </div>
+                              <LoyaltyBadge tag={c.loyalty_tag} />
+                            </button>
+                          ))}
+                          <button onClick={() => { setQuickForm({ full_name: customerSearch.trim(), phone_number: '' }); setQuickAddCustomer(true); setShowCustomerList(false) }}
+                            style={{
+                              width: '100%', padding: '10px 14px', background: 'rgba(201,168,76,0.06)',
+                              border: 'none', cursor: 'pointer', textAlign: 'left', display: 'flex',
+                              alignItems: 'center', gap: 6,
+                            }}>
+                            <Plus size={13} color="var(--gold)" />
+                            <span style={{ fontSize: 13, color: 'var(--gold)' }}>
+                              Add "{customerSearch.trim()}" as new customer
+                            </span>
+                          </button>
+                        </div>
+                      )}
+                      {customerSearch.trim() && !showCustomerList && (
+                        <button
+                          onClick={() => { setQuickForm({ full_name: customerSearch.trim(), phone_number: '' }); setQuickAddCustomer(true) }}
+                          style={{ fontSize: 12, color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer', marginTop: 4, padding: 0 }}>
+                          + Add "{customerSearch.trim()}" as new customer
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Notes */}
               <div>
@@ -875,7 +980,7 @@ export default function POSPage() {
             <div style={{ display: 'flex', gap: 10 }}>
               <button className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(false)}>Cancel</button>
               <button className="btn-gold" style={{ flex: 2 }} onClick={handleCheckout} disabled={saving}>
-                {saving ? 'Processing…' : `Confirm Sale · ${formatNaira(cartTotal)}`}
+                {saving ? 'Processing...' : `Confirm Sale - ${formatNaira(cartTotal)}`}
               </button>
             </div>
           </div>
