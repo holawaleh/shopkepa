@@ -3,14 +3,15 @@ from django.utils import timezone
 
 def generate_sale_number(business_id):
     """
-    Generates a unique sale number e.g. SK-2026-00001
+    Generates a globally unique sale number e.g. SK-2026-00001.
+    The sales.sale_number column is unique across all businesses.
     """
     from core.models import Sale
     year = timezone.now().year
     prefix = f"SK-{year}-"
     last_sale = (
         Sale.objects
-        .filter(business_id=business_id, sale_number__startswith=prefix)
+        .filter(sale_number__startswith=prefix)
         .order_by('-sale_number')
         .first()
     )

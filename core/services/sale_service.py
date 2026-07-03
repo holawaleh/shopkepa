@@ -1,12 +1,20 @@
 from django.db import transaction
 from django.utils import timezone
 from decimal import Decimal
+import logging
 
 from core.models import (
     Sale, SaleItem, Payment, InstallmentPlan,
     InstallmentPayment, BranchInventory, StockAdjustment
 )
 from core.utils import generate_sale_number, update_customer_loyalty, log_audit
+
+logger = logging.getLogger(__name__)
+
+def money(value):
+    if value is None or value == '':
+        return Decimal('0')
+    return Decimal(str(value))
 
 
 @transaction.atomic
@@ -40,12 +48,12 @@ def create_sale(business, branch, module, items, payment_data,
 
     # ── 2. Calculate totals ───────────────────────────────────────────
     subtotal = sum(
-        Decimal(str(item['unit_price'])) * item['quantity']
-        - Decimal(str(item.get('discount_amount', 0)))
+        money(item['unit_price']) * item['quantity']
+        - money(item.get('discount_amount', 0))
         for item in items
     )
-    total_amount  = subtotal - Decimal(str(discount_amount))
-    amount_paid   = Decimal(str(payment_data['amount_paid']))
+    total_amount  = subtotal - money(discount_amount)
+    amount_paid   = money(payment_data['amount_paid'])
     balance_due   = total_amount - amount_paid
 
     if amount_paid > total_amount:
@@ -68,7 +76,7 @@ def create_sale(business, branch, module, items, payment_data,
         customer=customer,
         sale_number=generate_sale_number(business.id),
         subtotal=subtotal,
-        discount_amount=Decimal(str(discount_amount)),
+        discount_amount=money(discount_amount),
         total_amount=total_amount,
         amount_paid=amount_paid,
         balance_due=balance_due,
@@ -88,11 +96,11 @@ def create_sale(business, branch, module, items, payment_data,
             quantity=item['quantity'],
             unit_type=item.get('unit_type', ''),
             price_type=item['price_type'],
-            unit_price=Decimal(str(item['unit_price'])),
-            discount_amount=Decimal(str(item.get('discount_amount', 0))),
+            unit_price=money(item['unit_price']),
+            discount_amount=money(item.get('discount_amount', 0)),
             line_total=(
-                Decimal(str(item['unit_price'])) * item['quantity']
-                - Decimal(str(item.get('discount_amount', 0)))
+                money(item['unit_price']) * item['quantity']
+                - money(item.get('discount_amount', 0))
             ),
         )
 
@@ -118,7 +126,7 @@ def create_sale(business, branch, module, items, payment_data,
             business=business,
             branch=branch,
             product_id=item['product_id'],
-            adjustment_type='manual_decrease',
+            adjustment_type=StockAdjustment.TYPE_MANUAL_DECREASE,
             quantity_change=-item['quantity'],
             quantity_before=qty_before,
             quantity_after=qty_after,
@@ -172,9 +180,9 @@ def create_sale(business, branch, module, items, payment_data,
 
     # ── 7. Update Customer Stats ──────────────────────────────────────
     if customer:
-        customer.lifetime_spend      += amount_paid
+        customer.lifetime_spend = money(customer.lifetime_spend) + amount_paid
         customer.last_purchase_date   = timezone.now().date()
-        customer.total_outstanding_debt += balance_due
+        customer.total_outstanding_debt = money(customer.total_outstanding_debt) + balance_due
         customer.save(update_fields=[
             'lifetime_spend', 'last_purchase_date',
             'total_outstanding_debt', 'updated_at'
@@ -182,18 +190,21 @@ def create_sale(business, branch, module, items, payment_data,
         update_customer_loyalty(customer)
 
     # ── 8. Audit Log ──────────────────────────────────────────────────
-    log_audit(
-        business_id=business.id,
-        user_id=created_by.id,
-        action='CREATE',
-        table_name='sales',
-        record_id=sale.id,
-        new_values={
-            'sale_number':    sale.sale_number,
-            'total_amount':   str(total_amount),
-            'payment_status': payment_status,
-        },
-    )
+    try:
+        log_audit(
+            business_id=business.id,
+            user_id=created_by.id if created_by else None,
+            action='CREATE',
+            table_name='sales',
+            record_id=sale.id,
+            new_values={
+                'sale_number':    sale.sale_number,
+                'total_amount':   str(total_amount),
+                'payment_status': payment_status,
+            },
+        )
+    except Exception:
+        logger.exception('Sale %s was created but audit logging failed', sale.id)
 
     return {
         'sale':             sale,
@@ -221,7 +232,7 @@ def add_payment_to_sale(sale, payment_data, created_by):
             f'Maximum of {plan.max_tranches} payment tranches reached.'
         )
 
-    amount = Decimal(str(payment_data['amount']))
+    amount = money(payment_data['amount'])
 
     if amount > sale.balance_due:
         amount = sale.balance_due
@@ -273,8 +284,8 @@ def add_payment_to_sale(sale, payment_data, created_by):
 
     # Update customer debt
     if sale.customer:
-        sale.customer.lifetime_spend        += amount
-        sale.customer.total_outstanding_debt -= amount
+        sale.customer.lifetime_spend = money(sale.customer.lifetime_spend) + amount
+        sale.customer.total_outstanding_debt = money(sale.customer.total_outstanding_debt) - amount
         if sale.customer.total_outstanding_debt < 0:
             sale.customer.total_outstanding_debt = Decimal('0')
         sale.customer.save(update_fields=[
