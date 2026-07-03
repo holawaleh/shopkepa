@@ -209,13 +209,45 @@ export function printJobCardReceipt(job, businessName = 'ShopKepa') {
 // ── Customer Statement ─────────────────────────────────────────────────────
 
 export function printCustomerStatement(customer, sales, businessName = 'ShopKepa') {
-  const rows = sales.map(s => `
+  const transactionRows = []
+
+  sales.forEach((sale) => {
+    let runningBalance = parseFloat(sale.total_amount || 0)
+    transactionRows.push({
+      key: `${sale.id}-sale`,
+      date: sale.sale_date || sale.created_at,
+      type: 'Sale',
+      reference: sale.sale_number || '-',
+      officer: sale.created_by_name || '-',
+      debit: parseFloat(sale.total_amount || 0),
+      credit: null,
+      balance: runningBalance,
+    })
+
+    ;(sale.payments || []).forEach((payment) => {
+      runningBalance = Math.max(0, runningBalance - parseFloat(payment.amount || 0))
+      transactionRows.push({
+        key: payment.id,
+        date: payment.payment_date || payment.created_at,
+        type: `Payment ${payment.tranche_number ? `#${payment.tranche_number}` : ''}`.trim(),
+        reference: payment.reference_number || payment.id || '-',
+        officer: payment.created_by_name || '-',
+        debit: null,
+        credit: parseFloat(payment.amount || 0),
+        balance: runningBalance,
+      })
+    })
+  })
+
+  const rows = transactionRows.map(row => `
     <tr>
-      <td>${fmtDate(s.sale_date || s.created_at)}</td>
-      <td>${s.sale_number || '—'}</td>
-      <td class="right">${naira(s.total_amount)}</td>
-      <td class="right">${naira(s.amount_paid)}</td>
-      <td class="right" style="${parseFloat(s.balance_due) > 0 ? 'color:red;font-weight:bold' : ''}">${naira(s.balance_due)}</td>
+      <td>${fmtDate(row.date)}</td>
+      <td>${row.type}</td>
+      <td>${row.reference}</td>
+      <td>${row.officer}</td>
+      <td class="right">${row.debit === null ? '' : naira(row.debit)}</td>
+      <td class="right">${row.credit === null ? '' : naira(row.credit)}</td>
+      <td class="right" style="${row.balance > 0 ? 'color:red;font-weight:bold' : ''}">${naira(row.balance)}</td>
     </tr>
   `).join('')
 
@@ -242,8 +274,10 @@ export function printCustomerStatement(customer, sales, businessName = 'ShopKepa
       <thead>
         <tr>
           <th style="text-align:left">Date</th>
-          <th style="text-align:left">Receipt #</th>
-          <th class="right">Total</th>
+          <th style="text-align:left">Type</th>
+          <th style="text-align:left">Transaction ID</th>
+          <th style="text-align:left">Account Officer</th>
+          <th class="right">Debit</th>
           <th class="right">Paid</th>
           <th class="right">Balance</th>
         </tr>
@@ -251,7 +285,7 @@ export function printCustomerStatement(customer, sales, businessName = 'ShopKepa
       <tbody>${rows}</tbody>
       <tfoot>
         <tr class="total-row">
-          <td colspan="2">TOTALS</td>
+          <td colspan="4">TOTALS</td>
           <td class="right">${naira(totalSpend)}</td>
           <td class="right">${naira(totalPaid)}</td>
           <td class="right" style="${totalBalance > 0 ? 'color:red' : ''}">${naira(totalBalance)}</td>

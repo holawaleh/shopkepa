@@ -297,6 +297,7 @@ class DebtorReportView(APIView):
             days_outstanding = (date.today() - plan.created_at.date()).days
             debtors.append({
                 'plan_id':          str(plan.id),
+                'customer_id':      str(plan.customer.id),
                 'customer_name':    plan.customer.full_name,
                 'customer_phone':   plan.customer.phone_number,
                 'sale_number':      plan.sale.sale_number,
@@ -322,6 +323,7 @@ class DebtorReportView(APIView):
         for job in unpaid_jobs:
             job_debts.append({
                 'job_number':     job.job_number,
+                'customer_id':    str(job.customer_id) if job.customer_id else None,
                 'customer_name':  job.customer_name,
                 'customer_phone': job.customer_phone,
                 'device':         job.device_description,

@@ -66,6 +66,7 @@ export default function CustomersPage() {
   const [payAmount, setPayAmount]             = useState('')
   const [payMethod, setPayMethod]             = useState('cash')
   const [payNotes, setPayNotes]               = useState('')
+  const [payReference, setPayReference]       = useState('')
   const [paySaving, setPaySaving]             = useState(false)
   const [notes, setNotes]                     = useState([])
   const [noteText, setNoteText]               = useState('')
@@ -128,7 +129,7 @@ export default function CustomersPage() {
     setProfileSales([])
     setOpenSales([])
     setNotes([])
-    setPayingId(''); setPayAmount(''); setPayNotes('')
+    setPayingId(''); setPayAmount(''); setPayNotes(''); setPayReference('')
     try {
       const [salesRes, custRes] = await Promise.allSettled([
         salesAPI.list({ customer_id: c.id }),
@@ -217,10 +218,15 @@ export default function CustomersPage() {
     if (!amt || amt <= 0) { setProfileError('Enter a valid amount.'); return }
     setPaySaving(true); setProfileError('')
     try {
-      await salesAPI.addPayment(payingId, { amount: amt, payment_method: payMethod, notes: payNotes.trim() || undefined })
+      await salesAPI.addPayment(payingId, {
+        amount: amt,
+        payment_method: payMethod,
+        reference_number: payReference.trim() || undefined,
+        notes: payNotes.trim() || undefined,
+      })
       const sale = openSales.find(s => s.id === payingId)
       const saleLabel = sale?.sale_number ? `Sale #${sale.sale_number}` : 'sale'
-      toast.success(`Payment of ${formatNaira(amt)} recorded for ${profileCustomer.full_name} — ${saleLabel}`)
+      toast.success(`Payment of ${formatNaira(amt)} recorded for ${profileCustomer.full_name} - ${saleLabel}`)
       await openProfile(profileCustomer)
       load()
     } catch (err) { setProfileError(parseApiError(err)) }
@@ -454,28 +460,32 @@ export default function CustomersPage() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <select className="input" value={payingId} onChange={e => setPayingId(e.target.value)} style={{ fontSize: 13 }}>
-                  <option value="">Select sale to pay against…</option>
+                  <option value="">Select sale to pay against...</option>
                   {openSales.map(s => (
                     <option key={s.id} value={s.id}>
-                      {s.sale_number ? `Sale #${s.sale_number}` : s.id.slice(0, 8)} — Balance due: {formatNaira(s.balance_due)}
+                      {s.sale_number ? `Sale #${s.sale_number}` : s.id.slice(0, 8)} - Balance due: {formatNaira(s.balance_due)}
                       {s.sale_date ? ` (${s.sale_date})` : ''}
                     </option>
                   ))}
                 </select>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <input className="input" type="number" min="1" style={{ fontSize: 13 }}
-                    placeholder="Amount (₦)" value={payAmount} onChange={e => setPayAmount(e.target.value)} />
+                    placeholder="Amount (NGN)" value={payAmount} onChange={e => setPayAmount(e.target.value)} />
                   <select className="input" value={payMethod} onChange={e => setPayMethod(e.target.value)} style={{ fontSize: 13 }}>
                     <option value="cash">Cash</option>
                     <option value="transfer">Bank Transfer</option>
                     <option value="pos">POS / Card</option>
                   </select>
                 </div>
-                <input className="input" style={{ fontSize: 13 }}
-                  placeholder="Notes (optional)" value={payNotes} onChange={e => setPayNotes(e.target.value)} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <input className="input" style={{ fontSize: 13 }}
+                    placeholder="Transaction ID / reference" value={payReference} onChange={e => setPayReference(e.target.value)} />
+                  <input className="input" style={{ fontSize: 13 }}
+                    placeholder="Notes (optional)" value={payNotes} onChange={e => setPayNotes(e.target.value)} />
+                </div>
                 <button className="btn-gold" onClick={handleRepay} disabled={paySaving}
                   style={{ alignSelf: 'flex-start', padding: '8px 18px' }}>
-                  {paySaving ? 'Recording…' : 'Record Payment'}
+                  {paySaving ? 'Recording...' : 'Record Payment'}
                 </button>
               </div>
             </div>
@@ -499,25 +509,41 @@ export default function CustomersPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--mid)', position: 'sticky', top: 0, background: 'var(--blue)' }}>
-                      {['Date', 'Sale #', 'Total', 'Balance due', 'Status'].map(h => (
+                      {['Date', 'Type', 'Transaction ID', 'Account officer', 'Debit', 'Paid', 'Balance'].map(h => (
                         <th key={h} style={{ padding: '8px 12px', textAlign: 'left', color: 'var(--muted)', fontWeight: 500 }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {profileSales.map(s => (
-                      <tr key={s.id} style={{ borderBottom: '1px solid var(--mid)' }}>
-                        <td style={{ padding: '8px 12px', color: 'var(--muted)' }}>{formatDate(s.sale_date || s.created_at)}</td>
-                        <td style={{ padding: '8px 12px', color: 'var(--light)' }}>{s.sale_number || s.id.slice(0, 8)}</td>
-                        <td style={{ padding: '8px 12px', color: 'var(--light)' }}>{formatNaira(s.total_amount ?? s.total ?? 0)}</td>
-                        <td style={{ padding: '8px 12px', color: parseFloat(s.balance_due ?? 0) > 0 ? 'var(--warning)' : 'var(--muted)' }}>
-                          {formatNaira(s.balance_due ?? 0)}
-                        </td>
-                        <td style={{ padding: '8px 12px', color: 'var(--muted)', textTransform: 'capitalize' }}>
-                          {s.payment_status || (parseFloat(s.balance_due ?? 0) > 0 ? 'partial' : 'paid')}
-                        </td>
-                      </tr>
-                    ))}
+                    {profileSales.flatMap(s => {
+                      let runningBalance = parseFloat(s.total_amount ?? s.total ?? 0)
+                      const saleRow = (
+                        <tr key={`${s.id}-sale`} style={{ borderBottom: '1px solid var(--mid)' }}>
+                          <td style={{ padding: '8px 12px', color: 'var(--muted)' }}>{formatDate(s.sale_date || s.created_at)}</td>
+                          <td style={{ padding: '8px 12px', color: 'var(--light)' }}>Sale</td>
+                          <td style={{ padding: '8px 12px', color: 'var(--light)' }}>{s.sale_number || s.id.slice(0, 8)}</td>
+                          <td style={{ padding: '8px 12px', color: 'var(--muted)' }}>{s.created_by_name || '-'}</td>
+                          <td style={{ padding: '8px 12px', color: 'var(--light)' }}>{formatNaira(s.total_amount ?? s.total ?? 0)}</td>
+                          <td style={{ padding: '8px 12px', color: 'var(--muted)' }}>-</td>
+                          <td style={{ padding: '8px 12px', color: runningBalance > 0 ? 'var(--warning)' : 'var(--muted)' }}>{formatNaira(runningBalance)}</td>
+                        </tr>
+                      )
+                      const paymentRows = (s.payments || []).map(p => {
+                        runningBalance = Math.max(0, runningBalance - parseFloat(p.amount || 0))
+                        return (
+                          <tr key={p.id} style={{ borderBottom: '1px solid var(--mid)', background: 'rgba(255,255,255,0.015)' }}>
+                            <td style={{ padding: '8px 12px', color: 'var(--muted)' }}>{formatDate(p.payment_date || p.created_at)}</td>
+                            <td style={{ padding: '8px 12px', color: 'var(--success)' }}>Payment {p.tranche_number ? `#${p.tranche_number}` : ''}</td>
+                            <td style={{ padding: '8px 12px', color: 'var(--light)' }}>{p.reference_number || p.id}</td>
+                            <td style={{ padding: '8px 12px', color: 'var(--muted)' }}>{p.created_by_name || '-'}</td>
+                            <td style={{ padding: '8px 12px', color: 'var(--muted)' }}>-</td>
+                            <td style={{ padding: '8px 12px', color: 'var(--success)' }}>{formatNaira(p.amount || 0)}</td>
+                            <td style={{ padding: '8px 12px', color: runningBalance > 0 ? 'var(--warning)' : 'var(--muted)' }}>{formatNaira(runningBalance)}</td>
+                          </tr>
+                        )
+                      })
+                      return [saleRow, ...paymentRows]
+                    })}
                   </tbody>
                 </table>
               </div>

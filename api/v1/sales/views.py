@@ -26,7 +26,7 @@ class SaleListCreateView(APIView):
             is_deleted=False
         ).select_related(
             'branch', 'module', 'customer', 'created_by'
-        ).order_by('-created_at')
+        ).prefetch_related('payments__created_by').order_by('-created_at')
 
         # Filters
         branch_id      = request.query_params.get('branch_id')

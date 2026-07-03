@@ -13,11 +13,14 @@ class SaleItemSerializer(serializers.ModelSerializer):
 
 
 class PaymentSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.CharField(source='created_by.full_name', read_only=True)
+
     class Meta:
         model  = Payment
         fields = [
             'id', 'payment_method', 'amount',
             'payment_date', 'reference_number', 'tranche_number',
+            'created_by', 'created_by_name', 'created_at',
         ]
 
 
@@ -32,6 +35,7 @@ class InstallmentPlanSerializer(serializers.ModelSerializer):
 
 
 class SaleSerializer(serializers.ModelSerializer):
+    payments = PaymentSerializer(many=True, read_only=True)
     customer_name = serializers.CharField(
         source='customer.full_name', read_only=True
     )
@@ -53,7 +57,7 @@ class SaleSerializer(serializers.ModelSerializer):
             'subtotal', 'discount_amount', 'total_amount',
             'amount_paid', 'balance_due', 'payment_status',
             'has_installment_plan', 'sale_date', 'notes',
-            'created_by_name', 'created_at',
+            'payments', 'created_by_name', 'created_at',
         ]
 
 
