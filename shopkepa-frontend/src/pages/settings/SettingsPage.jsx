@@ -192,10 +192,10 @@ function ModulesTab() {
 // ─── Team tab ─────────────────────────────────────────────────────────────
 
 const ROLE_STYLE = {
-  owner:   { bg: 'rgba(201,168,76,0.15)', text: 'var(--gold)' },
-  admin:   { bg: 'rgba(100,120,200,0.15)', text: '#7090e0' },
-  manager: { bg: 'rgba(76,175,125,0.15)', text: 'var(--success)' },
-  cashier: { bg: 'rgba(150,150,150,0.12)', text: 'var(--muted)' },
+  owner:   { bg: 'rgba(201,168,76,0.15)', text: 'var(--gold)',    label: 'Owner' },
+  admin:   { bg: 'rgba(100,120,200,0.15)', text: '#7090e0',       label: 'Admin' },
+  manager: { bg: 'rgba(76,175,125,0.15)', text: 'var(--success)', label: 'Manager' },
+  cashier: { bg: 'rgba(150,150,150,0.12)', text: 'var(--muted)',  label: 'Cashier / IT Officer' },
 }
 
 const EMPTY_STAFF = {
@@ -218,20 +218,21 @@ function TeamTab() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    try {
-      const [staffRes, branchRes] = await Promise.all([
-        staffAPI.list(),
-        branchesAPI.list(),
-      ])
-      const sr = staffRes.data
-      const br = branchRes.data
+    const [staffRes, branchRes] = await Promise.allSettled([
+      staffAPI.list(),
+      branchesAPI.list(),
+    ])
+    if (staffRes.status === 'fulfilled') {
+      const sr = staffRes.value.data
       setStaff(Array.isArray(sr) ? sr : (sr.results ?? []))
-      setBranches(Array.isArray(br) ? br : (br.results ?? []))
-    } catch (err) {
-      setError(parseApiError(err))
-    } finally {
-      setLoading(false)
+    } else {
+      setError(parseApiError(staffRes.reason))
     }
+    if (branchRes.status === 'fulfilled') {
+      const br = branchRes.value.data
+      setBranches(Array.isArray(br) ? br : (br.results ?? []))
+    }
+    setLoading(false)
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -277,7 +278,7 @@ function TeamTab() {
         role:         form.role,
         branch_ids:   form.branch_ids,
       })
-      toast.success(`${form.full_name.trim()} added to your team as ${form.role}`)
+      toast.success(`${form.full_name.trim()} added to your team as ${ROLE_STYLE[form.role]?.label ?? form.role}`)
       setModal(null)
       load()
     } catch (err) {
@@ -364,10 +365,10 @@ function TeamTab() {
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <span style={{
-                        fontSize: 11, padding: '2px 8px', borderRadius: 20, textTransform: 'capitalize',
+                        fontSize: 11, padding: '2px 8px', borderRadius: 20,
                         background: rs.bg, color: rs.text,
                       }}>
-                        {m.role}
+                        {rs.label}
                       </span>
                     </td>
                     <td style={{ padding: '12px 16px', color: 'var(--muted)', fontSize: 12 }}>
@@ -451,11 +452,11 @@ function TeamTab() {
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Role *</label>
                 <select className="input" value={form.role} onChange={set('role')}>
-                  <option value="cashier">Cashier</option>
+                  <option value="cashier">Cashier / IT Officer</option>
                   <option value="manager">Manager</option>
                 </select>
                 <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'block' }}>
-                  {form.role === 'manager' ? 'Can view reports, manage products & customers.' : 'Can process sales and view customers.'}
+                  {form.role === 'manager' ? 'Can view reports, manage products & customers.' : 'Can process sales, view customers, and manage job cards.'}
                 </span>
               </div>
               <div>

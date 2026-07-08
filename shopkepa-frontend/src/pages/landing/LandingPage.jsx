@@ -35,11 +35,11 @@ function useSEO() {
     setMeta('og:type', 'website', 'property')
     setMeta('og:url', 'https://shopkepa.vercel.app', 'property')
     setMeta('og:site_name', 'ShopKepa', 'property')
-    setMeta('og:image', 'https://shopkepa.vercel.app/og-image.png', 'property')
+    setMeta('og:image', 'https://shopkepa.vercel.app/og-image.svg', 'property')
     setMeta('twitter:card', 'summary_large_image')
     setMeta('twitter:title', 'ShopKepa - Nigerian Retail POS')
     setMeta('twitter:description', 'Track installments, manage multi-branch stock, run job cards. Built for how Nigerians trade.')
-    setMeta('twitter:image', 'https://shopkepa.vercel.app/og-image.png')
+    setMeta('twitter:image', 'https://shopkepa.vercel.app/og-image.svg')
 
     // Canonical link
     let canonical = document.querySelector('link[rel="canonical"]')
