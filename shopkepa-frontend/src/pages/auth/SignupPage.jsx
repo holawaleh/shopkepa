@@ -57,6 +57,12 @@ export default function SignupPage() {
   const [errors, setErrors]         = useState({})
   const [step, setStep]             = useState(1) // 1 = personal, 2 = business + password
 
+  useEffect(() => {
+    const prev = document.title
+    document.title = 'Create Free Account — ShopKepa | Start Your Nigerian Retail POS'
+    return () => { document.title = prev }
+  }, [])
+
   // Auto-rotate slides every 4s
   useEffect(() => {
     const t = setInterval(() => setSlide(s => (s + 1) % SLIDES.length), 4000)

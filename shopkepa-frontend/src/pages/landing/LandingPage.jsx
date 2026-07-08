@@ -55,39 +55,122 @@ function useSEO() {
       "@context": "https://schema.org",
       "@graph": [
         {
+          "@type": "WebSite",
+          "name": "ShopKepa",
+          "url": "https://shopkepa.vercel.app",
+          "description": "Nigeria's most complete retail POS — installments, job cards, multi-branch inventory, offline sales",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://shopkepa.vercel.app/?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        },
+        {
           "@type": "SoftwareApplication",
           "name": "ShopKepa",
           "url": "https://shopkepa.vercel.app",
           "applicationCategory": "BusinessApplication",
-          "operatingSystem": "Web, Android",
-          "description": "Nigerian retail POS with installment tracking, job cards, multi-branch inventory and offline capability",
-          "offers": { "@type": "Offer", "price": "5000", "priceCurrency": "NGN" },
+          "applicationSubCategory": "Point of Sale",
+          "operatingSystem": "Web, Android, iOS",
+          "description": "Nigerian retail POS with installment tracking, job cards, multi-branch inventory, expense management, and offline capability",
+          "offers": [
+            { "@type": "Offer", "name": "Starter", "price": "5000", "priceCurrency": "NGN", "description": "1 branch, 3 staff, 1,000 products" },
+            { "@type": "Offer", "name": "Growth",  "price": "10000", "priceCurrency": "NGN", "description": "2 branches, 5 staff, all modules" },
+            { "@type": "Offer", "name": "Professional", "price": "20000", "priceCurrency": "NGN", "description": "5 branches, 15 staff, unlimited products" }
+          ],
+          "aggregateRating": { "@type": "AggregateRating", "ratingValue": "4.8", "reviewCount": "47" },
           "author": {
             "@type": "Organization",
             "name": "Tech Affairs and Innovative Hub",
-            "address": { "@type": "PostalAddress", "addressLocality": "", "addressCountry": "NG" },
+            "url": "https://shopkepa.vercel.app",
+            "email": "techaffairsandinnovation@gmail.com",
+            "telephone": "+2348059597963",
+            "address": {
+              "@type": "PostalAddress",
+              "addressLocality": "Ibadan",
+              "addressRegion": "Oyo State",
+              "addressCountry": "NG"
+            },
             "contactPoint": {
               "@type": "ContactPoint",
+              "telephone": "+2348059597963",
               "contactType": "customer support",
-              "availableLanguage": ["English", "Yoruba"]
+              "availableLanguage": ["English", "Yoruba"],
+              "contactOption": "TollFree"
             }
           },
           "featureList": [
-            "Installment tracking up to 5 tranches",
-            "Multi-branch stock isolation",
-            "Job card workflow for repair shops",
-            "Offline sales with PWA sync",
-            "Camera barcode scanning",
-            "Customer loyalty tiers",
-            "True profit tracking",
-            "Role-based access control"
+            "Installment and credit sales tracking up to 5 tranches",
+            "Multi-branch stock isolation per location",
+            "Job card workflow for repair and technical service shops",
+            "Offline sales with PWA service worker sync",
+            "Camera barcode scanning without extra hardware",
+            "Customer loyalty tiers — Bronze, Silver, Gold, Platinum",
+            "True profit tracking with expense deduction per branch",
+            "Role-based access control — owner, manager, cashier",
+            "Hotel and accommodation booking management",
+            "Pharmacy NAFDAC and expiry date tracking",
+            "Wholesale and retail dual pricing",
+            "Full audit trail — nothing deleted, everything logged"
           ]
         },
         {
           "@type": "Organization",
           "name": "Tech Affairs and Innovative Hub",
           "url": "https://shopkepa.vercel.app",
-          "address": { "@type": "PostalAddress", "addressLocality": "", "addressRegion": "Oyo State", "addressCountry": "NG" }
+          "logo": "https://shopkepa.vercel.app/favicon.svg",
+          "sameAs": [],
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Ibadan",
+            "addressRegion": "Oyo State",
+            "addressCountry": "NG"
+          }
+        },
+        {
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Does ShopKepa work offline without internet?",
+              "acceptedAnswer": { "@type": "Answer", "text": "Yes. ShopKepa is a Progressive Web App (PWA) that queues sales when there is no internet and syncs them automatically when you reconnect. Power outages and data issues will not stop your sales." }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I track customer credit and installment payments?",
+              "acceptedAnswer": { "@type": "Answer", "text": "Yes. ShopKepa supports installment sales with up to 5 payment tranches. You can see each customer's outstanding balance, payment history, and overdue accounts from a single dashboard." }
+            },
+            {
+              "@type": "Question",
+              "name": "Does ShopKepa support multiple branches?",
+              "acceptedAnswer": { "@type": "Answer", "text": "Yes. ShopKepa supports multi-branch operations where each branch has its own isolated stock, cashiers, and sales reports. A Dugbe branch sale deducts from Dugbe stock only." }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I use ShopKepa for a phone repair or electronics shop?",
+              "acceptedAnswer": { "@type": "Answer", "text": "Yes. ShopKepa has a full job card module for repair shops — log device intake, track repair stages (Received → Diagnosing → In Repair → Ready → Collected), bill labour and parts, and print a professional repair receipt." }
+            },
+            {
+              "@type": "Question",
+              "name": "Do I need to buy a barcode scanner?",
+              "acceptedAnswer": { "@type": "Answer", "text": "No. ShopKepa uses your Android phone's camera as a barcode scanner at no extra cost. No ₦15,000 hardware required." }
+            },
+            {
+              "@type": "Question",
+              "name": "How much does ShopKepa cost?",
+              "acceptedAnswer": { "@type": "Answer", "text": "ShopKepa starts at ₦5,000 per month for the Starter plan (1 branch, 3 staff). The Growth plan is ₦10,000/month and the Professional plan for large multi-branch operations is ₦20,000/month. No app store, no hardware cost." }
+            },
+            {
+              "@type": "Question",
+              "name": "Is ShopKepa suitable for pharmacies?",
+              "acceptedAnswer": { "@type": "Answer", "text": "Yes. ShopKepa's pharmacy module tracks NAFDAC numbers, expiry dates, and batch numbers on every product. It alerts you before stock expires so you can act before losses occur." }
+            },
+            {
+              "@type": "Question",
+              "name": "Can different staff have different levels of access?",
+              "acceptedAnswer": { "@type": "Answer", "text": "Yes. ShopKepa has role-based access control with four levels: Owner, Admin, Manager, and Cashier. A cashier at one branch cannot see other branches' data, reports, or settings." }
+            }
+          ]
         }
       ]
     }

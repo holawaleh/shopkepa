@@ -1,13 +1,19 @@
 User-agent: *
 Allow: /
+Allow: /login
+Allow: /signup
 
-# Block app pages from indexing (require login)
+# Block authenticated app pages — require login, no indexing value
 Disallow: /dashboard
 Disallow: /pos
 Disallow: /products
 Disallow: /customers
 Disallow: /reports
 Disallow: /jobcards
+Disallow: /hotel
+Disallow: /expenses
+Disallow: /ai
 Disallow: /settings
+Disallow: /onboarding
 
 Sitemap: https://shopkepa.vercel.app/sitemap.xml

@@ -21,6 +21,12 @@ export default function LoginPage() {
     return ''
   })
 
+  useEffect(() => {
+    const prev = document.title
+    document.title = 'Sign In — ShopKepa | Nigerian Retail POS'
+    return () => { document.title = prev }
+  }, [])
+
   // Countdown timer for rate-limit lockout
   useEffect(() => {
     if (countdown <= 0) return
