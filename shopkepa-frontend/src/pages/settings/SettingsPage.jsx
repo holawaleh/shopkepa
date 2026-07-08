@@ -195,7 +195,7 @@ const ROLE_STYLE = {
   owner:   { bg: 'rgba(201,168,76,0.15)', text: 'var(--gold)',    label: 'Owner' },
   admin:   { bg: 'rgba(100,120,200,0.15)', text: '#7090e0',       label: 'Admin' },
   manager: { bg: 'rgba(76,175,125,0.15)', text: 'var(--success)', label: 'Manager' },
-  cashier: { bg: 'rgba(150,150,150,0.12)', text: 'var(--muted)',  label: 'Cashier / IT Officer' },
+  cashier: { bg: 'rgba(150,150,150,0.12)', text: 'var(--muted)',  label: 'Cashier / IT Officer / Tech Officer' },
 }
 
 const EMPTY_STAFF = {
@@ -452,7 +452,7 @@ function TeamTab() {
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Role *</label>
                 <select className="input" value={form.role} onChange={set('role')}>
-                  <option value="cashier">Cashier / IT Officer</option>
+                  <option value="cashier">Cashier / IT Officer / Tech Officer</option>
                   <option value="manager">Manager</option>
                 </select>
                 <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'block' }}>

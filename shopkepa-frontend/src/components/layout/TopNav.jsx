@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   ShoppingCart, LayoutDashboard, Package, Users,
   BarChart2, Wrench, Settings, LogOut, Menu, X, Wifi, WifiOff, Hotel,
-  ReceiptText, Bot, Bell,
+  ReceiptText, Bot, Bell, Cpu,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus'
@@ -21,6 +21,7 @@ const MODULE_NAV_ENABLES = {
   hotel:              ['hotel'],
 }
 
+// Settings and AI live in the right-side utility bar, not the main nav
 const ALL_NAV = [
   { key: 'dashboard', to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['owner', 'admin', 'manager'], always: true },
   { key: 'pos',       to: '/pos',       label: 'POS',       icon: ShoppingCart,   roles: ['owner', 'admin', 'manager', 'cashier'] },
@@ -30,8 +31,12 @@ const ALL_NAV = [
   { key: 'jobcards',  to: '/jobcards',  label: 'Job Cards', icon: Wrench,         roles: ['owner', 'admin', 'manager', 'cashier'] },
   { key: 'hotel',     to: '/hotel',     label: 'Hotel',     icon: Hotel,          roles: ['owner', 'admin', 'manager', 'cashier'] },
   { key: 'expenses',  to: '/expenses',  label: 'Expenses',  icon: ReceiptText,    roles: ['owner', 'admin', 'manager'], always: true },
-  { key: 'ai',        to: '/ai',        label: 'AI',        icon: Bot,            roles: ['owner', 'admin', 'manager'], always: true },
-  { key: 'settings',  to: '/settings',  label: 'Settings',  icon: Settings,       roles: ['owner', 'admin'], always: true },
+]
+
+// Utility items rendered as icon buttons on the right side
+const UTIL_NAV = [
+  { key: 'ai',       to: '/ai',       icon: Cpu,      roles: ['owner', 'admin', 'manager'], title: 'AI Assistant (Premium)' },
+  { key: 'settings', to: '/settings', icon: Settings, roles: ['owner', 'admin'],            title: 'Settings' },
 ]
 
 export default function TopNav() {
@@ -133,6 +138,22 @@ export default function TopNav() {
               {isOnline ? <Wifi size={12} /> : <WifiOff size={12} />}
             </span>
 
+            {UTIL_NAV.filter(u => u.roles.includes(user?.role)).map(u => {
+              const active = location.pathname.startsWith(u.to)
+              const Icon = u.icon
+              return (
+                <Link key={u.key} to={u.to} title={u.title} style={{
+                  display: 'flex', alignItems: 'center', padding: '5px 8px',
+                  borderRadius: 'var(--r-sm)', textDecoration: 'none',
+                  color: active ? 'var(--gold)' : 'var(--muted)',
+                  background: active ? 'var(--gold-dim)' : 'transparent',
+                  transition: 'color 0.15s',
+                }}>
+                  <Icon size={15} />
+                </Link>
+              )
+            })}
+
             {['owner', 'admin', 'manager'].includes(user?.role) && (
               <div style={{ position: 'relative' }}>
                 <button onClick={() => setDebtorOpen(o => !o)} className="btn-ghost"
@@ -196,7 +217,10 @@ export default function TopNav() {
 
         {menuOpen && (
           <div style={{ background: 'var(--navy)', borderTop: '1px solid var(--mid)', padding: '8px 16px 16px' }}>
-            {visibleItems.map(({ to, label, icon: Icon }) => {
+            {[
+              ...visibleItems,
+              ...UTIL_NAV.filter(u => u.roles.includes(user?.role)).map(u => ({ ...u, label: u.title })),
+            ].map(({ to, label, icon: Icon }) => {
               const active = location.pathname.startsWith(to)
               return (
                 <Link key={to} to={to} onClick={() => setMenuOpen(false)}
