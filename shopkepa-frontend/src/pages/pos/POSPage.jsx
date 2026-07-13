@@ -871,15 +871,14 @@ export default function POSPage() {
                 )}
               </div>
 
-              {(requiresCustomer || selectedCustomer) && (
-                <div style={{
+              <div style={{
                   background: 'var(--navy)', border: '1px solid var(--mid)',
                   borderRadius: 8, padding: '10px 12px',
                 }}>
                   <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 4 }}>
-                    Customer for credit sale
+                    Customer {requiresCustomer ? <span style={{ color: 'var(--warning)' }}>(required for credit sale)</span> : '(optional)'}
                   </div>
-                  {!selectedCustomer && (
+                  {requiresCustomer && !selectedCustomer && (
                     <div style={{ fontSize: 11, color: 'var(--warning)', marginBottom: 8, lineHeight: 1.4 }}>
                       Search an existing customer or add a new one so the balance can be tracked.
                     </div>
@@ -973,7 +972,6 @@ export default function POSPage() {
                     </div>
                   )}
                 </div>
-              )}
 
               {/* Notes */}
               <div>
