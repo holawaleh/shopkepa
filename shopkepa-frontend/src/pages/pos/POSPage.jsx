@@ -265,12 +265,13 @@ export default function POSPage() {
       setSaleError('Select an existing customer below or add a new customer before recording this credit sale.')
       return
     }
+    const capturedCustomer = selectedCustomer
     setSaving(true)
     try {
       const res = await salesAPI.create({
         branch_id:      branchId,
         module_id:      moduleId,
-        customer_id:    selectedCustomer?.id || undefined,
+        customer_id:    capturedCustomer?.id || undefined,
         items: cart.map(i => ({
           product_id:      i.product.id,
           quantity:        i.qty,
@@ -284,7 +285,12 @@ export default function POSPage() {
         discount_amount: 0,
       })
       const saleData = res.data
-      setSuccess(saleData)
+      // Ensure customer_name is in the receipt data even if backend omits it
+      const enrichedSale = {
+        ...saleData,
+        customer_name: saleData.customer_name || capturedCustomer?.full_name || undefined,
+      }
+      setSuccess(enrichedSale)
       // Fire success toast
       toast.success(`Sale complete - ${formatNaira(saleData.total ?? saleData.amount ?? cartTotal)}`)
       // Stock-level warnings from sale items
