@@ -5,7 +5,7 @@ import {
   Check, Star, Menu, X, ArrowRight, Zap, TrendingUp,
   Smartphone, Monitor, MapPin, Layers, CreditCard,
   Wrench, Eye, UserCheck, Clock, ChevronRight,
-  MessageCircle, Send, Mail, Phone,
+  MessageCircle, Send, Mail, Phone, Camera, Barcode,
 } from 'lucide-react'
 
 // -- Contact details - update these before going live --
@@ -191,7 +191,7 @@ const EDGE_ITEMS = [
   { icon: MapPin,      title: 'Branch-level stock isolation',       body: 'Dugbe Branch out of stock while Main Store has 20 units. Sales only deduct from the selling branch. No guesswork.' },
   { icon: Wrench,      title: 'Full job card workflow',             body: 'Received -> Diagnosing -> Awaiting Parts -> In Repair -> Ready -> Collected. Labour, parts billing, technician assignment.' },
   { icon: Eye,         title: 'Full audit trail, nothing deleted',  body: 'Every sale, edit, void, and login is logged with who did it and when. If a cashier voids a sale, you will know.' },
-  { icon: Smartphone,  title: 'Camera barcode scanning',           body: 'Any Android phone becomes a scanner - zero extra cost. No N15,000 hardware required. Just open the app and scan.' },
+  { icon: Barcode,     title: 'Camera barcode scanning',           body: 'Any Android phone becomes a scanner - zero extra cost. No N15,000 hardware required. Just open the app and scan.' },
   { icon: Wifi,        title: 'Sells offline',                     body: 'NEPA strikes. Data runs out. ShopKepa queues sales via Service Worker and syncs when you reconnect. No sale lost.' },
   { icon: Shield,      title: 'Role + branch scoped access',        body: 'A Dugbe cashier cannot see Main Store data, reports, or settings. Enterprise access control at SME pricing.' },
   { icon: Zap,         title: 'PWA - no app store needed',         body: 'Install from the browser with one tap. No Google Play, no storage permissions, no update prompts. Loads fast on 3G.' },
@@ -603,7 +603,10 @@ export default function LandingPage() {
               </div>
               <div style={{ padding: 13 }}>
                 <div style={{ background: '#0A1628', border: '1px dashed #1E3A5F', borderRadius: 8, padding: '12px 10px', textAlign: 'center', marginBottom: 10 }}>
-                  <div style={{ fontSize: 22, marginBottom: 3 }}>CAM</div>
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                    <Camera size={20} color="#C9A84C" />
+                    <Barcode size={20} color="#C9A84C" />
+                  </div>
                   <span style={{ fontSize: 9, color: '#6B8BB5' }}>Point camera at barcode - free, no scanner</span>
                 </div>
                 <div style={{ fontSize: 9, color: '#6B8BB5', letterSpacing: 0.8, marginBottom: 7 }}>CART - 3 ITEMS</div>
