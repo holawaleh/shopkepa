@@ -4,7 +4,7 @@ from rest_framework import status
 from django.utils import timezone
 from django.db.models import Q
 
-from core.models import Customer, CustomerNote
+from core.models import Customer, CustomerNote, Sale
 from core.permissions import IsManagerOrAbove, IsCashierOrAbove
 from core.utils import log_audit, get_client_ip, update_customer_loyalty
 from .serializers import (
@@ -12,6 +12,8 @@ from .serializers import (
     CreateCustomerSerializer, UpdateCustomerSerializer,
     CustomerNoteCreateSerializer
 )
+from api.v1.sales.serializers import SaleDetailSerializer
+from rest_framework.exceptions import NotFound
 
 
 class CustomerListCreateView(APIView):
@@ -176,6 +178,35 @@ class CustomerDetailView(APIView):
         )
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CustomerHistoryView(APIView):
+    permission_classes = [IsManagerOrAbove]
+
+    def get(self, request, customer_id):
+        try:
+            customer = Customer.objects.get(
+                id=customer_id,
+                business=request.user.business,
+                is_deleted=False,
+            )
+        except Customer.DoesNotExist:
+            raise NotFound('Customer not found.')
+
+        sales = Sale.objects.filter(
+            customer=customer,
+            business=request.user.business,
+            is_deleted=False,
+        ).select_related(
+            'branch', 'module', 'created_by',
+        ).prefetch_related(
+            'items', 'payments__created_by',
+        ).order_by('sale_date', 'created_at')
+
+        return Response({
+            'customer': CustomerDetailSerializer(customer).data,
+            'sales': SaleDetailSerializer(sales, many=True).data,
+        })
 
 
 class CustomerNoteView(APIView):

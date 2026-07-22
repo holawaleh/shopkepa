@@ -107,6 +107,8 @@ export const authAPI = {
   me:             ()     => api.get('/auth/me/'),
   refresh:        ()     => api.post('/auth/token/refresh/'),
   changePassword: (data) => api.post('/auth/change-password/', data),
+  requestPasswordReset: (data) => api.post('/auth/password-reset/request/', data),
+  confirmPasswordReset: (data) => api.post('/auth/password-reset/confirm/', data),
 }
 
 export const productsAPI = {
@@ -135,6 +137,7 @@ export const salesAPI = {
 export const customersAPI = {
   list:       (params)          => api.get('/customers/', { params }),
   get:        (id)              => api.get(`/customers/${id}/`),
+  history:    (id)              => api.get(`/customers/${id}/history/`),
   create:     (data)            => api.post('/customers/', data),
   update:     (id, d)           => api.patch(`/customers/${id}/`, d),
   delete:     (id)              => api.delete(`/customers/${id}/`),

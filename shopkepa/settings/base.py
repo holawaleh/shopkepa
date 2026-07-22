@@ -123,8 +123,9 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.ScopedRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'login':    '5/min',
-        'register': '3/min',
+        'login':          '5/min',
+        'register':       '3/min',
+        'password_reset': '3/hour',
     },
     'TRAILING_SLASH': True,
 }
@@ -196,3 +197,6 @@ LOGGING = {
         },
     },
 }
+
+FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:5173').rstrip('/')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='no-reply@shopkepa.com')

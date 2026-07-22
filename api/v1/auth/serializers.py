@@ -1,4 +1,5 @@
 import re
+from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 from core.models import User, UserBranch
 
@@ -64,3 +65,16 @@ class UserSerializer(serializers.ModelSerializer):
 class ChangePasswordSerializer(serializers.Serializer):
     current_password = serializers.CharField(write_only=True)
     new_password     = serializers.CharField(min_length=6, write_only=True)
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    token = serializers.CharField()
+    new_password = serializers.CharField(min_length=8, write_only=True)
+
+    def validate_new_password(self, value):
+        validate_password(value)
+        return value

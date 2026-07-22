@@ -71,16 +71,22 @@ class SaleDetailSerializer(serializers.ModelSerializer):
     branch_name = serializers.CharField(
         source='branch.name', read_only=True
     )
+    module_name = serializers.CharField(
+        source='module.name', read_only=True
+    )
+    created_by_name = serializers.CharField(
+        source='created_by.full_name', read_only=True
+    )
 
     class Meta:
         model  = Sale
         fields = [
             'id', 'sale_number', 'branch', 'branch_name',
-            'module', 'customer', 'customer_name',
+            'module', 'module_name', 'customer', 'customer_name',
             'subtotal', 'discount_amount', 'total_amount',
             'amount_paid', 'balance_due', 'payment_status',
             'has_installment_plan', 'installment_plan',
-            'sale_date', 'notes', 'items', 'payments', 'created_at',
+            'sale_date', 'notes', 'items', 'payments', 'created_by_name', 'created_at',
         ]
 
 

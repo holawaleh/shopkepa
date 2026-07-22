@@ -8,4 +8,6 @@ urlpatterns = [
     path('token/refresh/',  views.TokenRefreshCookieView.as_view(),  name='auth-token-refresh'),
     path('me/',             views.MeView.as_view(),                  name='auth-me'),
     path('change-password/', views.ChangePasswordView.as_view(),     name='auth-change-password'),
+    path('password-reset/request/', views.PasswordResetRequestView.as_view(), name='auth-password-reset-request'),
+    path('password-reset/confirm/', views.PasswordResetConfirmView.as_view(), name='auth-password-reset-confirm'),
 ]

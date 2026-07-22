@@ -3,14 +3,14 @@ from rest_framework.permissions import BasePermission
 
 class IsOwner(BasePermission):
     """
-    Only the business owner can access this endpoint.
+    Business owner or admin can access this endpoint.
     """
     message = 'Only the business owner can perform this action.'
 
     def has_permission(self, request, view):
         return (
             request.user.is_authenticated and
-            request.user.role == 'owner'
+            request.user.role in ('owner', 'admin')
         )
 
 
@@ -23,7 +23,7 @@ class IsManagerOrAbove(BasePermission):
     def has_permission(self, request, view):
         return (
             request.user.is_authenticated and
-            request.user.role in ('owner', 'manager')
+            request.user.role in ('owner', 'manager', 'admin')
         )
 
 

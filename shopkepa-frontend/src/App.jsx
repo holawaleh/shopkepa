@@ -5,6 +5,8 @@ import { ToastProvider, useToast } from './context/ToastContext'
 import { ProtectedRoute, GuestRoute } from './components/ui/ProtectedRoute'
 import LoginPage from './pages/auth/LoginPage'
 import SignupPage from './pages/auth/SignupPage'
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import ResetPasswordPage from './pages/auth/ResetPasswordPage'
 import LandingPage from './pages/landing/LandingPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
 
@@ -71,6 +73,8 @@ export default function App() {
             <Routes>
               <Route path="/login"       element={<GuestRoute><LoginPage /></GuestRoute>} />
               <Route path="/signup"      element={<GuestRoute><SignupPage /></GuestRoute>} />
+              <Route path="/forgot-password" element={<GuestRoute><ForgotPasswordPage /></GuestRoute>} />
+              <Route path="/reset-password" element={<GuestRoute><ResetPasswordPage /></GuestRoute>} />
               <Route path="/onboarding"  element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
               <Route path="/dashboard"   element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
               <Route path="/pos"         element={<ProtectedRoute><POSPage /></ProtectedRoute>} />

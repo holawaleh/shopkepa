@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Search, Edit2, X, AlertCircle, Users, Printer, CreditCard, Trash2, MessageSquare, Send, Eye } from 'lucide-react'
+import { Plus, Search, Edit2, X, AlertCircle, Users, Printer, CreditCard, Trash2, MessageSquare, Send, Eye, FileText } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
 import { customersAPI, salesAPI } from '../../api/client'
 import { formatNaira, formatDate, parseApiError } from '../../utils/format'
-import { printCustomerStatement } from '../../utils/printDoc'
+import { printCustomerStatement, printCustomerHistoryPDF } from '../../utils/printDoc'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 
@@ -46,6 +46,7 @@ function Modal({ title, onClose, children, wide }) {
 export default function CustomersPage() {
   const { user } = useAuth()
   const toast    = useToast()
+  const canDownloadHistory = ['owner', 'manager', 'admin'].includes(user?.role)
   const [customers, setCustomers]   = useState([])
   const [loading, setLoading]       = useState(true)
   const [search, setSearch]         = useState('')
@@ -131,21 +132,33 @@ export default function CustomersPage() {
     setNotes([])
     setPayingId(''); setPayAmount(''); setPayNotes(''); setPayReference('')
     try {
-      const [salesRes, custRes] = await Promise.allSettled([
-        salesAPI.list({ customer_id: c.id }),
-        customersAPI.get(c.id),
-      ])
-      if (salesRes.status === 'fulfilled') {
-        const raw = salesRes.value.data
-        const all = Array.isArray(raw) ? raw : (raw.results ?? [])
+      if (canDownloadHistory) {
+        const historyRes = await customersAPI.history(c.id)
+        const history = historyRes.data || {}
+        const all = Array.isArray(history.sales) ? history.sales : []
+        setProfileCustomer(history.customer || c)
         setProfileSales(all)
         setOpenSales(all.filter(s => parseFloat(s.balance_due ?? 0) > 0))
+        setNotes(history.customer?.notes || [])
       } else {
-        setProfileError(parseApiError(salesRes.reason))
+        const [salesRes, custRes] = await Promise.allSettled([
+          salesAPI.list({ customer_id: c.id }),
+          customersAPI.get(c.id),
+        ])
+        if (salesRes.status === 'fulfilled') {
+          const raw = salesRes.value.data
+          const all = Array.isArray(raw) ? raw : (raw.results ?? [])
+          setProfileSales(all)
+          setOpenSales(all.filter(s => parseFloat(s.balance_due ?? 0) > 0))
+        } else {
+          setProfileError(parseApiError(salesRes.reason))
+        }
+        if (custRes.status === 'fulfilled') {
+          setNotes(custRes.value.data.notes || [])
+        }
       }
-      if (custRes.status === 'fulfilled') {
-        setNotes(custRes.value.data.notes || [])
-      }
+    } catch (err) {
+      setProfileError(parseApiError(err))
     } finally {
       setProfileLoading(false)
     }
@@ -495,6 +508,13 @@ export default function CustomersPage() {
           <div style={{ marginBottom: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--light)', margin: 0 }}>Transactions</h3>
+              {canDownloadHistory && (
+                <button className="btn-ghost" style={{ padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}
+                  onClick={() => printCustomerHistoryPDF(profileCustomer, profileSales, user?.business_name, notes)}
+                  title="Open the comprehensive customer history for PDF download">
+                  <FileText size={12} /> Download history PDF
+                </button>
+              )}
               <button className="btn-ghost" style={{ padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 5, fontSize: 12 }}
                 onClick={() => printCustomerStatement(profileCustomer, profileSales, user?.business_name)}>
                 <Printer size={12} /> Print statement

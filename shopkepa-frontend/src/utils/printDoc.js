@@ -319,3 +319,147 @@ export function printCustomerStatement(customer, sales, businessName = 'ShopKepa
     <p class="center" style="margin-top:8px;font-size:12px;color:#555">Powered by ShopKepa</p>
   `)
 }
+export function printCustomerHistoryPDF(customer, sales, businessName = 'ShopKepa', notes = []) {
+  const companyName = businessName || 'ShopKepa'
+  const reportDate = new Date().toISOString()
+  const safeSales = Array.isArray(sales) ? sales : []
+  const safeNotes = Array.isArray(notes) ? notes : []
+
+  const totals = safeSales.reduce((acc, sale) => {
+    acc.sales += parseFloat(sale.total_amount || 0)
+    acc.paid += parseFloat(sale.amount_paid || 0)
+    acc.balance += parseFloat(sale.balance_due || 0)
+    return acc
+  }, { sales: 0, paid: 0, balance: 0 })
+
+  const saleSections = safeSales.map((sale) => {
+    const items = (sale.items || []).map(item => `
+      <tr>
+        <td>${esc(item.product_name || item.name)}</td>
+        <td class="right">${item.quantity || 0}</td>
+        <td class="right">${naira(item.unit_price)}</td>
+        <td class="right">${naira(item.line_total)}</td>
+      </tr>
+    `).join('')
+
+    const payments = (sale.payments || []).map(payment => `
+      <tr>
+        <td>${fmtDate(payment.payment_date || payment.created_at)}</td>
+        <td>${esc(payment.payment_method)}</td>
+        <td>${esc(payment.reference_number)}</td>
+        <td>${esc(payment.created_by_name)}</td>
+        <td class="right">${naira(payment.amount)}</td>
+      </tr>
+    `).join('')
+
+    return `
+      <section class="report-section page-avoid">
+        <h3>Sale ${esc(sale.sale_number || sale.id)}</h3>
+        <table class="meta-table">
+          <tr><td class="label">Date</td><td>${fmtDate(sale.sale_date || sale.created_at)}</td><td class="label">Branch</td><td>${esc(sale.branch_name)}</td></tr>
+          <tr><td class="label">Module</td><td>${esc(sale.module_name)}</td><td class="label">Officer</td><td>${esc(sale.created_by_name)}</td></tr>
+          <tr><td class="label">Total</td><td>${naira(sale.total_amount)}</td><td class="label">Paid</td><td>${naira(sale.amount_paid)}</td></tr>
+          <tr><td class="label">Balance</td><td>${naira(sale.balance_due)}</td><td class="label">Status</td><td>${esc(sale.payment_status)}</td></tr>
+        </table>
+
+        ${items ? `
+          <p class="section-label">Items</p>
+          <table>
+            <thead><tr><th style="text-align:left">Item</th><th class="right">Qty</th><th class="right">Unit</th><th class="right">Total</th></tr></thead>
+            <tbody>${items}</tbody>
+          </table>
+        ` : ''}
+
+        ${payments ? `
+          <p class="section-label">Payments</p>
+          <table>
+            <thead><tr><th style="text-align:left">Date</th><th style="text-align:left">Method</th><th style="text-align:left">Reference</th><th style="text-align:left">Officer</th><th class="right">Amount</th></tr></thead>
+            <tbody>${payments}</tbody>
+          </table>
+        ` : '<p class="muted">No payments recorded.</p>'}
+
+        ${sale.notes ? `<p class="muted">Sale notes: ${esc(sale.notes)}</p>` : ''}
+      </section>
+    `
+  }).join('')
+
+  const noteRows = safeNotes.map(note => `
+    <tr>
+      <td>${fmtDate(note.created_at)}</td>
+      <td>${esc(note.created_by_name)}</td>
+      <td>${esc(note.note)}</td>
+    </tr>
+  `).join('')
+
+  openPrint(`
+    <style>
+      h3{font-size:13px;margin:12px 0 6px;color:#111}
+      .report-title{text-align:center;margin-bottom:8px}
+      .report-title p{font-size:12px;color:#555;margin-top:2px}
+      .summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+      .summary-box{border:1px solid #ddd;padding:8px}
+      .summary-box span{display:block;color:#555;font-size:11px;margin-bottom:2px}
+      .summary-box strong{font-size:13px}
+      .report-section{margin-top:14px;border-top:1px dashed #aaa;padding-top:10px}
+      .section-label{font-weight:bold;font-size:12px;margin:8px 0 4px}
+      .meta-table td{padding-right:10px}
+      .muted{font-size:12px;color:#555;margin-top:6px}
+      .page-avoid{break-inside:avoid;page-break-inside:avoid}
+      @media print{@page{size:A4;margin:10mm}.report-section{break-inside:avoid;page-break-inside:avoid}}
+    </style>
+
+    <div class="report-title">
+      <h1>${esc(companyName)}</h1>
+      <h2>Customer History and Balance Sheet</h2>
+      <p>Generated ${fmtDate(reportDate)} ${fmtTime(reportDate)}</p>
+    </div>
+    <hr class="solid">
+
+    <h3>Customer Details</h3>
+    <table class="meta-table">
+      <tr><td class="label">Customer</td><td>${esc(customer.full_name)}</td><td class="label">Phone</td><td>${esc(customer.phone_number)}</td></tr>
+      <tr><td class="label">Business</td><td>${esc(customer.business_name)}</td><td class="label">Email</td><td>${esc(customer.email)}</td></tr>
+      <tr><td class="label">Type</td><td>${esc(customer.customer_type)}</td><td class="label">Address</td><td>${esc(customer.address)}</td></tr>
+      <tr><td class="label">Loyalty</td><td>${esc(customer.loyalty_tag)}</td><td class="label">Last Purchase</td><td>${fmtDate(customer.last_purchase_date)}</td></tr>
+    </table>
+
+    <div class="summary-grid">
+      <div class="summary-box"><span>Total Sales</span><strong>${naira(totals.sales)}</strong></div>
+      <div class="summary-box"><span>Total Paid</span><strong>${naira(totals.paid)}</strong></div>
+      <div class="summary-box"><span>Outstanding Balance</span><strong>${naira(totals.balance)}</strong></div>
+    </div>
+
+    <h3>Balance Sheet</h3>
+    <table>
+      <thead><tr><th style="text-align:left">Sale</th><th style="text-align:left">Date</th><th style="text-align:left">Branch</th><th class="right">Debit</th><th class="right">Credit</th><th class="right">Balance</th></tr></thead>
+      <tbody>
+        ${safeSales.map(sale => `
+          <tr>
+            <td>${esc(sale.sale_number || sale.id)}</td>
+            <td>${fmtDate(sale.sale_date || sale.created_at)}</td>
+            <td>${esc(sale.branch_name)}</td>
+            <td class="right">${naira(sale.total_amount)}</td>
+            <td class="right">${naira(sale.amount_paid)}</td>
+            <td class="right">${naira(sale.balance_due)}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+      <tfoot><tr class="total-row"><td colspan="3">TOTAL</td><td class="right">${naira(totals.sales)}</td><td class="right">${naira(totals.paid)}</td><td class="right">${naira(totals.balance)}</td></tr></tfoot>
+    </table>
+
+    ${saleSections || '<p class="center muted">No sales history found.</p>'}
+
+    ${noteRows ? `
+      <section class="report-section">
+        <h3>Customer Notes</h3>
+        <table>
+          <thead><tr><th style="text-align:left">Date</th><th style="text-align:left">Officer</th><th style="text-align:left">Note</th></tr></thead>
+          <tbody>${noteRows}</tbody>
+        </table>
+      </section>
+    ` : ''}
+
+    <hr class="solid">
+    <p class="center" style="margin-top:8px;font-size:12px;color:#555">Powered by ShopKepa</p>
+  `)
+}
