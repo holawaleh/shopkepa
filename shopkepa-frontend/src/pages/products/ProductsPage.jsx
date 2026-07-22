@@ -291,9 +291,9 @@ export default function ProductsPage() {
 
   return (
     <AppLayout>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, gap: 12 }}>
+      <div className="products-page-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, gap: 12 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--light)' }}>Products</h1>
-        <button className="btn-gold" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={openAdd}>
+        <button className="btn-gold add-product-btn" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={openAdd}>
           <Plus size={15} /> Add Product
         </button>
       </div>
@@ -309,7 +309,7 @@ export default function ProductsPage() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1.2fr) minmax(180px, 1fr) minmax(180px, 1fr)', gap: 10, marginBottom: 16 }}>
+      <div className="products-filter-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1.2fr) minmax(180px, 1fr) minmax(180px, 1fr)', gap: 10, marginBottom: 16 }}>
         <div style={{ position: 'relative' }}>
           <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
           <input
@@ -341,7 +341,9 @@ export default function ProductsPage() {
             </p>
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <>
+          <div className="products-table-wrap">
+          <table className="products-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--mid)' }}>
                 {['Name', 'SKU', 'Module', 'Category', 'Retail Price', 'Stock', 'Status', ''].map(h => (
@@ -393,6 +395,53 @@ export default function ProductsPage() {
               ))}
             </tbody>
           </table>
+          </div>
+          <div className="products-mobile-list">
+            {products.map(p => (
+              <article key={p.id} className="product-mobile-card">
+                <div className="product-mobile-card-head">
+                  <div style={{ minWidth: 0 }}>
+                    <h2 className="product-mobile-name">{p.name}</h2>
+                    <p className="product-mobile-meta">{p.sku || 'No SKU'} - {p.category_name || 'Uncategorised'}</p>
+                  </div>
+                  <span style={{
+                    fontSize: 11, padding: '2px 8px', borderRadius: 20,
+                    background: p.is_active ? 'rgba(76,175,125,0.15)' : 'rgba(224,85,85,0.12)',
+                    color: p.is_active ? 'var(--success)' : 'var(--error)',
+                    flexShrink: 0,
+                  }}>
+                    {p.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+                <div className="product-mobile-details">
+                  <span>Module</span>
+                  <strong>{p.module_name || '-'}</strong>
+                  <span>Retail price</span>
+                  <strong className="gold-value">{formatNaira(p.retail_price)}</strong>
+                  <span>Stock</span>
+                  <strong>{totalStock(p)}</strong>
+                </div>
+                <div className="product-mobile-actions">
+                  <button onClick={() => openRestock(p)} className="btn-ghost" title="Adjust stock">
+                    <PackagePlus size={13} /> Stock
+                  </button>
+                  <button onClick={() => openEdit(p)} className="btn-ghost" title="Edit">
+                    <Edit2 size={13} /> Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(p)}
+                    disabled={deleting === p.id}
+                    className="btn-ghost"
+                    style={{ color: 'var(--error)' }}
+                    title="Delete"
+                  >
+                    <Trash2 size={13} /> Delete
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+          </>
         )}
       </div>
 
@@ -418,7 +467,7 @@ export default function ProductsPage() {
             </FormField>
 
             <FormField label="Category" error={formErrors.category_id}>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <div className="product-category-row" style={{ display: 'flex', gap: 8 }}>
                 <select className="input" value={form.category_id} onChange={set('category_id')} disabled={!form.module_id} style={{ flex: 1 }}>
                   <option value="">Uncategorised</option>
                   {formCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -437,7 +486,7 @@ export default function ProductsPage() {
               })()}
             </FormField>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="product-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <FormField label="SKU" error={formErrors.sku}>
                 {(() => {
                   const skuPh = selectedModule ? (MODULE_SKU_PLACEHOLDERS[selectedModule.code?.toLowerCase()] || 'e.g. PRD-001') : 'e.g. PRD-001'
@@ -453,7 +502,7 @@ export default function ProductsPage() {
               <input className="input" value={form.description} onChange={set('description')} placeholder="Optional notes, size, brand, pack count..." />
             </FormField>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="product-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <FormField label="Retail price (NGN) *" error={formErrors.retail_price}>
                 <input className={`input ${formErrors.retail_price ? 'input-error' : ''}`} type="number" min="0" step="0.01" value={form.retail_price} onChange={set('retail_price')} placeholder="0.00" />
               </FormField>
@@ -462,7 +511,7 @@ export default function ProductsPage() {
               </FormField>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="product-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <FormField label="Cost price (NGN)" error={formErrors.cost_price}>
                 <input className="input" type="number" min="0" step="0.01" value={form.cost_price} onChange={set('cost_price')} placeholder="0.00" />
               </FormField>
@@ -471,7 +520,7 @@ export default function ProductsPage() {
               </FormField>
             </div>
 
-            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+            <div className="product-modal-actions" style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>
               <button type="submit" className="btn-gold" style={{ flex: 2 }} disabled={saving}>{saving ? 'Saving...' : modal === 'add' ? 'Add Product' : 'Save Changes'}</button>
             </div>
@@ -499,7 +548,7 @@ export default function ProductsPage() {
             <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6 }}>
               Defaults are already added for common Nigerian shops. Use this for your own labels like Imported Creams, Fairly Used Phones, Lace Materials, or POS Paper Rolls.
             </div>
-            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+            <div className="product-modal-actions" style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(form.module_id ? categoryReturnModal : null)}>Cancel</button>
               <button type="submit" className="btn-gold" style={{ flex: 2 }} disabled={saving}>{saving ? 'Saving...' : 'Add Category'}</button>
             </div>
@@ -507,6 +556,155 @@ export default function ProductsPage() {
         </Modal>
       )}
 
+
+      <style>{`
+        .products-page-head h1 {
+          margin: 0;
+          min-width: 0;
+        }
+
+        .add-product-btn {
+          width: auto;
+          flex-shrink: 0;
+          white-space: nowrap;
+        }
+
+        .products-table-wrap {
+          width: 100%;
+          overflow-x: auto;
+        }
+
+        .products-table th,
+        .products-table td {
+          white-space: nowrap;
+        }
+
+        .products-table td:first-child {
+          max-width: 220px;
+          white-space: normal;
+          overflow-wrap: anywhere;
+        }
+
+        .products-mobile-list {
+          display: none;
+        }
+
+        .product-mobile-card {
+          padding: 14px;
+          border-bottom: 1px solid var(--mid);
+        }
+
+        .product-mobile-card:last-child {
+          border-bottom: none;
+        }
+
+        .product-mobile-card-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 10px;
+          margin-bottom: 12px;
+        }
+
+        .product-mobile-name {
+          color: var(--light);
+          font-size: 14px;
+          font-weight: 600;
+          line-height: 1.35;
+          margin: 0 0 3px;
+          overflow-wrap: anywhere;
+        }
+
+        .product-mobile-meta {
+          color: var(--muted);
+          font-size: 12px;
+          line-height: 1.4;
+          overflow-wrap: anywhere;
+        }
+
+        .product-mobile-details {
+          display: grid;
+          grid-template-columns: minmax(84px, auto) minmax(0, 1fr);
+          gap: 7px 12px;
+          align-items: baseline;
+          font-size: 12px;
+          margin-bottom: 12px;
+        }
+
+        .product-mobile-details span {
+          color: var(--muted);
+        }
+
+        .product-mobile-details strong {
+          color: var(--light);
+          font-weight: 600;
+          text-align: right;
+          min-width: 0;
+          overflow-wrap: anywhere;
+        }
+
+        .product-mobile-details .gold-value {
+          color: var(--gold);
+        }
+
+        .product-mobile-actions {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 8px;
+        }
+
+        .product-mobile-actions .btn-ghost {
+          width: 100%;
+          min-width: 0;
+          padding: 8px 6px;
+          font-size: 12px;
+          gap: 5px;
+        }
+
+        @media (max-width: 720px) {
+          .products-page-head {
+            align-items: stretch !important;
+            flex-direction: column;
+          }
+
+          .add-product-btn {
+            width: 100%;
+          }
+
+          .products-filter-grid {
+            grid-template-columns: 1fr !important;
+          }
+
+          .products-table-wrap {
+            display: none;
+          }
+
+          .products-mobile-list {
+            display: block;
+          }
+
+          .product-form-grid {
+            grid-template-columns: 1fr !important;
+          }
+
+          .product-category-row,
+          .product-modal-actions {
+            flex-direction: column;
+          }
+
+          .product-category-row .btn-ghost,
+          .product-modal-actions .btn-ghost,
+          .product-modal-actions .btn-gold {
+            width: 100%;
+          }
+        }
+
+        @media (max-width: 380px) {
+          .product-mobile-actions {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
       {modal === 'restock' && restockTarget && (
         <Modal title={`Adjust Stock - ${restockTarget.name}`} onClose={() => setModal(null)}>
           {error && (
@@ -531,7 +729,7 @@ export default function ProductsPage() {
             <FormField label="Reason / notes">
               <input className="input" value={restockForm.reason} onChange={e => setRestockForm(f => ({ ...f, reason: e.target.value }))} placeholder="e.g. New delivery, stock correction" />
             </FormField>
-            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+            <div className="product-modal-actions" style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>
               <button type="submit" className="btn-gold" style={{ flex: 2 }} disabled={saving}>{saving ? 'Saving...' : 'Update Stock'}</button>
             </div>
