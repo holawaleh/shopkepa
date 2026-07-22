@@ -33,7 +33,7 @@ const STYLES = `
 function openPrint(html) {
   const win = window.open('', '_blank', 'width=560,height=750,scrollbars=yes')
   if (!win) { alert('Please allow pop-ups for ShopKepa to print.'); return }
-  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>ShopKepa — Print Preview</title><style>
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>ShopKepa - Print Preview</title><style>
 ${STYLES}
 #print-bar{position:fixed;bottom:0;left:0;right:0;background:#1a1a2e;border-top:1px solid #333;padding:10px 16px;display:flex;gap:10px;justify-content:flex-end;z-index:99}
 #print-bar button{padding:7px 20px;border-radius:6px;border:none;cursor:pointer;font-size:13px;font-family:inherit}
@@ -52,11 +52,11 @@ body{padding-bottom:56px}
 
 function naira(n) {
   const num = parseFloat(n || 0)
-  return '₦' + num.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return '&#8358;' + num.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 function fmtDate(d) {
-  if (!d) return '—'
+  if (!d) return '-'
   return new Date(d).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
@@ -65,12 +65,24 @@ function fmtTime(d) {
   return new Date(d).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' })
 }
 
-// ── Sale Receipt ──────────────────────────────────────────────────────────
+function esc(value, fallback = '-') {
+  return String(value || fallback)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+// Sale Receipt
 
 export function printSaleReceipt(sale, businessName = 'ShopKepa') {
+  const companyName = sale.business_name || businessName || 'ShopKepa'
+  const branchName = sale.branch_name || 'Branch not specified'
+  const customerName = sale.customer_name || 'Walk-in Customer'
   const items = (sale.items || []).map(i => `
     <tr>
-      <td>${i.product_name}</td>
+      <td>${esc(i.product_name)}</td>
       <td class="right">${i.quantity}</td>
       <td class="right">${naira(i.unit_price)}</td>
       <td class="right">${naira(i.line_total)}</td>
@@ -80,15 +92,16 @@ export function printSaleReceipt(sale, businessName = 'ShopKepa') {
   const change = Math.max(0, parseFloat(sale.amount_paid || 0) - parseFloat(sale.total_amount || 0))
 
   openPrint(`
-    <h1>${businessName}</h1>
+    <h1>${esc(companyName)}</h1>
     <h2>Sales Receipt</h2>
     <hr class="solid">
 
     <table>
-      <tr><td class="label">Receipt #</td><td class="right">${sale.sale_number || '—'}</td></tr>
+      <tr><td class="label">Company</td><td class="right" style="font-weight:bold">${esc(companyName)}</td></tr>
+      <tr><td class="label">Branch</td><td class="right">${esc(branchName)}</td></tr>
+      <tr><td class="label">Customer</td><td class="right">${esc(customerName)}</td></tr>
+      <tr><td class="label">Receipt #</td><td class="right">${esc(sale.sale_number)}</td></tr>
       <tr><td class="label">Date</td><td class="right">${fmtDate(sale.created_at)} ${fmtTime(sale.created_at)}</td></tr>
-      <tr><td class="label">Branch</td><td class="right">${sale.branch_name || '—'}</td></tr>
-      ${sale.customer_name ? `<tr><td class="label">Customer</td><td class="right">${sale.customer_name}</td></tr>` : ''}
     </table>
 
     <hr class="divider">
@@ -126,7 +139,7 @@ export function printSaleReceipt(sale, businessName = 'ShopKepa') {
   `)
 }
 
-// ── Job Card Receipt ───────────────────────────────────────────────────────
+// Job Card Receipt
 
 export function printJobCardReceipt(job, businessName = 'ShopKepa') {
   const parts = (job.parts || []).map(p => `
@@ -149,9 +162,9 @@ export function printJobCardReceipt(job, businessName = 'ShopKepa') {
     <hr class="solid">
 
     <table>
-      <tr><td class="label">Job #</td><td class="right" style="font-weight:bold">${job.job_number || '—'}</td></tr>
+      <tr><td class="label">Job #</td><td class="right" style="font-weight:bold">${job.job_number || '-'}</td></tr>
       <tr><td class="label">Date</td><td class="right">${fmtDate(job.intake_date || job.created_at)}</td></tr>
-      <tr><td class="label">Branch</td><td class="right">${job.branch_name || '—'}</td></tr>
+      <tr><td class="label">Branch</td><td class="right">${job.branch_name || '-'}</td></tr>
       <tr><td class="label">Status</td><td class="right"><span class="badge" style="color:${statusColor};border:1px solid ${statusColor}">${job.status?.toUpperCase() || ''}</span></td></tr>
     </table>
 
@@ -159,14 +172,14 @@ export function printJobCardReceipt(job, businessName = 'ShopKepa') {
 
     <p style="font-weight:bold;margin-bottom:4px">CUSTOMER</p>
     <table>
-      <tr><td class="label">Name</td><td class="right">${job.customer_name || '—'}</td></tr>
+      <tr><td class="label">Name</td><td class="right">${job.customer_name || '-'}</td></tr>
       ${job.customer_phone ? `<tr><td class="label">Phone</td><td class="right">${job.customer_phone}</td></tr>` : ''}
     </table>
 
     <hr class="divider">
 
     <p style="font-weight:bold;margin-bottom:4px">DEVICE</p>
-    <p>${job.device_description || '—'}</p>
+    <p>${job.device_description || '-'}</p>
     <p class="label" style="margin-top:4px;font-size:12px">${job.customer_complaint || ''}</p>
 
     ${parts ? `
@@ -206,7 +219,7 @@ export function printJobCardReceipt(job, businessName = 'ShopKepa') {
   `)
 }
 
-// ── Customer Statement ─────────────────────────────────────────────────────
+// Customer Statement
 
 export function printCustomerStatement(customer, sales, businessName = 'ShopKepa') {
   const transactionRows = []

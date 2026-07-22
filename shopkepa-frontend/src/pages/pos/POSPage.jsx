@@ -285,10 +285,13 @@ export default function POSPage() {
         discount_amount: 0,
       })
       const saleData = res.data
-      // Ensure customer_name is in the receipt data even if backend omits it
+      const selectedBranch = branches.find(b => b.id === branchId)
+      // Keep receipt details complete even if the API response omits display names.
       const enrichedSale = {
         ...saleData,
-        customer_name: saleData.customer_name || capturedCustomer?.full_name || undefined,
+        business_name: saleData.business_name || user?.business_name || 'ShopKepa',
+        branch_name: saleData.branch_name || selectedBranch?.name || undefined,
+        customer_name: saleData.customer_name || capturedCustomer?.full_name || 'Walk-in Customer',
       }
       setSuccess(enrichedSale)
       // Fire success toast
@@ -399,7 +402,7 @@ export default function POSPage() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
-              onClick={() => printSaleReceipt(success, user?.business_name)}
+              onClick={() => printSaleReceipt(success, success.business_name || user?.business_name)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '5px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
