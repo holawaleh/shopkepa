@@ -274,7 +274,7 @@ function NavBar({ theme, toggleTheme }) {
           ))}
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <button onClick={toggleTheme} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(138,170,212,0.3)', background: 'rgba(10,22,40,0.8)', color: '#8AAAD4', fontSize: 13, cursor: 'pointer' }}>
+          <button className="sk-theme-toggle" onClick={toggleTheme} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(138,170,212,0.3)', background: 'rgba(10,22,40,0.95)', color: '#F1F7FF', fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
             {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
             <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
           </button>
@@ -909,6 +909,7 @@ export default function LandingPage() {
           .sk-nav-links { display: none !important; }
           .sk-nav-actions { flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
           .sk-nav-actions a { width: 100%; text-align: center; }
+          .sk-theme-toggle { display: inline-flex !important; justify-content: center !important; width: 100%; max-width: 220px; }
           .sk-hamburger { display: block !important; }
           .sk-edge-grid { grid-template-columns: 1fr !important; display: none !important; }
           .sk-edge-cards { display: grid !important; }
