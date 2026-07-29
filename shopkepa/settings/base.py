@@ -12,6 +12,11 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 SECRET_KEY = env('SECRET_KEY')
 APPEND_SLASH = True
 
+# One-time secret for POST /api/v1/auth/bootstrap-admin/ — lets you create the
+# first platform superuser over HTTP when shell access isn't available (e.g.
+# Render's free tier). Leave unset to disable the endpoint entirely.
+BOOTSTRAP_ADMIN_SECRET = env('BOOTSTRAP_ADMIN_SECRET', default='')
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',

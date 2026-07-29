@@ -7,13 +7,17 @@ from rest_framework_simplejwt.exceptions import TokenError
 from django.conf import settings
 from django.utils import timezone
 from django.core.mail import send_mail
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
 from datetime import timedelta
 import hashlib
+import hmac
 import logging
 import secrets
 
 from core.models import User, PasswordResetToken
+from core.models.user import validate_username
 from core.services.auth_service import register_business
 from core.utils import log_audit, get_client_ip
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
@@ -351,3 +355,52 @@ class PasswordResetConfirmView(APIView):
         )
 
         return Response({'message': 'Password reset successfully. You can now sign in.'})
+
+
+class BootstrapAdminView(APIView):
+    """
+    One-time way to create the first platform superuser over HTTP, for hosts
+    (e.g. Render's free tier) that don't offer shell access for
+    `manage.py createsuperuser`. Disabled unless BOOTSTRAP_ADMIN_SECRET is
+    set, and permanently self-disables the moment any superuser exists.
+    """
+    permission_classes = [AllowAny]
+    throttle_scope = 'register'
+
+    def post(self, request):
+        expected_secret = settings.BOOTSTRAP_ADMIN_SECRET
+        provided_secret = request.headers.get('X-Bootstrap-Secret', '')
+        if not expected_secret or not hmac.compare_digest(expected_secret, provided_secret):
+            return Response({'error': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if User.objects.filter(is_superuser=True).exists():
+            return Response(
+                {'error': 'A superuser already exists. This endpoint is now disabled.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        required_fields = ['username', 'password', 'full_name', 'email', 'phone_number']
+        missing = [f for f in required_fields if not request.data.get(f)]
+        if missing:
+            return Response(
+                {'error': f'Missing fields: {", ".join(missing)}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            validate_username(request.data['username'])
+            validate_password(request.data['password'])
+        except DjangoValidationError as e:
+            return Response({'error': e.messages}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.create_superuser(
+            username=request.data['username'],
+            password=request.data['password'],
+            full_name=request.data['full_name'],
+            email=request.data['email'].lower().strip(),
+            phone_number=request.data['phone_number'],
+        )
+        return Response(
+            {'message': 'Superuser created. You can now log in at /admin/.', 'username': user.username},
+            status=status.HTTP_201_CREATED,
+        )
