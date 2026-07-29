@@ -32,7 +32,7 @@ function PageLoader() {
 
 // Listens for axios-dispatched network/server errors and shows a toast
 function GlobalApiErrorListener() {
-  const { error: toastError, info } = useToast()
+  const { error: toastError } = useToast()
 
   useEffect(() => {
     let lastNetworkToast = 0

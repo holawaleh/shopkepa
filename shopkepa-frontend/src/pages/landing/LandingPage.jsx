@@ -263,7 +263,7 @@ function NavBar() {
   ]
   return (
     <nav style={navStyle} aria-label="Main navigation">
-      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 24px', height: 62, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ width: '100%', maxWidth: 1180, margin: '0 auto', padding: '0 16px', height: 62, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Link to="/" style={{ fontSize: 21, fontWeight: 800, color: '#C9A84C', textDecoration: 'none', letterSpacing: 0.3 }} aria-label="ShopKepa home">ShopKepa</Link>
         <div style={{ display: 'flex', gap: 28, alignItems: 'center' }} className="sk-nav-links">
           {NAV_LINKS.map(([href, label]) => (
@@ -331,8 +331,8 @@ export default function LandingPage() {
       <NavBar />
 
       {/* -- HERO -- */}
-      <header style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '110px 24px 70px', textAlign: 'center', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: '15%', left: '50%', transform: 'translateX(-50%)', width: 700, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(201,168,76,0.05) 0%, transparent 65%)', pointerEvents: 'none' }} />
+      <header style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '110px 16px 70px', textAlign: 'center', position: 'relative' }}>
+        <div style={{ position: 'absolute', top: '15%', left: '50%', transform: 'translateX(-50%)', width: 'min(700px, 90vw)', height: 'min(500px, 70vw)', maxWidth: 700, maxHeight: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(201,168,76,0.05) 0%, transparent 65%)', pointerEvents: 'none' }} />
 
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(76,175,125,0.1)', border: '1px solid rgba(76,175,125,0.28)', borderRadius: 20, padding: '5px 14px', marginBottom: 24 }}>
           <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4CAF7D', animation: 'sk-pulse 2s infinite' }} />
@@ -382,7 +382,7 @@ export default function LandingPage() {
                 <ShoppingCart size={13} /> New sale
               </Link>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 14 }}>
               {[
                 { label: "Today's revenue", value: 'N284,500', gold: true },
                 { label: "Today's profit", value: 'N91,200', gold: true },
@@ -395,7 +395,7 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
               <div style={{ background: '#070E1A', border: '1px solid #1E3A5F', borderRadius: 8, padding: '12px 14px' }}>
                 <div style={{ fontSize: 10, fontWeight: 600, color: '#8AAAD4', marginBottom: 10 }}>Recent sales</div>
                 {[
@@ -472,7 +472,7 @@ export default function LandingPage() {
 
         {/* Interactive edge selector - auto-rotates every 3.5 s, pauses on hover/click */}
         <div
-          style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 20 }}
+          style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr) 1fr', gap: 20, width: '100%' }}
           className="sk-edge-grid"
           onMouseEnter={() => setEdgePaused(true)}
           onMouseLeave={() => setEdgePaused(false)}
@@ -883,8 +883,12 @@ export default function LandingPage() {
           .sk-hamburger { display: block !important; }
           .sk-edge-grid { grid-template-columns: 1fr !important; display: none !important; }
           .sk-edge-cards { display: grid !important; }
-          .sk-split { grid-template-columns: 1fr !important; }
+          .sk-split { grid-template-columns: 1fr !important; gap: 28px !important; }
           .sk-footer-grid { grid-template-columns: 1fr 1fr !important; }
+        }
+        @media (max-width: 520px) {
+          .sk-footer-grid { grid-template-columns: 1fr !important; }
+          .sk-edge-cards { grid-template-columns: 1fr !important; }
         }
         @media (min-width: 769px) {
           .sk-hamburger { display: none !important; }

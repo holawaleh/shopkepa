@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   ShoppingCart, LayoutDashboard, Package, Users,
   BarChart2, Wrench, Settings, LogOut, Menu, X, Wifi, WifiOff, Hotel,
-  ReceiptText, Bot, Bell, Cpu,
+  ReceiptText, Bell, Cpu, Sun, Moon,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus'
@@ -48,6 +48,23 @@ export default function TopNav() {
   const [debtorOpen, setDebtorOpen] = useState(false)
   const [debtors, setDebtors] = useState([])
   const [debtorTotal, setDebtorTotal] = useState(0)
+  const [theme, setTheme] = useState('dark')
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const saved = window.localStorage.getItem('shopkepa_theme')
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const next = saved || (prefersDark ? 'dark' : 'light')
+    setTheme(next)
+    document.documentElement.dataset.theme = next
+  }, [])
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    document.documentElement.dataset.theme = next
+    window.localStorage.setItem('shopkepa_theme', next)
+  }
 
   const enabledKeys = new Set()
   activeCodes.forEach(code => {
@@ -153,6 +170,12 @@ export default function TopNav() {
                 </Link>
               )
             })}
+
+            <button onClick={toggleTheme} className="btn-ghost"
+              style={{ padding: '5px 8px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>
+              {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
 
             {['owner', 'admin', 'manager'].includes(user?.role) && (
               <div style={{ position: 'relative' }}>

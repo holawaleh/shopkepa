@@ -3,6 +3,13 @@ import { createRoot } from 'react-dom/client'
 import './styles/theme.css'
 import App from './App.jsx'
 
+if (typeof window !== 'undefined') {
+  const storedTheme = window.localStorage.getItem('shopkepa_theme')
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+  const initialTheme = storedTheme || (prefersDark ? 'dark' : 'light')
+  document.documentElement.dataset.theme = initialTheme
+}
+
 // When a new service worker activates it claims this client (autoUpdate mode).
 // Reload so the new SW's precache serves the new hashed assets instead of
 // Vercel's SPA catch-all returning text/html for unknown asset paths.
