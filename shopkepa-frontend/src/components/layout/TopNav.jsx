@@ -172,9 +172,11 @@ export default function TopNav() {
             })}
 
             <button onClick={toggleTheme} className="btn-ghost"
-              style={{ padding: '5px 8px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}
+              style={{ padding: '6px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
               title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>
               {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+              <span style={{ color: 'var(--light)' }}>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
             </button>
 
             {['owner', 'admin', 'manager'].includes(user?.role) && (

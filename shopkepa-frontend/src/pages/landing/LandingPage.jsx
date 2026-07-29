@@ -331,7 +331,7 @@ export default function LandingPage() {
       <NavBar />
 
       {/* -- HERO -- */}
-      <header style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '110px 16px 70px', textAlign: 'center', position: 'relative' }}>
+      <header style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '100px 16px 60px', textAlign: 'center', position: 'relative' }}>
         <div style={{ position: 'absolute', top: '15%', left: '50%', transform: 'translateX(-50%)', width: 'min(700px, 90vw)', height: 'min(500px, 70vw)', maxWidth: 700, maxHeight: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(201,168,76,0.05) 0%, transparent 65%)', pointerEvents: 'none' }} />
 
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(76,175,125,0.1)', border: '1px solid rgba(76,175,125,0.28)', borderRadius: 20, padding: '5px 14px', marginBottom: 24 }}>
@@ -591,8 +591,8 @@ export default function LandingPage() {
             </Link>
           </div>
           {/* Phone mockup */}
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <div style={{ width: 250, background: '#0F2442', borderRadius: 32, border: '2px solid #1E3A5F', overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+            <div style={{ width: '100%', maxWidth: 250, background: '#0F2442', borderRadius: 32, border: '2px solid #1E3A5F', overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}>
               <div style={{ background: '#070E1A', padding: '7px 16px', display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 9, color: '#C9A84C' }}>9:41</span>
                 <span style={{ fontSize: 9, color: '#C9A84C' }}>Signal 100%</span>
@@ -887,6 +887,7 @@ export default function LandingPage() {
           .sk-footer-grid { grid-template-columns: 1fr 1fr !important; }
         }
         @media (max-width: 520px) {
+          header { padding: 72px 14px 40px !important; }
           .sk-footer-grid { grid-template-columns: 1fr !important; }
           .sk-edge-cards { grid-template-columns: 1fr !important; }
         }
