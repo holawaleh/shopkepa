@@ -6,6 +6,7 @@ import {
   Smartphone, Monitor, MapPin, Layers, CreditCard,
   Wrench, Eye, UserCheck, Clock, ChevronRight,
   MessageCircle, Send, Mail, Phone, Camera, Barcode,
+  Sun, Moon,
 } from 'lucide-react'
 
 // -- Contact details - update these before going live --
@@ -191,7 +192,7 @@ const EDGE_ITEMS = [
   { icon: MapPin,      title: 'Branch-level stock isolation',       body: 'Dugbe Branch out of stock while Main Store has 20 units. Sales only deduct from the selling branch. No guesswork.' },
   { icon: Wrench,      title: 'Full job card workflow',             body: 'Received -> Diagnosing -> Awaiting Parts -> In Repair -> Ready -> Collected. Labour, parts billing, technician assignment.' },
   { icon: Eye,         title: 'Full audit trail, nothing deleted',  body: 'Every sale, edit, void, and login is logged with who did it and when. If a cashier voids a sale, you will know.' },
-  { icon: Barcode,     title: 'Camera barcode scanning',           body: 'Any Android phone becomes a scanner - zero extra cost. No N15,000 hardware required. Just open the app and scan.' },
+  { icon: Barcode,     title: 'Camera barcode scanning',           body: 'Any Android phone becomes a scanner - zero extra cost. No ₦15,000 hardware required. Just open the app and scan.' },
   { icon: Wifi,        title: 'Sells offline',                     body: 'NEPA strikes. Data runs out. ShopKepa queues sales via Service Worker and syncs when you reconnect. No sale lost.' },
   { icon: Shield,      title: 'Role + branch scoped access',        body: 'A Dugbe cashier cannot see Main Store data, reports, or settings. Enterprise access control at SME pricing.' },
   { icon: Zap,         title: 'PWA - no app store needed',         body: 'Install from the browser with one tap. No Google Play, no storage permissions, no update prompts. Loads fast on 3G.' },
@@ -216,17 +217,17 @@ const TESTIMONIALS = [
 
 const PLANS = [
   {
-    name: 'Starter', price: 'N5,000', period: '/month', tag: null, highlight: false,
+    name: 'Starter', price: '₦5,000', period: '/month', tag: null, highlight: false,
     desc: 'For shops just getting started',
     features: ['1 branch - 3 staff', '1,000 products', 'POS + inventory', 'Installment tracking', 'Basic reports', 'Email support'],
   },
   {
-    name: 'Growth', price: 'N10,000', period: '/month', tag: 'Most popular', highlight: true,
+    name: 'Growth', price: '₦10,000', period: '/month', tag: 'Most popular', highlight: true,
     desc: 'For growing businesses',
     features: ['2 branches - 5 staff', '3,000 products', 'All modules', 'Customer loyalty tiers', 'Advanced reports + profit view', 'Job cards', 'Priority support'],
   },
   {
-    name: 'Professional', price: 'N20,000', period: '/month', tag: null, highlight: false,
+    name: 'Professional', price: '₦20,000', period: '/month', tag: null, highlight: false,
     desc: 'For multi-branch operations',
     features: ['5 branches - 15 staff', 'Unlimited products', 'All modules + API access', 'Full audit trail', 'Custom reports', 'Dedicated support', 'White-label option'],
   },
@@ -240,7 +241,7 @@ const STATS = [
 ]
 
 // -- Sub-components --
-function NavBar() {
+function NavBar({ theme, toggleTheme }) {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   useEffect(() => {
@@ -272,9 +273,15 @@ function NavBar() {
               onMouseLeave={e => e.target.style.color = '#8AAAD4'}>{label}</a>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }} className="sk-nav-links">
-          <Link to="/login" style={{ color: '#8AAAD4', fontSize: 14, textDecoration: 'none', padding: '7px 14px' }}>Sign in</Link>
-          <Link to="/signup" style={{ background: '#C9A84C', color: '#0A1628', fontWeight: 700, fontSize: 14, textDecoration: 'none', padding: '9px 20px', borderRadius: 7 }}>start now</Link>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button onClick={toggleTheme} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(138,170,212,0.3)', background: 'rgba(10,22,40,0.8)', color: '#8AAAD4', fontSize: 13, cursor: 'pointer' }}>
+            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+            <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+          </button>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }} className="sk-nav-actions">
+            <Link to="/login" style={{ color: '#8AAAD4', fontSize: 14, textDecoration: 'none', padding: '7px 14px' }}>Sign in</Link>
+            <Link to="/signup" style={{ background: '#C9A84C', color: '#0A1628', fontWeight: 700, fontSize: 14, textDecoration: 'none', padding: '9px 20px', borderRadius: 7 }}>start now</Link>
+          </div>
         </div>
         <button onClick={() => setOpen(o => !o)} className="sk-hamburger" aria-label="Toggle menu"
           style={{ background: 'none', border: 'none', color: '#8AAAD4', cursor: 'pointer', display: 'none' }}>
@@ -287,9 +294,13 @@ function NavBar() {
             <a key={href} href={href} onClick={() => setOpen(false)}
               style={{ display: 'block', color: '#8AAAD4', fontSize: 16, textDecoration: 'none', padding: '13px 0', borderBottom: '1px solid #1E3A5F' }}>{label}</a>
           ))}
-          <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-            <Link to="/login" onClick={() => setOpen(false)} style={{ flex: 1, textAlign: 'center', color: '#8AAAD4', border: '1px solid #1E3A5F', borderRadius: 7, padding: '11px', textDecoration: 'none', fontSize: 14 }}>Sign in</Link>
-            <Link to="/signup" onClick={() => setOpen(false)} style={{ flex: 2, textAlign: 'center', background: '#C9A84C', color: '#0A1628', fontWeight: 700, borderRadius: 7, padding: '11px', textDecoration: 'none', fontSize: 14 }}>start now</Link>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 20 }}>
+            <button onClick={toggleTheme} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 8, border: '1px solid rgba(138,170,212,0.3)', background: 'rgba(10,22,40,0.8)', color: '#8AAAD4', fontSize: 14, cursor: 'pointer' }}>
+              {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+              <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+            </button>
+            <Link to="/login" onClick={() => setOpen(false)} style={{ display: 'inline-flex', justifyContent: 'center', flex: 1, textAlign: 'center', color: '#8AAAD4', border: '1px solid #1E3A5F', borderRadius: 7, padding: '11px', textDecoration: 'none', fontSize: 14 }}>Sign in</Link>
+            <Link to="/signup" onClick={() => setOpen(false)} style={{ display: 'inline-flex', justifyContent: 'center', flex: 1, textAlign: 'center', background: '#C9A84C', color: '#0A1628', fontWeight: 700, borderRadius: 7, padding: '11px', textDecoration: 'none', fontSize: 14 }}>start now</Link>
           </div>
         </div>
       )}
@@ -307,8 +318,25 @@ function Tag({ children }) {
 
 export default function LandingPage() {
   useSEO()
+  const [theme, setTheme] = useState('dark')
   const [activeEdge, setActiveEdge] = useState(0)
   const [edgePaused, setEdgePaused] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const saved = window.localStorage.getItem('shopkepa_theme')
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const next = saved || (prefersDark ? 'dark' : 'light')
+    setTheme(next)
+    document.documentElement.dataset.theme = next
+  }, [])
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    document.documentElement.dataset.theme = next
+    window.localStorage.setItem('shopkepa_theme', next)
+  }
 
   // Auto-rotate the edge selector every 3.5 s; pause on hover
   useEffect(() => {
@@ -328,11 +356,11 @@ export default function LandingPage() {
 
   return (
     <div style={{ background: '#0A1628', color: '#fff', overflowX: 'hidden', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-      <NavBar />
+      <NavBar theme={theme} toggleTheme={toggleTheme} />
 
       {/* -- HERO -- */}
-      <header style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '100px 16px 60px', textAlign: 'center', position: 'relative' }}>
-        <div style={{ position: 'absolute', top: '15%', left: '50%', transform: 'translateX(-50%)', width: 'min(700px, 90vw)', height: 'min(500px, 70vw)', maxWidth: 700, maxHeight: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(201,168,76,0.05) 0%, transparent 65%)', pointerEvents: 'none' }} />
+      <header style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '90px 16px 60px', textAlign: 'center', position: 'relative', overflow: 'visible' }}>
+        <div style={{ position: 'absolute', top: '15%', left: '50%', transform: 'translateX(-50%)', width: 'min(700px, 90vw)', height: 'min(500px, 65vw)', maxWidth: 700, maxHeight: 460, borderRadius: '50%', background: 'radial-gradient(circle, rgba(201,168,76,0.05) 0%, transparent 65%)', pointerEvents: 'none' }} />
 
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(76,175,125,0.1)', border: '1px solid rgba(76,175,125,0.28)', borderRadius: 20, padding: '5px 14px', marginBottom: 24 }}>
           <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4CAF7D', animation: 'sk-pulse 2s infinite' }} />
@@ -345,14 +373,13 @@ export default function LandingPage() {
         </h1>
 
         <p style={{ fontSize: 'clamp(15px, 2vw, 18px)', color: '#8AAAD4', maxWidth: 580, lineHeight: 1.75, marginBottom: 36 }}>
-          - Flexible payment/repayment plan (Five payment cycle)
-- Camera barcode scanning (No special barcode scanner machine Required)
-- Job cards for repair shops
-- True profit (not just revenue) 
-- Multi-branch stock isolation
-- 15 extra features no other Nigerian POS does
-        </p>
-
+            Flexible payment/repayment plan (Five payment cycle)
+            <br />Camera barcode scanning (No special barcode scanner machine required)
+            <br />Job cards for repair shops
+            <br />True profit (not just revenue)
+            <br />Multi-branch stock isolation
+            <br />15 extra features no other Nigerian POS does
+          </p>
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 14 }}>
           <Link to="/signup" style={{ background: '#C9A84C', color: '#0A1628', fontWeight: 700, fontSize: 16, padding: '14px 32px', borderRadius: 8, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
             start now  <ArrowRight size={18} />
@@ -384,8 +411,8 @@ export default function LandingPage() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, marginBottom: 14 }}>
               {[
-                { label: "Today's revenue", value: 'N284,500', gold: true },
-                { label: "Today's profit", value: 'N91,200', gold: true },
+                { label: "Today's revenue", value: '₦284,500', gold: true },
+                { label: "Today's profit", value: '₦91,200', gold: true },
                 { label: 'Transactions', value: '47', white: true },
                 { label: 'Open job cards', value: '8', white: true },
               ].map(m => (
@@ -399,9 +426,9 @@ export default function LandingPage() {
               <div style={{ background: '#070E1A', border: '1px solid #1E3A5F', borderRadius: 8, padding: '12px 14px' }}>
                 <div style={{ fontSize: 10, fontWeight: 600, color: '#8AAAD4', marginBottom: 10 }}>Recent sales</div>
                 {[
-                  { name: 'Tecno Spark 10', amt: 'N95,000', status: 'paid' },
-                  { name: 'Screen replacement', amt: 'N12,500', status: 'installment' },
-                  { name: 'USB-C charger x3', amt: 'N7,500', status: 'paid' },
+                  { name: 'Tecno Spark 10', amt: '₦95,000', status: 'paid' },
+                  { name: 'Screen replacement', amt: '₦12,500', status: 'installment' },
+                  { name: 'USB-C charger x3', amt: '₦7,500', status: 'paid' },
                 ].map(s => (
                   <div key={s.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #1E3A5F' }}>
                     <span style={{ fontSize: 10 }}>{s.name}</span>
@@ -428,9 +455,9 @@ export default function LandingPage() {
               <div style={{ background: '#070E1A', border: '1px solid #1E3A5F', borderRadius: 8, padding: '12px 14px' }}>
                 <div style={{ fontSize: 10, fontWeight: 600, color: '#8AAAD4', marginBottom: 10 }}>Debtor balances</div>
                 {[
-                  { name: 'Chidi Okafor', balance: 'N45,000', tier: 'Gold' },
-                  { name: 'Amaka Eze',   balance: 'N18,500', tier: 'Silver' },
-                  { name: 'Tunde Bello', balance: 'N9,200',  tier: 'Bronze' },
+                  { name: 'Chidi Okafor', balance: '₦45,000', tier: 'Gold' },
+                  { name: 'Amaka Eze',   balance: '₦18,500', tier: 'Silver' },
+                  { name: 'Tunde Bello', balance: '₦9,200',  tier: 'Bronze' },
                 ].map(d => (
                   <div key={d.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #1E3A5F' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -569,7 +596,7 @@ export default function LandingPage() {
               Your phone is already the scanner
             </h2>
             <p style={{ fontSize: 15, color: '#8AAAD4', lineHeight: 1.75, marginBottom: 28 }}>
-              Traditional POS systems require a N15,000+ barcode scanner. ShopKepa uses your phone camera via the ZXing library - scan any barcode instantly at zero extra cost. It also installs on Android like an app, with no Play Store account needed.
+              Traditional POS systems require a ₦15,000+ barcode scanner. ShopKepa uses your phone camera via the ZXing library - scan any barcode instantly at zero extra cost. It also installs on Android like an app, with no Play Store account needed.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {[
@@ -592,7 +619,7 @@ export default function LandingPage() {
           </div>
           {/* Phone mockup */}
           <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-            <div style={{ width: '100%', maxWidth: 250, background: '#0F2442', borderRadius: 32, border: '2px solid #1E3A5F', overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}>
+            <div style={{ width: 'min(240px, 90vw)', maxWidth: 250, background: '#0F2442', borderRadius: 32, border: '2px solid #1E3A5F', overflow: 'hidden', boxShadow: '0 24px 60px rgba(0,0,0,0.4)' }}>
               <div style={{ background: '#070E1A', padding: '7px 16px', display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 9, color: '#C9A84C' }}>9:41</span>
                 <span style={{ fontSize: 9, color: '#C9A84C' }}>Signal 100%</span>
@@ -611,9 +638,9 @@ export default function LandingPage() {
                 </div>
                 <div style={{ fontSize: 9, color: '#6B8BB5', letterSpacing: 0.8, marginBottom: 7 }}>CART - 3 ITEMS</div>
                 {[
-                  { name: 'Tecno Spark 10', qty: 'x1', price: 'N95k' },
-                  { name: 'Phone case', qty: 'x2', price: 'N3,200' },
-                  { name: 'USB cable', qty: 'x1', price: 'N1,500' },
+                  { name: 'Tecno Spark 10', qty: 'x1', price: '₦95k' },
+                  { name: 'Phone case', qty: 'x2', price: '₦3,200' },
+                  { name: 'USB cable', qty: 'x1', price: '₦1,500' },
                 ].map(item => (
                   <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid #1E3A5F' }}>
                     <span style={{ fontSize: 9 }}>{item.name}</span>
@@ -626,7 +653,7 @@ export default function LandingPage() {
                 <div style={{ background: '#0A1628', borderRadius: 7, padding: 10, marginTop: 10 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                     <span style={{ fontSize: 9, color: '#6B8BB5' }}>Total</span>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: '#C9A84C' }}>N99,700</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: '#C9A84C' }}>₦99,700</span>
                   </div>
                   <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
                     <div style={{ flex: 1, background: '#1E3A5F', borderRadius: 5, padding: '6px', fontSize: 8, textAlign: 'center', color: '#8AAAD4' }}>Cash</div>
@@ -880,6 +907,8 @@ export default function LandingPage() {
         @keyframes sk-edge-progress { from{width:0} to{width:100%} }
         @media (max-width: 768px) {
           .sk-nav-links { display: none !important; }
+          .sk-nav-actions { flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+          .sk-nav-actions a { width: 100%; text-align: center; }
           .sk-hamburger { display: block !important; }
           .sk-edge-grid { grid-template-columns: 1fr !important; display: none !important; }
           .sk-edge-cards { display: grid !important; }
