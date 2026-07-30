@@ -3,7 +3,8 @@
     "allow": [
       "Bash(xargs -I{} sh -c 'echo \"--{}--\"; cat {}')",
       "Bash(./kepenv/Scripts/python.exe manage.py check)",
-      "Bash(./kepenv/Scripts/python.exe manage.py shell -c ' *)"
+      "Bash(./kepenv/Scripts/python.exe manage.py shell -c ' *)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('api/v1/auth/views.py'\\).read\\(\\)\\); ast.parse\\(open\\('api/v1/auth/serializers.py'\\).read\\(\\)\\); print\\('OK'\\)\")"
     ]
   }
 }

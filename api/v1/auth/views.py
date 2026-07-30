@@ -120,7 +120,7 @@ class LoginView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        if not user_obj.business.is_active:
+        if user_obj.business and not user_obj.business.is_active:
             return Response(
                 {'error': 'Your business account is inactive. Contact ShopKepa support.'},
                 status=status.HTTP_403_FORBIDDEN,
@@ -131,14 +131,15 @@ class LoginView(APIView):
 
         refresh_token, access_token = _get_tokens(user_obj)
 
-        log_audit(
-            business_id=user_obj.business.id,
-            user_id=user_obj.id,
-            action='LOGIN',
-            table_name='users',
-            record_id=user_obj.id,
-            ip_address=get_client_ip(request),
-        )
+        if user_obj.business_id:
+            log_audit(
+                business_id=user_obj.business_id,
+                user_id=user_obj.id,
+                action='LOGIN',
+                table_name='users',
+                record_id=user_obj.id,
+                ip_address=get_client_ip(request),
+            )
 
         response = Response({
             'message': 'Login successful.',
@@ -204,14 +205,15 @@ class LogoutView(APIView):
             except Exception:
                 pass
 
-        log_audit(
-            business_id=request.user.business.id,
-            user_id=request.user.id,
-            action='LOGOUT',
-            table_name='users',
-            record_id=request.user.id,
-            ip_address=get_client_ip(request),
-        )
+        if request.user.business_id:
+            log_audit(
+                business_id=request.user.business_id,
+                user_id=request.user.id,
+                action='LOGOUT',
+                table_name='users',
+                record_id=request.user.id,
+                ip_address=get_client_ip(request),
+            )
 
         response = Response({'message': 'Logged out successfully.'}, status=status.HTTP_200_OK)
         _clear_refresh_cookie(response)

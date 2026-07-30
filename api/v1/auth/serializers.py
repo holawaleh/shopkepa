@@ -42,9 +42,15 @@ class LoginSerializer(serializers.Serializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    business_name = serializers.CharField(source='business.name', read_only=True)
-    business_id   = serializers.UUIDField(source='business.id',   read_only=True)
+    business_name = serializers.SerializerMethodField()
+    business_id   = serializers.SerializerMethodField()
     branch_ids    = serializers.SerializerMethodField()
+
+    def get_business_name(self, obj):
+        return obj.business.name if obj.business else None
+
+    def get_business_id(self, obj):
+        return obj.business_id
 
     def get_branch_ids(self, obj):
         return list(
