@@ -22,15 +22,15 @@ html[data-theme="light"] { color-scheme: light; }
 }
 
 :root[data-theme="light"] {
-  --navy:        #F8F9FB;
+  --navy:        #F3F6FA;
   --blue:        #FFFFFF;
-  --mid:         #CBD1DC;
-  --muted:       #5E6B81;
-  --light:       #10203A;
-  --gold:        #A7832E;
-  --gold-hover:  #C9A84C;
-  --gold-dim:    rgba(201,168,76,0.15);
-  --white:       #10203A;
+  --mid:         #C1CEDD;
+  --muted:       #52677F;
+  --light:       #102A49;
+  --gold:        #9B7624;
+  --gold-hover:  #B28B32;
+  --gold-dim:    rgba(155,118,36,0.14);
+  --white:       #102A49;
   --error:       #D14343;
   --success:     #2E7D4D;
   --warning:     #D8A238;

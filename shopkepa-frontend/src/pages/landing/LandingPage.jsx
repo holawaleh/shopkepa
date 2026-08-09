@@ -6,7 +6,7 @@ import {
   Smartphone, Monitor, MapPin, Layers, CreditCard,
   Wrench, Eye, UserCheck, Clock, ChevronRight,
   MessageCircle, Send, Mail, Phone, Camera, Barcode,
-  Sun, Moon,
+  Sun, Moon, Store, Pill, Utensils, Shirt, Wheat, Scissors,
 } from 'lucide-react'
 
 // -- Contact details - update these before going live --
@@ -199,14 +199,14 @@ const EDGE_ITEMS = [
 ]
 
 const MODULES = [
-  { emoji: 'SM', name: 'Supermarkets',   desc: 'Fast checkout, multi-dept inventory' },
-  { emoji: 'RX', name: 'Pharmacies',     desc: 'NAFDAC numbers, expiry tracking' },
-  { emoji: 'FD', name: 'Restaurants',    desc: 'Menu, orders, delivery management' },
-  { emoji: 'RP', name: 'Repair shops',   desc: 'Job cards, labour + parts billing' },
-  { emoji: 'FS', name: 'Fashion',        desc: 'Size, colour, gender variants' },
-  { emoji: 'EL', name: 'Electronics',    desc: 'IMEI, warranty, condition tracking' },
-  { emoji: 'GR', name: 'Grocery',        desc: 'Fresh goods, bulk + unit sales' },
-  { emoji: 'SL', name: 'Salons',         desc: 'Services, retail products, bookings' },
+  { icon: Store,      name: 'Supermarkets', desc: 'Fast checkout, multi-dept inventory' },
+  { icon: Pill,       name: 'Pharmacies',   desc: 'NAFDAC numbers, expiry tracking' },
+  { icon: Utensils,   name: 'Restaurants',  desc: 'Menu, orders, delivery management' },
+  { icon: Wrench,     name: 'Repair shops', desc: 'Job cards, labour + parts billing' },
+  { icon: Shirt,      name: 'Fashion',      desc: 'Size, colour, gender variants' },
+  { icon: Smartphone, name: 'Electronics',  desc: 'IMEI, warranty, condition tracking' },
+  { icon: Wheat,      name: 'Grocery',      desc: 'Fresh goods, bulk + unit sales' },
+  { icon: Scissors,   name: 'Salons',       desc: 'Services, retail products, bookings' },
 ]
 
 const TESTIMONIALS = [
@@ -574,23 +574,25 @@ export default function LandingPage() {
       </section>
 
       {/* -- MODULES -- */}
-      <section id="modules" style={{ background: '#0F2442', borderTop: '1px solid #1E3A5F', borderBottom: '1px solid #1E3A5F', padding: '72px 24px' }}>
+      <section id="modules" style={{ background: theme === 'dark' ? '#0F2442' : '#EAF0F7', borderTop: `1px solid ${theme === 'dark' ? '#1E3A5F' : '#C8D5E4'}`, borderBottom: `1px solid ${theme === 'dark' ? '#1E3A5F' : '#C8D5E4'}`, padding: '72px 24px' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 44 }}>
             <Tag>8 retail verticals</Tag>
             <h2 style={{ fontSize: 'clamp(22px, 3.5vw, 36px)', fontWeight: 800, marginBottom: 12 }}>One account, any business type</h2>
-            <p style={{ fontSize: 15, color: '#8AAAD4', maxWidth: 500, margin: '0 auto' }}>
+            <p style={{ fontSize: 15, color: theme === 'dark' ? '#8AAAD4' : '#52677F', maxWidth: 500, margin: '0 auto' }}>
               Activate only the modules your business needs. Add more as you grow. Product attributes, workflows, and reports adapt to each vertical automatically.
             </p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
-            {MODULES.map(({ emoji, name, desc }) => (
-              <div key={name} style={{ background: '#0A1628', border: '1px solid #1E3A5F', borderRadius: 10, padding: '20px 22px', transition: 'border-color .2s, transform .2s', cursor: 'default' }}
+            {MODULES.map(({ icon: Icon, name, desc }) => (
+              <div key={name} style={{ background: theme === 'dark' ? '#0A1628' : '#FFFFFF', border: `1px solid ${theme === 'dark' ? '#1E3A5F' : '#C8D5E4'}`, borderRadius: 10, padding: '20px 22px', transition: 'border-color .2s, transform .2s', cursor: 'default' }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(201,168,76,0.35)'; e.currentTarget.style.transform = 'translateY(-3px)' }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = '#1E3A5F'; e.currentTarget.style.transform = 'translateY(0)' }}>
-                <div style={{ fontSize: 26, marginBottom: 10 }}>{emoji}</div>
-                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 5 }}>{name}</div>
-                <div style={{ fontSize: 12, color: '#6B8BB5', lineHeight: 1.5 }}>{desc}</div>
+                onMouseLeave={e => { e.currentTarget.style.borderColor = theme === 'dark' ? '#1E3A5F' : '#C8D5E4'; e.currentTarget.style.transform = 'translateY(0)' }}>
+                <div style={{ width: 38, height: 38, borderRadius: 9, background: theme === 'dark' ? 'rgba(201,168,76,0.12)' : 'rgba(167,131,46,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                  <Icon size={20} strokeWidth={1.8} color={theme === 'dark' ? '#C9A84C' : '#9B7624'} />
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: theme === 'dark' ? '#FFFFFF' : '#10203A', marginBottom: 5 }}>{name}</div>
+                <div style={{ fontSize: 12, color: theme === 'dark' ? '#8AAAD4' : '#52677F', lineHeight: 1.5 }}>{desc}</div>
               </div>
             ))}
           </div>
