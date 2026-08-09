@@ -329,12 +329,14 @@ export default function LandingPage() {
     const next = saved || (prefersDark ? 'dark' : 'light')
     setTheme(next)
     document.documentElement.dataset.theme = next
+    document.documentElement.style.colorScheme = next
   }, [])
 
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark'
     setTheme(next)
     document.documentElement.dataset.theme = next
+    document.documentElement.style.colorScheme = next
     window.localStorage.setItem('shopkepa_theme', next)
   }
 
@@ -355,7 +357,15 @@ export default function LandingPage() {
   }
 
   return (
-    <div style={{ background: '#0A1628', color: '#fff', overflowX: 'hidden', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+    <div
+      className={`sk-landing sk-landing-${theme}`}
+      style={{
+        background: theme === 'dark' ? '#0A1628' : '#F8F9FB',
+        color: theme === 'dark' ? '#FFFFFF' : '#10203A',
+        overflowX: 'hidden',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      }}
+    >
       <NavBar theme={theme} toggleTheme={toggleTheme} />
 
       {/* -- HERO -- */}

@@ -137,6 +137,7 @@ export const salesAPI = {
 export const customersAPI = {
   list:       (params)          => api.get('/customers/', { params }),
   get:        (id)              => api.get(`/customers/${id}/`),
+  addPayment: (id, data)        => api.post(`/customers/${id}/add-payment/`, data),
   history:    (id)              => api.get(`/customers/${id}/history/`),
   create:     (data)            => api.post('/customers/', data),
   update:     (id, d)           => api.patch(`/customers/${id}/`, d),

@@ -245,7 +245,9 @@ def add_payment_to_sale(sale, payment_data, created_by):
     amount = money(payment_data['amount'])
 
     if amount > sale.balance_due:
-        amount = sale.balance_due
+        raise ValueError(
+            f'Overpayment not allowed. This sale has only ₦{sale.balance_due} outstanding.'
+        )
 
     tranche_number = (plan.tranches_used + 1) if plan else 2
 
@@ -257,6 +259,7 @@ def add_payment_to_sale(sale, payment_data, created_by):
         payment_method=payment_data['payment_method'],
         amount=amount,
         reference_number=payment_data.get('reference_number', ''),
+        notes=payment_data.get('notes', ''),
         tranche_number=tranche_number,
         created_by=created_by,
     )
@@ -307,4 +310,52 @@ def add_payment_to_sale(sale, payment_data, created_by):
         'sale':              sale,
         'payment':           payment,
         'remaining_balance': sale.balance_due,
+    }
+
+
+@transaction.atomic
+def add_payment_to_customer(customer, payment_data, created_by):
+    """Apply one customer repayment to the oldest outstanding sales first."""
+    amount = money(payment_data['amount'])
+    sales = list(
+        Sale.objects.select_for_update()
+        .filter(
+            customer=customer,
+            business=customer.business,
+            is_deleted=False,
+            balance_due__gt=0,
+        )
+        .order_by('sale_date', 'created_at')
+    )
+    total_balance = sum((money(sale.balance_due) for sale in sales), Decimal('0'))
+
+    if not sales:
+        raise ValueError('This customer has no outstanding debt.')
+    if amount > total_balance:
+        raise ValueError(
+            f'Overpayment not allowed. This customer has only ₦{total_balance} outstanding.'
+        )
+
+    remaining = amount
+    allocations = []
+    for sale in sales:
+        if remaining <= 0:
+            break
+        allocation = min(remaining, money(sale.balance_due))
+        result = add_payment_to_sale(
+            sale,
+            {**payment_data, 'amount': allocation},
+            created_by,
+        )
+        allocations.append({
+            'sale_number': sale.sale_number,
+            'amount_paid': str(result['payment'].amount),
+            'remaining_balance': str(result['remaining_balance']),
+        })
+        remaining -= allocation
+
+    return {
+        'amount_paid': amount,
+        'remaining_customer_debt': total_balance - amount,
+        'allocations': allocations,
     }

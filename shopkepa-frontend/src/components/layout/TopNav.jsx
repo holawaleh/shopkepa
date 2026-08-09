@@ -63,6 +63,7 @@ export default function TopNav() {
     const next = theme === 'dark' ? 'light' : 'dark'
     setTheme(next)
     document.documentElement.dataset.theme = next
+    document.documentElement.style.colorScheme = next
     window.localStorage.setItem('shopkepa_theme', next)
   }
 

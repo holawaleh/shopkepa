@@ -5,6 +5,7 @@ from django.utils import timezone
 from django.db.models import Q
 
 from core.models import Customer, CustomerNote, Sale
+from core.services.sale_service import add_payment_to_customer
 from core.permissions import IsManagerOrAbove, IsCashierOrAbove
 from core.utils import log_audit, get_client_ip, update_customer_loyalty
 from .serializers import (
@@ -13,6 +14,7 @@ from .serializers import (
     CustomerNoteCreateSerializer
 )
 from api.v1.sales.serializers import SaleDetailSerializer
+from api.v1.sales.serializers import AddPaymentSerializer
 from rest_framework.exceptions import NotFound
 
 
@@ -149,6 +151,48 @@ class CustomerDetailView(APIView):
         )
 
         return Response(CustomerSerializer(customer).data)
+
+
+class CustomerPaymentView(APIView):
+    permission_classes = [IsCashierOrAbove]
+
+    def post(self, request, customer_id):
+        try:
+            customer = Customer.objects.get(
+                id=customer_id,
+                business=request.user.business,
+                is_deleted=False,
+            )
+        except Customer.DoesNotExist:
+            return Response(
+                {'error': 'Customer not found.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = AddPaymentSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            result = add_payment_to_customer(
+                customer=customer,
+                payment_data=serializer.validated_data,
+                created_by=request.user,
+            )
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response(
+                {'error': 'Could not record payment. Please retry or contact support if it continues.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response({
+            'message': 'Payment recorded successfully.',
+            'amount_paid': str(result['amount_paid']),
+            'remaining_customer_debt': str(result['remaining_customer_debt']),
+            'allocations': result['allocations'],
+        })
 
     def delete(self, request, customer_id):
         customer = self.get_customer(request, customer_id)

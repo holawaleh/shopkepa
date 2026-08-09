@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+html[data-theme="dark"] { color-scheme: dark; }
+html[data-theme="light"] { color-scheme: light; }
+
 :root {
   --navy:        #0A1628;
   --blue:        #0F2442;

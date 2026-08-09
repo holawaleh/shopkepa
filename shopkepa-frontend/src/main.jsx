@@ -8,6 +8,7 @@ if (typeof window !== 'undefined') {
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
   const initialTheme = storedTheme || (prefersDark ? 'dark' : 'light')
   document.documentElement.dataset.theme = initialTheme
+  document.documentElement.style.colorScheme = initialTheme
 }
 
 // When a new service worker activates it claims this client (autoUpdate mode).

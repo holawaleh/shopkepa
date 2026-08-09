@@ -63,7 +63,6 @@ export default function CustomersPage() {
   const [profileError, setProfileError]       = useState('')
   const [profileSales, setProfileSales]       = useState([])
   const [openSales, setOpenSales]             = useState([])
-  const [payingId, setPayingId]               = useState('')
   const [payAmount, setPayAmount]             = useState('')
   const [payMethod, setPayMethod]             = useState('cash')
   const [payNotes, setPayNotes]               = useState('')
@@ -130,7 +129,7 @@ export default function CustomersPage() {
     setProfileSales([])
     setOpenSales([])
     setNotes([])
-    setPayingId(''); setPayAmount(''); setPayNotes(''); setPayReference('')
+    setPayAmount(''); setPayNotes(''); setPayReference('')
     try {
       if (canDownloadHistory) {
         const historyRes = await customersAPI.history(c.id)
@@ -226,20 +225,17 @@ export default function CustomersPage() {
   }
 
   const handleRepay = async () => {
-    if (!payingId) { setProfileError('Select a sale to pay against.'); return }
     const amt = parseFloat(payAmount)
     if (!amt || amt <= 0) { setProfileError('Enter a valid amount.'); return }
     setPaySaving(true); setProfileError('')
     try {
-      await salesAPI.addPayment(payingId, {
+      await customersAPI.addPayment(profileCustomer.id, {
         amount: amt,
         payment_method: payMethod,
         reference_number: payReference.trim() || undefined,
         notes: payNotes.trim() || undefined,
       })
-      const sale = openSales.find(s => s.id === payingId)
-      const saleLabel = sale?.sale_number ? `Sale #${sale.sale_number}` : 'sale'
-      toast.success(`Payment of ${formatNaira(amt)} recorded for ${profileCustomer.full_name} - ${saleLabel}`)
+      toast.success(`Payment of ${formatNaira(amt)} recorded for ${profileCustomer.full_name}`)
       await openProfile(profileCustomer)
       load()
     } catch (err) { setProfileError(parseApiError(err)) }
@@ -472,15 +468,9 @@ export default function CustomersPage() {
                 <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--light)', margin: 0 }}>Repayment plan</h3>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <select className="input" value={payingId} onChange={e => setPayingId(e.target.value)} style={{ fontSize: 13 }}>
-                  <option value="">Select sale to pay against...</option>
-                  {openSales.map(s => (
-                    <option key={s.id} value={s.id}>
-                      {s.sale_number ? `Sale #${s.sale_number}` : s.id.slice(0, 8)} - Balance due: {formatNaira(s.balance_due)}
-                      {s.sale_date ? ` (${s.sale_date})` : ''}
-                    </option>
-                  ))}
-                </select>
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                  This payment will be applied to the oldest outstanding sales first.
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   <input className="input" type="number" min="1" style={{ fontSize: 13 }}
                     placeholder="Amount (NGN)" value={payAmount} onChange={e => setPayAmount(e.target.value)} />
