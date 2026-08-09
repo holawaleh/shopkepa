@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 
 const PAGE_SIZE = 12
+const POS_SETUP_KEY = 'shopkepa_pos_setup'
 
 const LOYALTY_COLORS = {
   bronze:   { bg: 'rgba(205,127,50,0.15)',  text: '#CD7F32' },
@@ -109,10 +110,29 @@ export default function POSPage() {
 
         setBranches(bs.length > 0 ? bs : allBranches)
         setActiveModules(ms)
-        // Auto-select if only one option available
         const visibleBranches = bs.length > 0 ? bs : allBranches
-        if (visibleBranches.length === 1) setBranchId(visibleBranches[0].id)
-        if (ms.length === 1) setModuleId(ms[0].module.id)
+
+        // Resume the branch/module picked earlier this session, if still valid
+        let restored = false
+        try {
+          const saved = JSON.parse(sessionStorage.getItem(POS_SETUP_KEY) || 'null')
+          if (
+            saved?.branchId && saved?.moduleId &&
+            visibleBranches.some(b => b.id === saved.branchId) &&
+            ms.some(bm => bm.module.id === saved.moduleId)
+          ) {
+            setBranchId(saved.branchId)
+            setModuleId(saved.moduleId)
+            setSetupDone(true)
+            restored = true
+          }
+        } catch { /* malformed/unavailable storage - fall through to manual setup */ }
+
+        // Auto-select if only one option available
+        if (!restored) {
+          if (visibleBranches.length === 1) setBranchId(visibleBranches[0].id)
+          if (ms.length === 1) setModuleId(ms[0].module.id)
+        }
       })
       .catch(() => setSetupError('Could not load branches/modules. Check your connection.'))
   }, [user])
@@ -122,6 +142,9 @@ export default function POSPage() {
     if (!moduleId) { setSetupError('Please select a module.'); return }
     setSetupError('')
     setSetupDone(true)
+    try {
+      sessionStorage.setItem(POS_SETUP_KEY, JSON.stringify({ branchId, moduleId }))
+    } catch { /* storage unavailable - persistence is a convenience, not required */ }
   }
 
   // -- Load product grid -----------------------------------------------------

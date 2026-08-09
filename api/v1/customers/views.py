@@ -1,3 +1,5 @@
+import logging
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -16,6 +18,8 @@ from .serializers import (
 from api.v1.sales.serializers import SaleDetailSerializer
 from api.v1.sales.serializers import AddPaymentSerializer
 from rest_framework.exceptions import NotFound
+
+logger = logging.getLogger(__name__)
 
 
 class CustomerListCreateView(APIView):
@@ -152,6 +156,35 @@ class CustomerDetailView(APIView):
 
         return Response(CustomerSerializer(customer).data)
 
+    def delete(self, request, customer_id):
+        customer = self.get_customer(request, customer_id)
+        if not customer:
+            return Response(
+                {'error': 'Customer not found.'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if customer.total_outstanding_debt > 0:
+            return Response(
+                {'error': f'Cannot delete customer with outstanding debt of ₦{customer.total_outstanding_debt}.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        customer.is_deleted = True
+        customer.deleted_at = timezone.now()
+        customer.save()
+
+        log_audit(
+            business_id=request.user.business.id,
+            user_id=request.user.id,
+            action='DELETE',
+            table_name='customers',
+            record_id=customer.id,
+            ip_address=get_client_ip(request),
+        )
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class CustomerPaymentView(APIView):
     permission_classes = [IsCashierOrAbove]
@@ -182,6 +215,7 @@ class CustomerPaymentView(APIView):
         except ValueError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception:
+            logger.exception('Unexpected error while recording customer payment')
             return Response(
                 {'error': 'Could not record payment. Please retry or contact support if it continues.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -193,35 +227,6 @@ class CustomerPaymentView(APIView):
             'remaining_customer_debt': str(result['remaining_customer_debt']),
             'allocations': result['allocations'],
         })
-
-    def delete(self, request, customer_id):
-        customer = self.get_customer(request, customer_id)
-        if not customer:
-            return Response(
-                {'error': 'Customer not found.'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        if customer.total_outstanding_debt > 0:
-            return Response(
-                {'error': f'Cannot delete customer with outstanding debt of ₦{customer.total_outstanding_debt}.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        customer.is_deleted = True
-        customer.deleted_at = timezone.now()
-        customer.save()
-
-        log_audit(
-            business_id=request.user.business.id,
-            user_id=request.user.id,
-            action='DELETE',
-            table_name='customers',
-            record_id=customer.id,
-            ip_address=get_client_ip(request),
-        )
-
-        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class CustomerHistoryView(APIView):

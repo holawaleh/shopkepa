@@ -58,6 +58,7 @@ export function AuthProvider({ children }) {
     clearAccessToken()
     setUser(null)
     setActiveModules([])
+    sessionStorage.removeItem('shopkepa_pos_setup')
   }, [])
 
   // Role helpers
