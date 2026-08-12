@@ -78,6 +78,27 @@ class RegisterView(APIView):
             ip_address=get_client_ip(request),
         )
 
+        if settings.OWNER_NOTIFICATION_EMAIL:
+            try:
+                send_mail(
+                    subject=f'New ShopKepa signup: {user.business.name}',
+                    message=(
+                        f'A new business just registered on ShopKepa.\n\n'
+                        f'Business:  {user.business.name}\n'
+                        f'Owner:     {user.full_name}\n'
+                        f'Email:     {user.email}\n'
+                        f'Phone:     {user.phone_number}\n'
+                        f'Location:  {serializer.validated_data.get("location") or "-"}\n'
+                        f'Signed up: {timezone.now().strftime("%Y-%m-%d %H:%M UTC")}\n'
+                        f'IP:        {get_client_ip(request)}\n'
+                    ),
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[settings.OWNER_NOTIFICATION_EMAIL],
+                    fail_silently=False,
+                )
+            except Exception:
+                logger.exception('Could not send new-signup notification for business %s', user.business.id)
+
         response = Response({
             'message': 'Business registered successfully.',
             'access': access_token,

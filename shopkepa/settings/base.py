@@ -205,3 +205,6 @@ LOGGING = {
 
 FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:5173').rstrip('/')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='no-reply@shopkepa.com')
+
+# Where to send a heads-up whenever a new business registers. Leave blank to disable.
+OWNER_NOTIFICATION_EMAIL = env('OWNER_NOTIFICATION_EMAIL', default='')

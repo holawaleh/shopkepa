@@ -7,7 +7,8 @@
       "Bash(python -c \"import ast; ast.parse\\(open\\('api/v1/auth/views.py'\\).read\\(\\)\\); ast.parse\\(open\\('api/v1/auth/serializers.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
       "Bash(python -m py_compile api/v1/customers/views.py)",
       "Bash(grep -rn \"except Exception:\\\\s*$\" -A2 api/ core/ tasks/)",
-      "Bash(grep -B2 \"pass$\")"
+      "Bash(grep -B2 \"pass$\")",
+      "Bash(python -m py_compile api/v1/auth/views.py shopkepa/settings/base.py)"
     ]
   }
 }
