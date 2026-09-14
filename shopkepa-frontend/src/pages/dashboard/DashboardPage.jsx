@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { AlertTriangle, X } from 'lucide-react'
+import { AlertTriangle, X, Printer } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
 import { salesAPI, productsAPI, customersAPI, jobCardsAPI, hotelAPI, reportsAPI } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import { formatNaira } from '../../utils/format'
+import { printSaleReceipt } from '../../utils/printDoc'
 
 // ─── Alerts Panel ─────────────────────────────────────────────────────────
 
@@ -157,6 +158,7 @@ function SalesSection({ activeCodes }) {
   const [stats, setStats] = useState({ revenue: 0, sales: 0, products: 0, customers: 0 })
   const [recentSales, setRecentSales] = useState([])
   const [loading, setLoading] = useState(true)
+  const [printingId, setPrintingId] = useState(null)
   const hasProducts = ['general_trade','fashion','electronics','food','pharmacy','building_materials','stationery'].some(c => activeCodes.has(c))
   const canVoid = user?.role === 'owner' || user?.role === 'manager'
 
@@ -203,6 +205,18 @@ function SalesSection({ activeCodes }) {
     }
   }
 
+  const handleReprint = async (sale) => {
+    setPrintingId(sale.id)
+    try {
+      const res = await salesAPI.get(sale.id)
+      printSaleReceipt(res.data, res.data.business_name || user?.business_name)
+    } catch {
+      alert('Could not load this receipt. Please try again.')
+    } finally {
+      setPrintingId(null)
+    }
+  }
+
   return (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 16, marginBottom: 28 }}>
@@ -223,7 +237,7 @@ function SalesSection({ activeCodes }) {
                 <th style={{ textAlign: 'left',  padding: '0 0 10px', fontWeight: 500 }}>Customer</th>
                 <th style={{ textAlign: 'left',  padding: '0 0 10px', fontWeight: 500 }}>Sale #</th>
                 <th style={{ textAlign: 'right', padding: '0 0 10px', fontWeight: 500 }}>Amount</th>
-                {canVoid && <th style={{ padding: '0 0 10px', fontWeight: 500 }} />}
+                <th style={{ padding: '0 0 10px', fontWeight: 500 }} />
               </tr>
             </thead>
             <tbody>
@@ -232,16 +246,23 @@ function SalesSection({ activeCodes }) {
                   <td style={{ padding: '10px 0', color: 'var(--light)' }}>{s.customer_name ?? s.customer?.name ?? 'Walk-in'}</td>
                   <td style={{ padding: '10px 0', color: 'var(--muted)' }}>{s.sale_number ?? '—'}</td>
                   <td style={{ padding: '10px 0', textAlign: 'right', color: 'var(--gold)', fontWeight: 500 }}>{fmt(s.total_amount ?? s.total ?? s.amount)}</td>
-                  {canVoid && (
-                    <td style={{ padding: '10px 0', textAlign: 'right', paddingLeft: 12 }}>
+                  <td style={{ padding: '10px 0', textAlign: 'right', paddingLeft: 12, whiteSpace: 'nowrap' }}>
+                    <button
+                      onClick={() => handleReprint(s)}
+                      disabled={printingId === s.id}
+                      style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'none', border: '1px solid var(--mid)', color: 'var(--gold)', cursor: printingId === s.id ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, marginRight: canVoid ? 6 : 0 }}
+                      title="Reprint receipt">
+                      <Printer size={11} /> {printingId === s.id ? 'Loading…' : 'Print'}
+                    </button>
+                    {canVoid && (
                       <button
                         onClick={() => handleVoid(s)}
                         style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'none', border: '1px solid var(--mid)', color: 'var(--error)', cursor: 'pointer' }}
                         title="Void this sale">
                         Void
                       </button>
-                    </td>
-                  )}
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

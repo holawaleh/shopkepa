@@ -1,9 +1,10 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from django.db import transaction
 from django.utils import timezone
 
-from core.models import Branch
+from core.models import Branch, Product, BranchInventory
 from core.permissions import IsOwner, IsManagerOrAbove
 from core.utils import log_audit, get_client_ip
 from .serializers import BranchSerializer, CreateBranchSerializer
@@ -24,6 +25,7 @@ class BranchListCreateView(APIView):
         serializer = BranchSerializer(branches, many=True)
         return Response(serializer.data)
 
+    @transaction.atomic
     def post(self, request):
         serializer = CreateBranchSerializer(
             data=request.data,
@@ -32,11 +34,23 @@ class BranchListCreateView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+        business = request.user.business
         branch = serializer.save(
-            business=request.user.business,
+            business=business,
             created_by=request.user,
             is_main_branch=False,
         )
+
+        # Give every existing product a (zero) stock record at the new branch,
+        # mirroring what product creation does for existing branches - otherwise
+        # every product reads as out of stock at this branch until restocked.
+        existing_product_ids = Product.objects.filter(
+            business=business, is_deleted=False
+        ).values_list('id', flat=True)
+        BranchInventory.objects.bulk_create([
+            BranchInventory(business=business, branch=branch, product_id=product_id, quantity_in_stock=0)
+            for product_id in existing_product_ids
+        ])
 
         log_audit(
             business_id=request.user.business.id,
