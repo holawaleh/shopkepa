@@ -1,8 +1,28 @@
-import { useState, useEffect } from 'react'
-import { AlertCircle, TrendingUp, DollarSign, ShoppingCart, RefreshCw } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { AlertCircle, TrendingUp, DollarSign, ShoppingCart, RefreshCw, Search, Printer } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
-import { reportsAPI, branchesAPI } from '../../api/client'
+import { reportsAPI, branchesAPI, salesAPI } from '../../api/client'
+import { useAuth } from '../../context/AuthContext'
 import { formatNaira, formatDate, parseApiError } from '../../utils/format'
+import { printSaleReceipt } from '../../utils/printDoc'
+
+const PAYMENT_STATUS_STYLE = {
+  paid:            { bg: 'rgba(76,175,125,0.12)', color: 'var(--success)' },
+  partial:         { bg: 'rgba(255,165,0,0.12)',  color: 'var(--warning)' },
+  unpaid:          { bg: 'rgba(224,85,85,0.12)',  color: 'var(--error)' },
+}
+
+function StatusBadge({ status }) {
+  const s = PAYMENT_STATUS_STYLE[status] || { bg: 'rgba(255,255,255,0.06)', color: 'var(--muted)' }
+  return (
+    <span style={{
+      display: 'inline-block', padding: '2px 8px', borderRadius: 10, fontSize: 11,
+      textTransform: 'capitalize', background: s.bg, color: s.color,
+    }}>
+      {status || '—'}
+    </span>
+  )
+}
 
 function today() {
   return new Date().toISOString().split('T')[0]
@@ -32,6 +52,7 @@ function StatCard({ label, value, sub, accent = false }) {
 }
 
 export default function ReportsPage() {
+  const { user } = useAuth()
   const [branches, setBranches]   = useState([])
   const [branchId, setBranchId]   = useState('')
   const [dateFrom, setDateFrom]   = useState(daysAgo(29))
@@ -41,6 +62,13 @@ export default function ReportsPage() {
   const [inventory, setInventory] = useState(null)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
+
+  // -- Transaction history ----------------------------------------------------
+  const [sales, setSales]               = useState([])
+  const [salesLoading, setSalesLoading] = useState(false)
+  const [salesSearch, setSalesSearch]   = useState('')
+  const [printingId, setPrintingId]     = useState(null)
+  const salesSearchTimer                = useRef(null)
 
   useEffect(() => {
     branchesAPI.list()
@@ -74,9 +102,48 @@ export default function ReportsPage() {
     } finally {
       setLoading(false)
     }
+    loadSales()
+  }
+
+  const loadSales = async () => {
+    setSalesLoading(true)
+    try {
+      const res = await salesAPI.list({
+        date_from: dateFrom,
+        date_to:   dateTo,
+        branch_id: branchId || undefined,
+        search:    salesSearch.trim() || undefined,
+      })
+      const raw = res.data
+      setSales(Array.isArray(raw) ? raw : (raw.results ?? []))
+    } catch {
+      setSales([])
+    } finally {
+      setSalesLoading(false)
+    }
   }
 
   useEffect(() => { load() }, [branchId])
+
+  // Search re-queries on its own (debounced) - date/branch changes only
+  // re-query once "Run" is pressed, matching the rest of this page.
+  useEffect(() => {
+    clearTimeout(salesSearchTimer.current)
+    salesSearchTimer.current = setTimeout(loadSales, 300)
+    return () => clearTimeout(salesSearchTimer.current)
+  }, [salesSearch])
+
+  const handleReprint = async (sale) => {
+    setPrintingId(sale.id)
+    try {
+      const res = await salesAPI.get(sale.id)
+      printSaleReceipt(res.data, res.data.business_name || user?.business_name)
+    } catch {
+      alert('Could not load this receipt. Please try again.')
+    } finally {
+      setPrintingId(null)
+    }
+  }
 
   return (
     <AppLayout>
@@ -126,6 +193,67 @@ export default function ReportsPage() {
           <StatCard label="Transfer" value={daily ? formatNaira(daily.by_payment?.transfer || 0) : '—'} sub="Bank transfers" />
           <StatCard label="POS" value={daily ? formatNaira(daily.by_payment?.pos || 0) : '—'} sub="Card / POS terminal" />
         </div>
+      </div>
+
+      {/* Transaction history */}
+      <div style={{ background: 'var(--blue)', border: '1px solid var(--mid)', borderRadius: 10, padding: '20px 24px', marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--light)' }}>
+            Transaction History ({formatDate(dateFrom)} – {formatDate(dateTo)})
+          </h2>
+          <div style={{ position: 'relative', width: 240, maxWidth: '100%' }}>
+            <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
+            <input
+              className="input" placeholder="Search receipt #, customer, item..."
+              style={{ width: '100%', paddingLeft: 30, fontSize: 13 }}
+              value={salesSearch} onChange={e => setSalesSearch(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {salesLoading ? (
+          <p style={{ color: 'var(--muted)', fontSize: 13 }}>Loading…</p>
+        ) : sales.length === 0 ? (
+          <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+            {salesSearch ? `No transactions match "${salesSearch}".` : 'No transactions in this period.'}
+          </p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--mid)' }}>
+                  {['Date', 'Receipt #', 'Customer', 'Branch', 'Status', 'Amount', ''].map(h => (
+                    <th key={h} style={{
+                      padding: '8px 12px', textAlign: h === 'Amount' ? 'right' : 'left', fontSize: 11,
+                      color: 'var(--muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.4,
+                    }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {sales.map(s => (
+                  <tr key={s.id} style={{ borderBottom: '1px solid var(--mid)' }}>
+                    <td style={{ padding: '10px 12px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>{formatDate(s.sale_date || s.created_at)}</td>
+                    <td style={{ padding: '10px 12px', color: 'var(--light)' }}>{s.sale_number ?? '—'}</td>
+                    <td style={{ padding: '10px 12px', color: 'var(--light)' }}>{s.customer_name ?? 'Walk-in'}</td>
+                    <td style={{ padding: '10px 12px', color: 'var(--muted)' }}>{s.branch_name ?? '—'}</td>
+                    <td style={{ padding: '10px 12px' }}><StatusBadge status={s.payment_status} /></td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--gold)', fontWeight: 500 }}>{formatNaira(s.total_amount || 0)}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                      <button
+                        onClick={() => handleReprint(s)}
+                        disabled={printingId === s.id}
+                        style={{ fontSize: 11, padding: '3px 9px', borderRadius: 4, background: 'none', border: '1px solid var(--mid)', color: 'var(--gold)', cursor: printingId === s.id ? 'wait' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}
+                        title="Print receipt">
+                        <Printer size={11} /> {printingId === s.id ? 'Loading…' : 'Print'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Period summary */}

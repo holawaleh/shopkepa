@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from django.db.models import Q
 from django.utils import timezone
 import logging
 
@@ -35,6 +36,7 @@ class SaleListCreateView(APIView):
         customer_id    = request.query_params.get('customer_id')
         date_from      = request.query_params.get('date_from')
         date_to        = request.query_params.get('date_to')
+        search         = request.query_params.get('search')
 
         # Cashier sees only their own sales
         if request.user.role == 'cashier':
@@ -52,6 +54,13 @@ class SaleListCreateView(APIView):
             queryset = queryset.filter(sale_date__gte=date_from)
         if date_to:
             queryset = queryset.filter(sale_date__lte=date_to)
+        if search:
+            queryset = queryset.filter(
+                Q(sale_number__icontains=search) |
+                Q(customer__full_name__icontains=search) |
+                Q(customer__phone_number__icontains=search) |
+                Q(items__product_name__icontains=search)
+            ).distinct()
 
         serializer = SaleSerializer(queryset, many=True)
         return Response(serializer.data)
