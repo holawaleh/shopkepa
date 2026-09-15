@@ -86,10 +86,10 @@ class ProductSerializer(serializers.ModelSerializer):
     def get_stock(self, obj):
         branch_id = self.context.get('branch_id')
         if branch_id:
-            inventory = obj.inventory.filter(branch_id=branch_id).first()
+            inventory = obj.inventory.filter(branch_id=branch_id, branch__is_deleted=False).first()
             return inventory.quantity_in_stock if inventory else 0
         return BranchStockSerializer(
-            obj.inventory.all(), many=True
+            obj.inventory.filter(branch__is_deleted=False), many=True
         ).data
 
 

@@ -398,7 +398,8 @@ class ProductInventoryView(APIView):
 
         inventory = BranchInventory.objects.filter(
             product=product,
-            business=request.user.business
+            business=request.user.business,
+            branch__is_deleted=False,
         ).select_related('branch')
 
         serializer = BranchStockSerializer(inventory, many=True)
@@ -421,6 +422,7 @@ class LowStockView(APIView):
 
         inventory = BranchInventory.objects.filter(
             business=business,
+            branch__is_deleted=False,
         ).select_related('product', 'branch')
 
         if branch_id:
