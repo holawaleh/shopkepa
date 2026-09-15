@@ -96,7 +96,11 @@ export default function POSPage() {
   const [success, setSuccess]     = useState(null)
 
   // -- Load branches + modules -----------------------------------------------
-  useEffect(() => {
+  // attemptRestore: resume the branch/module saved in sessionStorage if it's
+  // still valid. Only appropriate on first load - not when the user explicitly
+  // asks to change branch/module, or the stale choice would just bounce them
+  // straight back to the branch they were trying to leave.
+  const loadSetupOptions = (attemptRestore) => {
     Promise.all([branchesAPI.list(), modulesAPI.active()])
       .then(([bRes, mRes]) => {
         const allBranches = Array.isArray(bRes.data) ? bRes.data : (bRes.data.results ?? [])
@@ -112,21 +116,30 @@ export default function POSPage() {
         setActiveModules(ms)
         const visibleBranches = bs.length > 0 ? bs : allBranches
 
-        // Resume the branch/module picked earlier this session, if still valid
+        // A branch/module picked earlier (this session, or still held in state
+        // from before a "Change Branch/Module") may since have been deleted -
+        // never leave a stale, no-longer-valid id selected.
+        setBranchId(prev => (prev && visibleBranches.some(b => b.id === prev)) ? prev : '')
+        setModuleId(prev => (prev && ms.some(bm => bm.module.id === prev)) ? prev : '')
+
         let restored = false
-        try {
-          const saved = JSON.parse(sessionStorage.getItem(POS_SETUP_KEY) || 'null')
-          if (
-            saved?.branchId && saved?.moduleId &&
-            visibleBranches.some(b => b.id === saved.branchId) &&
-            ms.some(bm => bm.module.id === saved.moduleId)
-          ) {
-            setBranchId(saved.branchId)
-            setModuleId(saved.moduleId)
-            setSetupDone(true)
-            restored = true
-          }
-        } catch { /* malformed/unavailable storage - fall through to manual setup */ }
+        if (attemptRestore) {
+          try {
+            const saved = JSON.parse(sessionStorage.getItem(POS_SETUP_KEY) || 'null')
+            if (
+              saved?.branchId && saved?.moduleId &&
+              visibleBranches.some(b => b.id === saved.branchId) &&
+              ms.some(bm => bm.module.id === saved.moduleId)
+            ) {
+              setBranchId(saved.branchId)
+              setModuleId(saved.moduleId)
+              setSetupDone(true)
+              restored = true
+            } else {
+              sessionStorage.removeItem(POS_SETUP_KEY)
+            }
+          } catch { /* malformed/unavailable storage - fall through to manual setup */ }
+        }
 
         // Auto-select if only one option available
         if (!restored) {
@@ -135,7 +148,9 @@ export default function POSPage() {
         }
       })
       .catch(() => setSetupError('Could not load branches/modules. Check your connection.'))
-  }, [user])
+  }
+
+  useEffect(() => loadSetupOptions(true), [user])
 
   const confirmSetup = () => {
     if (!branchId) { setSetupError('Please select a branch.'); return }
@@ -400,7 +415,11 @@ export default function POSPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--light)' }}>POS</h1>
-        <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => setSetupDone(false)}>
+        <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => {
+          setSetupDone(false)
+          try { sessionStorage.removeItem(POS_SETUP_KEY) } catch { /* storage unavailable */ }
+          loadSetupOptions(false)
+        }}>
           Change Branch/Module
         </button>
       </div>
