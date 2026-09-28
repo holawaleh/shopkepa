@@ -199,33 +199,43 @@ const ROLE_STYLE = {
   cashier: { bg: 'rgba(150,150,150,0.12)', text: 'var(--muted)',  label: 'Cashier / IT Officer / Tech Officer' },
 }
 
+// Which active business module(s) make each privilege relevant. Missing
+// `modules` = always relevant, regardless of which modules the business runs
+// (mirrors TopNav's `always: true` nav items - Customers/Expenses/Reports).
 // Mirrors User.PRIVILEGE_CHOICES on the backend - keep in sync.
+const TRADE_MODULES = ['general_trade', 'fashion', 'electronics', 'food', 'pharmacy', 'building_materials', 'stationery']
+
 const PRIVILEGE_OPTIONS = [
-  { code: 'pos',        label: 'Make sales (POS)' },
-  { code: 'products',   label: 'Manage products & stock' },
-  { code: 'customers',  label: 'Manage customers' },
-  { code: 'job_cards',  label: 'Manage job cards' },
-  { code: 'hotel',      label: 'Manage hotel bookings' },
-  { code: 'expenses',   label: 'Manage expenses' },
-  { code: 'reports',    label: 'View reports' },
-  { code: 'void_sales', label: 'Void sales' },
+  { code: 'pos',            label: 'Make sales (POS)',                modules: TRADE_MODULES },
+  { code: 'products',       label: 'Manage products & stock',         modules: TRADE_MODULES },
+  { code: 'customers',      label: 'Manage customers' },
+  { code: 'job_cards',      label: 'Manage job cards',                modules: ['technical_services'] },
+  { code: 'hotel',          label: 'Manage hotel bookings',           modules: ['hotel'] },
+  { code: 'expenses',       label: 'Manage expenses' },
+  { code: 'reports',        label: 'View reports' },
+  { code: 'void_sales',     label: 'Void sales',                      modules: TRADE_MODULES },
+  { code: 'daily_summary',  label: "View own daily sales summary",    modules: TRADE_MODULES },
 ]
 
 // Starting checkboxes for a freshly-picked role - just a convenient default,
 // every box stays individually toggleable and editable at any time after.
 const DEFAULT_PERMISSIONS_BY_ROLE = {
-  manager: ['pos', 'products', 'customers', 'job_cards', 'hotel', 'expenses', 'reports'],
-  cashier: ['pos', 'customers', 'job_cards', 'hotel'],
+  manager: ['pos', 'products', 'customers', 'job_cards', 'hotel', 'expenses', 'reports', 'daily_summary'],
+  cashier: ['pos', 'customers', 'job_cards', 'hotel', 'daily_summary'],
 }
 
-function PermissionCheckboxes({ permissions, onToggle }) {
+function PermissionCheckboxes({ permissions, onToggle, activeCodes }) {
+  // Only show privileges relevant to a module this business has actually
+  // activated - e.g. no "Manage hotel bookings" for a shop that never
+  // turned on the Hotel module.
+  const options = PRIVILEGE_OPTIONS.filter(p => !p.modules || p.modules.some(m => activeCodes.has(m)))
   return (
     <div>
       <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 8 }}>
         Privileges — what this staff member can access
       </label>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px' }}>
-        {PRIVILEGE_OPTIONS.map(p => {
+        {options.map(p => {
           const checked = permissions.includes(p.code)
           return (
             <label key={p.code} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12.5, color: 'var(--light)' }}>
@@ -249,7 +259,7 @@ const EMPTY_STAFF = {
 }
 
 function TeamTab() {
-  const { isOwner, user } = useAuth()
+  const { isOwner, user, activeCodes } = useAuth()
   const toast = useToast()
   const [staff, setStaff]           = useState([])
   const [branches, setBranches]     = useState([])
@@ -288,6 +298,13 @@ function TeamTab() {
     setFormErrors(fe => ({ ...fe, [field]: '' }))
   }
 
+  // Privileges tied to a module the business hasn't activated (e.g. Hotel)
+  // never get defaulted or offered as a checkbox at all.
+  const availablePrivileges = new Set(
+    PRIVILEGE_OPTIONS.filter(p => !p.modules || p.modules.some(m => activeCodes.has(m))).map(p => p.code)
+  )
+  const defaultsFor = (role) => (DEFAULT_PERMISSIONS_BY_ROLE[role] || []).filter(c => availablePrivileges.has(c))
+
   // Changing role on a brand-new staff member re-seeds the checkbox
   // defaults for that role; editing an existing member's role leaves their
   // already-customised privileges alone so nothing is silently reset.
@@ -296,7 +313,7 @@ function TeamTab() {
     setForm(f => ({
       ...f,
       role,
-      permissions: modal === 'add' ? (DEFAULT_PERMISSIONS_BY_ROLE[role] || []) : f.permissions,
+      permissions: modal === 'add' ? defaultsFor(role) : f.permissions,
     }))
   }
 
@@ -409,7 +426,11 @@ function TeamTab() {
   }
 
   const openAdd = () => {
-    setForm({ ...EMPTY_STAFF, branch_ids: branches.length === 1 ? [branches[0].id] : [] })
+    setForm({
+      ...EMPTY_STAFF,
+      branch_ids: branches.length === 1 ? [branches[0].id] : [],
+      permissions: defaultsFor(EMPTY_STAFF.role),
+    })
     setFormErrors({})
     setError('')
     setShowPw(false)
@@ -629,7 +650,7 @@ function TeamTab() {
               )}
             </div>
 
-            <PermissionCheckboxes permissions={form.permissions} onToggle={togglePermission} />
+            <PermissionCheckboxes permissions={form.permissions} onToggle={togglePermission} activeCodes={activeCodes} />
 
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>
@@ -693,7 +714,7 @@ function TeamTab() {
               )}
             </div>
 
-            <PermissionCheckboxes permissions={form.permissions} onToggle={togglePermission} />
+            <PermissionCheckboxes permissions={form.permissions} onToggle={togglePermission} activeCodes={activeCodes} />
 
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>

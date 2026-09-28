@@ -44,14 +44,15 @@ class User(AbstractBaseUser, PermissionsMixin):
     # IsOwner/IsManagerOrAbove/IsCashierOrAbove; PRIVILEGE_CHOICES narrows
     # that tier further per staff member and is fully owner-editable at any
     # time from Settings > Team, instead of being fixed to the role.
-    PRIVILEGE_POS        = 'pos'
-    PRIVILEGE_PRODUCTS   = 'products'
-    PRIVILEGE_CUSTOMERS  = 'customers'
-    PRIVILEGE_JOB_CARDS  = 'job_cards'
-    PRIVILEGE_HOTEL      = 'hotel'
-    PRIVILEGE_EXPENSES   = 'expenses'
-    PRIVILEGE_REPORTS    = 'reports'
-    PRIVILEGE_VOID_SALES = 'void_sales'
+    PRIVILEGE_POS            = 'pos'
+    PRIVILEGE_PRODUCTS       = 'products'
+    PRIVILEGE_CUSTOMERS      = 'customers'
+    PRIVILEGE_JOB_CARDS      = 'job_cards'
+    PRIVILEGE_HOTEL          = 'hotel'
+    PRIVILEGE_EXPENSES       = 'expenses'
+    PRIVILEGE_REPORTS        = 'reports'
+    PRIVILEGE_VOID_SALES     = 'void_sales'
+    PRIVILEGE_DAILY_SUMMARY  = 'daily_summary'
     PRIVILEGE_CHOICES = [
         (PRIVILEGE_POS,        'Make sales (POS)'),
         (PRIVILEGE_PRODUCTS,   'Manage products & stock'),
@@ -61,6 +62,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         (PRIVILEGE_EXPENSES,   'Manage expenses'),
         (PRIVILEGE_REPORTS,    'View reports'),
         (PRIVILEGE_VOID_SALES, 'Void sales'),
+        (PRIVILEGE_DAILY_SUMMARY, "View own daily sales summary"),
     ]
     ALL_PRIVILEGES = [code for code, _ in PRIVILEGE_CHOICES]
 

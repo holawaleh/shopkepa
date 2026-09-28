@@ -95,6 +95,11 @@ export default function POSPage() {
   const [saleError, setSaleError] = useState('')
   const [success, setSuccess]     = useState(null)
 
+  // -- My daily sales summary -------------------------------------------------
+  const [dailySummary, setDailySummary] = useState(null)
+  const hasPrivilege = (code) => user?.role === 'owner' || user?.role === 'admin' || (user?.permissions || []).includes(code)
+  const showDailySummary = hasPrivilege('daily_summary')
+
   // -- Load branches + modules -----------------------------------------------
   // attemptRestore: resume the branch/module saved in sessionStorage if it's
   // still valid. Only appropriate on first load - not when the user explicitly
@@ -161,6 +166,22 @@ export default function POSPage() {
       sessionStorage.setItem(POS_SETUP_KEY, JSON.stringify({ branchId, moduleId }))
     } catch { /* storage unavailable - persistence is a convenience, not required */ }
   }
+
+  // Own sales today, for staff who just want to track their own performance -
+  // separate from Reports/Dashboard, which not every role can reach.
+  useEffect(() => {
+    if (!setupDone || !branchId || !showDailySummary) return
+    const today = new Date().toISOString().split('T')[0]
+    salesAPI.list({ branch_id: branchId, date_from: today, date_to: today, mine: true })
+      .then(res => {
+        const sales = Array.isArray(res.data) ? res.data : (res.data.results ?? [])
+        setDailySummary({
+          count:   sales.length,
+          revenue: sales.reduce((s, x) => s + parseFloat(x.amount_paid ?? 0), 0),
+        })
+      })
+      .catch(() => setDailySummary(null))
+  }, [setupDone, branchId, showDailySummary, success])
 
   // -- Load product grid -----------------------------------------------------
   useEffect(() => {
@@ -413,15 +434,28 @@ export default function POSPage() {
   return (
     <AppLayout>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--light)' }}>POS</h1>
-        <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => {
-          setSetupDone(false)
-          try { sessionStorage.removeItem(POS_SETUP_KEY) } catch { /* storage unavailable */ }
-          loadSetupOptions(false)
-        }}>
-          Change Branch/Module
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          {showDailySummary && dailySummary && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 14,
+              background: 'var(--blue)', border: '1px solid var(--mid)',
+              borderRadius: 8, padding: '6px 14px', fontSize: 12,
+            }}>
+              <span style={{ color: 'var(--muted)' }}>My sales today</span>
+              <span style={{ color: 'var(--gold)', fontWeight: 600 }}>{formatNaira(dailySummary.revenue)}</span>
+              <span style={{ color: 'var(--muted)' }}>{dailySummary.count} sale{dailySummary.count === 1 ? '' : 's'}</span>
+            </div>
+          )}
+          <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => {
+            setSetupDone(false)
+            try { sessionStorage.removeItem(POS_SETUP_KEY) } catch { /* storage unavailable */ }
+            loadSetupOptions(false)
+          }}>
+            Change Branch/Module
+          </button>
+        </div>
       </div>
 
       {/* Success banner */}

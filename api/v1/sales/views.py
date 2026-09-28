@@ -37,9 +37,12 @@ class SaleListCreateView(APIView):
         date_from      = request.query_params.get('date_from')
         date_to        = request.query_params.get('date_to')
         search         = request.query_params.get('search')
+        mine           = request.query_params.get('mine')
 
-        # Cashier sees only their own sales
-        if request.user.role == 'cashier':
+        # Cashier sees only their own sales. Any role can also explicitly
+        # ask for just their own (e.g. a personal "today's sales" widget)
+        # without that becoming the default for manager/owner-facing views.
+        if request.user.role == 'cashier' or (mine and mine.lower() == 'true'):
             queryset = queryset.filter(created_by=request.user)
 
         if branch_id:
