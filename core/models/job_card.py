@@ -43,7 +43,7 @@ class JobCard(models.Model):
     id                 = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     business           = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='job_cards')
     branch             = models.ForeignKey('core.Branch', on_delete=models.CASCADE, related_name='job_cards')
-    job_number         = models.CharField(max_length=50, unique=True)
+    job_number         = models.CharField(max_length=50)
     customer           = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True, related_name='job_cards')
     customer_name      = models.CharField(max_length=150)
     customer_phone     = models.CharField(max_length=20, null=True, blank=True)
@@ -71,6 +71,13 @@ class JobCard(models.Model):
 
     class Meta:
         db_table = 'job_cards'
+        # Job numbers are only meant to be unique per business (each
+        # business's own sequence, e.g. JC-2026-00001) - not globally, which
+        # previously let one business's first job card of the year collide
+        # with another's and fail with a 500 on creation.
+        constraints = [
+            models.UniqueConstraint(fields=['business', 'job_number'], name='unique_job_number_per_business'),
+        ]
         indexes = [
             models.Index(fields=['business', 'status']),
             models.Index(fields=['business', 'payment_status']),

@@ -88,7 +88,7 @@ class Booking(models.Model):
 
     id              = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     business        = models.ForeignKey(Business, on_delete=models.CASCADE, related_name='bookings')
-    booking_number  = models.CharField(max_length=20, unique=True)
+    booking_number  = models.CharField(max_length=20)
     room            = models.ForeignKey(Room, on_delete=models.PROTECT, related_name='bookings')
     guest_name      = models.CharField(max_length=150)
     guest_phone     = models.CharField(max_length=20, blank=True, null=True)
@@ -112,6 +112,13 @@ class Booking(models.Model):
 
     class Meta:
         db_table = 'hotel_bookings'
+        # Same fix as Sale.sale_number / JobCard.job_number: booking numbers
+        # are only meant to be unique per business, not globally - this
+        # would otherwise crash the moment two businesses both create their
+        # first booking of the year.
+        constraints = [
+            models.UniqueConstraint(fields=['business', 'booking_number'], name='unique_booking_number_per_business'),
+        ]
         indexes = [
             models.Index(fields=['business', 'status']),
             models.Index(fields=['business', 'payment_status']),

@@ -29,7 +29,7 @@ class Sale(models.Model):
     branch               = models.ForeignKey('core.Branch', on_delete=models.CASCADE, related_name='sales')
     module               = models.ForeignKey(Module, on_delete=models.CASCADE, related_name='sales')
     customer             = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True, related_name='sales')
-    sale_number          = models.CharField(max_length=50, unique=True)
+    sale_number          = models.CharField(max_length=50)
     subtotal             = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     discount_amount      = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     total_amount         = models.DecimalField(max_digits=15, decimal_places=2, default=0)
@@ -48,6 +48,13 @@ class Sale(models.Model):
 
     class Meta:
         db_table = 'sales'
+        # Sale numbers are only meant to be unique per business (each
+        # business's own sequence, e.g. SK-2026-00001) - not globally, which
+        # previously caused an unrelated business to be able to "steal" the
+        # next number and even collide/crash on insert.
+        constraints = [
+            models.UniqueConstraint(fields=['business', 'sale_number'], name='unique_sale_number_per_business'),
+        ]
         indexes = [
             models.Index(fields=['business', 'sale_date']),
             models.Index(fields=['business', 'payment_status']),

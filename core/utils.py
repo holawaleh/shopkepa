@@ -7,7 +7,7 @@ def generate_sale_number(business_id):
     prefix = f"SK-{year}-"
     last_sale = (
         Sale.objects
-        .filter(sale_number__startswith=prefix)
+        .filter(business_id=business_id, sale_number__startswith=prefix)
         .order_by('-sale_number')
         .first()
     )
