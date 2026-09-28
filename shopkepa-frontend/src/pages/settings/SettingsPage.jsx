@@ -236,7 +236,7 @@ function PermissionCheckboxes({ permissions, onToggle }) {
         })}
       </div>
       <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6, display: 'block' }}>
-        Editable any time from this page — just open the member and change their boxes.
+        Check the box to choose the access to be granted to or revoke from staff
       </span>
     </div>
   )
