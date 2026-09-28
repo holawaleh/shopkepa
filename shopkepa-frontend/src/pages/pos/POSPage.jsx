@@ -444,7 +444,7 @@ export default function POSPage() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
-              onClick={() => printSaleReceipt(success, success.business_name || user?.business_name)}
+              onClick={() => printSaleReceipt(success, success.business_name || user?.business_name, user?.business_logo)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '5px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer',

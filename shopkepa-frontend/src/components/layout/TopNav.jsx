@@ -24,13 +24,13 @@ const MODULE_NAV_ENABLES = {
 // Settings and AI live in the right-side utility bar, not the main nav
 const ALL_NAV = [
   { key: 'dashboard', to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['owner', 'admin', 'manager'], always: true },
-  { key: 'pos',       to: '/pos',       label: 'POS',       icon: ShoppingCart,   roles: ['owner', 'admin', 'manager', 'cashier'] },
-  { key: 'products',  to: '/products',  label: 'Products',  icon: Package,        roles: ['owner', 'admin', 'manager'] },
-  { key: 'customers', to: '/customers', label: 'Customers', icon: Users,          roles: ['owner', 'admin', 'manager', 'cashier'], always: true },
-  { key: 'reports',   to: '/reports',   label: 'Reports',   icon: BarChart2,      roles: ['owner', 'admin', 'manager'], always: true },
-  { key: 'jobcards',  to: '/jobcards',  label: 'Job Cards', icon: Wrench,         roles: ['owner', 'admin', 'manager', 'cashier'] },
-  { key: 'hotel',     to: '/hotel',     label: 'Hotel',     icon: Hotel,          roles: ['owner', 'admin', 'manager', 'cashier'] },
-  { key: 'expenses',  to: '/expenses',  label: 'Expenses',  icon: ReceiptText,    roles: ['owner', 'admin', 'manager'], always: true },
+  { key: 'pos',       to: '/pos',       label: 'POS',       icon: ShoppingCart,   roles: ['owner', 'admin', 'manager', 'cashier'], privilege: 'pos' },
+  { key: 'products',  to: '/products',  label: 'Products',  icon: Package,        roles: ['owner', 'admin', 'manager'], privilege: 'products' },
+  { key: 'customers', to: '/customers', label: 'Customers', icon: Users,          roles: ['owner', 'admin', 'manager', 'cashier'], always: true, privilege: 'customers' },
+  { key: 'reports',   to: '/reports',   label: 'Reports',   icon: BarChart2,      roles: ['owner', 'admin', 'manager'], always: true, privilege: 'reports' },
+  { key: 'jobcards',  to: '/jobcards',  label: 'Job Cards', icon: Wrench,         roles: ['owner', 'admin', 'manager', 'cashier'], privilege: 'job_cards' },
+  { key: 'hotel',     to: '/hotel',     label: 'Hotel',     icon: Hotel,          roles: ['owner', 'admin', 'manager', 'cashier'], privilege: 'hotel' },
+  { key: 'expenses',  to: '/expenses',  label: 'Expenses',  icon: ReceiptText,    roles: ['owner', 'admin', 'manager'], always: true, privilege: 'expenses' },
 ]
 
 // Utility items rendered as icon buttons on the right side
@@ -72,8 +72,17 @@ export default function TopNav() {
     (MODULE_NAV_ENABLES[code] || []).forEach(k => enabledKeys.add(k))
   })
 
+  // Owners/admins always have every privilege; everyone else is gated by
+  // the granular, owner-editable checkboxes set in Settings > Team.
+  const hasPrivilege = (code) => {
+    if (!code) return true
+    if (user?.role === 'owner' || user?.role === 'admin') return true
+    return (user?.permissions || []).includes(code)
+  }
+
   const visibleItems = ALL_NAV.filter(item => {
     if (!item.roles || !item.roles.includes(user?.role)) return false
+    if (!hasPrivilege(item.privilege)) return false
     if (item.always) return true
     return enabledKeys.has(item.key)
   })

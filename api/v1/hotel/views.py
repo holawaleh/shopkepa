@@ -6,7 +6,7 @@ from django.db import transaction
 from decimal import Decimal
 
 from core.models import Room, Booking
-from core.permissions import IsCashierOrAbove, IsManagerOrAbove
+from core.permissions import IsCashierOrAbove, IsManagerOrAbove, HasPrivilege
 from core.utils import generate_booking_number, get_client_ip
 from .serializers import (
     RoomSerializer, CreateRoomSerializer, UpdateRoomSerializer,
@@ -15,7 +15,7 @@ from .serializers import (
 
 
 class RoomListCreateView(APIView):
-    permission_classes = [IsCashierOrAbove]
+    permission_classes = [IsCashierOrAbove, HasPrivilege('hotel')]
 
     def get(self, request):
         business = request.user.business
@@ -29,7 +29,7 @@ class RoomListCreateView(APIView):
         return Response(RoomSerializer(rooms, many=True).data)
 
     def post(self, request):
-        self.permission_classes = [IsManagerOrAbove]
+        self.permission_classes = [IsManagerOrAbove, HasPrivilege('hotel')]
         self.check_permissions(request)
         s = CreateRoomSerializer(data=request.data)
         if not s.is_valid():
@@ -42,7 +42,7 @@ class RoomListCreateView(APIView):
 
 
 class RoomDetailView(APIView):
-    permission_classes = [IsCashierOrAbove]
+    permission_classes = [IsCashierOrAbove, HasPrivilege('hotel')]
 
     def _get_room(self, request, room_id):
         try:
@@ -57,7 +57,7 @@ class RoomDetailView(APIView):
         return Response(RoomSerializer(room).data)
 
     def patch(self, request, room_id):
-        self.permission_classes = [IsManagerOrAbove]
+        self.permission_classes = [IsManagerOrAbove, HasPrivilege('hotel')]
         self.check_permissions(request)
         room = self._get_room(request, room_id)
         if not room:
@@ -69,7 +69,7 @@ class RoomDetailView(APIView):
         return Response(RoomSerializer(room).data)
 
     def delete(self, request, room_id):
-        self.permission_classes = [IsManagerOrAbove]
+        self.permission_classes = [IsManagerOrAbove, HasPrivilege('hotel')]
         self.check_permissions(request)
         room = self._get_room(request, room_id)
         if not room:
@@ -82,7 +82,7 @@ class RoomDetailView(APIView):
 
 
 class BookingListCreateView(APIView):
-    permission_classes = [IsCashierOrAbove]
+    permission_classes = [IsCashierOrAbove, HasPrivilege('hotel')]
 
     def get(self, request):
         business = request.user.business
@@ -160,7 +160,7 @@ class BookingListCreateView(APIView):
 
 
 class BookingDetailView(APIView):
-    permission_classes = [IsCashierOrAbove]
+    permission_classes = [IsCashierOrAbove, HasPrivilege('hotel')]
 
     def _get_booking(self, request, booking_id):
         try:
@@ -187,7 +187,7 @@ class BookingDetailView(APIView):
 
 
 class BookingCheckInView(APIView):
-    permission_classes = [IsCashierOrAbove]
+    permission_classes = [IsCashierOrAbove, HasPrivilege('hotel')]
 
     @transaction.atomic
     def post(self, request, booking_id):
@@ -206,7 +206,7 @@ class BookingCheckInView(APIView):
 
 
 class BookingCheckOutView(APIView):
-    permission_classes = [IsCashierOrAbove]
+    permission_classes = [IsCashierOrAbove, HasPrivilege('hotel')]
 
     @transaction.atomic
     def post(self, request, booking_id):
@@ -231,7 +231,7 @@ class BookingCheckOutView(APIView):
 
 
 class BookingPaymentView(APIView):
-    permission_classes = [IsCashierOrAbove]
+    permission_classes = [IsCashierOrAbove, HasPrivilege('hotel')]
 
     @transaction.atomic
     def post(self, request, booking_id):
@@ -260,7 +260,7 @@ class BookingPaymentView(APIView):
 
 
 class OccupancyView(APIView):
-    permission_classes = [IsCashierOrAbove]
+    permission_classes = [IsCashierOrAbove, HasPrivilege('hotel')]
 
     def get(self, request):
         business = request.user.business

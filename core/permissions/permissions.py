@@ -1,6 +1,26 @@
 from rest_framework.permissions import BasePermission
 
 
+def HasPrivilege(code):
+    """
+    Factory for a permission class checking a granular, owner-editable
+    staff privilege (User.permissions). DRF's `permission_classes` list is
+    already AND-combined, so just add it alongside the existing role class,
+    e.g. `permission_classes = [IsCashierOrAbove, HasPrivilege('pos')]` -
+    the role tier still applies and this only narrows it further.
+    """
+    class _HasPrivilege(BasePermission):
+        message = 'Your account does not have access to this feature. Ask your business owner to grant it in Settings > Team.'
+
+        def has_permission(self, request, view):
+            return (
+                request.user.is_authenticated and
+                request.user.has_privilege(code)
+            )
+
+    return _HasPrivilege
+
+
 class IsOwner(BasePermission):
     """
     Business owner or admin can access this endpoint.

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, AlertCircle, Check, ShoppingCart, BarChart2, Wifi, Shield } from 'lucide-react'
+import { Eye, EyeOff, AlertCircle, Check, ShoppingCart, BarChart2, Wifi, Shield, ImagePlus, X } from 'lucide-react'
 import { useToast } from '../../context/ToastContext'
 import { parseApiError } from '../../utils/format'
 import { authAPI } from '../../api/client'
+import { resizeImageToDataUrl } from '../../utils/imageUpload'
 
 // Rotating value propositions for the advert panel
 const SLIDES = [
@@ -49,11 +50,12 @@ export default function SignupPage() {
   const [slide, setSlide] = useState(0)
   const [form, setForm] = useState({
     first_name: '', last_name: '', email: '',
-    phone: '', business_name: '', password: '', confirm_password: '',
+    phone: '', business_name: '', password: '', confirm_password: '', logo: '',
   })
   const [showPw, setShowPw]         = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading]       = useState(false)
+  const [logoError, setLogoError]   = useState('')
   const [errors, setErrors]         = useState({})
   const [step, setStep]             = useState(1) // 1 = personal, 2 = business + password
 
@@ -100,6 +102,21 @@ export default function SignupPage() {
     if (validateStep1()) setStep(2)
   }
 
+  const handleLogoChange = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-picking the same file later
+    if (!file) return
+    if (!file.type.startsWith('image/')) { setLogoError('Please choose an image file.'); return }
+    if (file.size > 5 * 1024 * 1024) { setLogoError('Image is too large (max 5MB).'); return }
+    setLogoError('')
+    try {
+      const dataUrl = await resizeImageToDataUrl(file)
+      setForm(f => ({ ...f, logo: dataUrl }))
+    } catch (err) {
+      setLogoError(err.message || 'Could not process that image.')
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!validateStep2()) return
@@ -112,6 +129,7 @@ export default function SignupPage() {
         phone:         form.phone,
         business_name: form.business_name,
         password:      form.password,
+        logo:          form.logo,
       })
       success('Account created! Sign in to get started.')
       navigate('/login')
@@ -321,6 +339,37 @@ export default function SignupPage() {
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Business name</label>
                 <input className={`input ${errors.business_name ? 'input-error' : ''}`} placeholder=" " value={form.business_name} onChange={set('business_name')} />
                 <FieldError field="business_name" />
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Business logo (optional)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{
+                    width: 52, height: 52, borderRadius: 10, flexShrink: 0,
+                    background: form.logo ? 'var(--white)' : 'var(--mid)',
+                    border: '1px solid var(--mid)', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+                  }}>
+                    {form.logo
+                      ? <img src={form.logo} alt="Logo preview" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                      : <ImagePlus size={18} color="var(--muted)" />}
+                  </div>
+                  <label className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px', cursor: 'pointer' }}>
+                    {form.logo ? 'Change image' : 'Upload image'}
+                    <input type="file" accept="image/*" onChange={handleLogoChange} style={{ display: 'none' }} />
+                  </label>
+                  {form.logo && (
+                    <button type="button" onClick={() => setForm(f => ({ ...f, logo: '' }))}
+                      style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', display: 'flex' }}
+                      title="Remove logo">
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+                {logoError && <span style={{ fontSize: 11, color: 'var(--error)', marginTop: 4, display: 'block' }}>{logoError}</span>}
+                <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, display: 'block' }}>
+                  Shown on your receipts and in Settings. You can add or change this later too.
+                </span>
               </div>
 
               <div>

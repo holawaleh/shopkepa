@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   ToggleLeft, ToggleRight, AlertCircle,
   Plus, X, Trash2, UserCheck, UserX, Eye, EyeOff, Edit2,
-  GitBranch, Building2,
+  GitBranch, Building2, ImagePlus,
 } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
 import { modulesAPI, staffAPI, branchesAPI, businessAPI, authAPI } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 import { parseApiError, formatDate } from '../../utils/format'
+import { resizeImageToDataUrl } from '../../utils/imageUpload'
 
 // ─── Shared helpers ────────────────────────────────────────────────────────
 
@@ -198,9 +199,53 @@ const ROLE_STYLE = {
   cashier: { bg: 'rgba(150,150,150,0.12)', text: 'var(--muted)',  label: 'Cashier / IT Officer / Tech Officer' },
 }
 
+// Mirrors User.PRIVILEGE_CHOICES on the backend - keep in sync.
+const PRIVILEGE_OPTIONS = [
+  { code: 'pos',        label: 'Make sales (POS)' },
+  { code: 'products',   label: 'Manage products & stock' },
+  { code: 'customers',  label: 'Manage customers' },
+  { code: 'job_cards',  label: 'Manage job cards' },
+  { code: 'hotel',      label: 'Manage hotel bookings' },
+  { code: 'expenses',   label: 'Manage expenses' },
+  { code: 'reports',    label: 'View reports' },
+  { code: 'void_sales', label: 'Void sales' },
+]
+
+// Starting checkboxes for a freshly-picked role - just a convenient default,
+// every box stays individually toggleable and editable at any time after.
+const DEFAULT_PERMISSIONS_BY_ROLE = {
+  manager: ['pos', 'products', 'customers', 'job_cards', 'hotel', 'expenses', 'reports'],
+  cashier: ['pos', 'customers', 'job_cards', 'hotel'],
+}
+
+function PermissionCheckboxes({ permissions, onToggle }) {
+  return (
+    <div>
+      <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 8 }}>
+        Privileges — what this staff member can access
+      </label>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px' }}>
+        {PRIVILEGE_OPTIONS.map(p => {
+          const checked = permissions.includes(p.code)
+          return (
+            <label key={p.code} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12.5, color: 'var(--light)' }}>
+              <input type="checkbox" checked={checked} onChange={() => onToggle(p.code)} style={{ width: 15, height: 15, cursor: 'pointer', flexShrink: 0 }} />
+              {p.label}
+            </label>
+          )
+        })}
+      </div>
+      <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6, display: 'block' }}>
+        Editable any time from this page — just open the member and change their boxes.
+      </span>
+    </div>
+  )
+}
+
 const EMPTY_STAFF = {
   full_name: '', username: '', email: '', phone_number: '',
   password: '', role: 'cashier', branch_ids: [],
+  permissions: DEFAULT_PERMISSIONS_BY_ROLE.cashier,
 }
 
 function TeamTab() {
@@ -210,6 +255,7 @@ function TeamTab() {
   const [branches, setBranches]     = useState([])
   const [loading, setLoading]       = useState(true)
   const [modal, setModal]           = useState(null)
+  const [editTarget, setEditTarget] = useState(null)
   const [form, setForm]             = useState(EMPTY_STAFF)
   const [showPw, setShowPw]         = useState(false)
   const [formErrors, setFormErrors] = useState({})
@@ -242,12 +288,33 @@ function TeamTab() {
     setFormErrors(fe => ({ ...fe, [field]: '' }))
   }
 
+  // Changing role on a brand-new staff member re-seeds the checkbox
+  // defaults for that role; editing an existing member's role leaves their
+  // already-customised privileges alone so nothing is silently reset.
+  const setRole = (e) => {
+    const role = e.target.value
+    setForm(f => ({
+      ...f,
+      role,
+      permissions: modal === 'add' ? (DEFAULT_PERMISSIONS_BY_ROLE[role] || []) : f.permissions,
+    }))
+  }
+
   const toggleBranch = (id) => {
     setForm(f => ({
       ...f,
       branch_ids: f.branch_ids.includes(id)
         ? f.branch_ids.filter(b => b !== id)
         : [...f.branch_ids, id],
+    }))
+  }
+
+  const togglePermission = (code) => {
+    setForm(f => ({
+      ...f,
+      permissions: f.permissions.includes(code)
+        ? f.permissions.filter(p => p !== code)
+        : [...f.permissions, code],
     }))
   }
 
@@ -277,9 +344,41 @@ function TeamTab() {
         password:     form.password,
         role:         form.role,
         branch_ids:   form.branch_ids,
+        permissions:  form.permissions,
       })
       toast.success(`${form.full_name.trim()} added to your team as ${ROLE_STYLE[form.role]?.label ?? form.role}`)
       setModal(null)
+      load()
+    } catch (err) {
+      setError(parseApiError(err))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const validateEdit = () => {
+    const e = {}
+    if (!form.full_name.trim()) e.full_name = 'Full name required'
+    if (form.branch_ids.length === 0) e.branch_ids = 'Assign at least one branch'
+    setFormErrors(e)
+    return Object.keys(e).length === 0
+  }
+
+  const handleEditSave = async (e) => {
+    e.preventDefault()
+    if (!validateEdit()) return
+    setSaving(true)
+    setError('')
+    try {
+      await staffAPI.update(editTarget.id, {
+        full_name:   form.full_name.trim(),
+        role:        form.role,
+        branch_ids:  form.branch_ids,
+        permissions: form.permissions,
+      })
+      toast.success(`${form.full_name.trim()}'s access updated`)
+      setModal(null)
+      setEditTarget(null)
       load()
     } catch (err) {
       setError(parseApiError(err))
@@ -314,7 +413,25 @@ function TeamTab() {
     setFormErrors({})
     setError('')
     setShowPw(false)
+    setEditTarget(null)
     setModal('add')
+  }
+
+  const openEdit = (member) => {
+    setEditTarget(member)
+    setForm({
+      ...EMPTY_STAFF,
+      full_name:    member.full_name,
+      username:     member.username,
+      email:        member.email || '',
+      phone_number: member.phone_number || '',
+      role:         member.role,
+      branch_ids:   member.branches?.map(b => b.id) || [],
+      permissions:  member.permissions || [],
+    })
+    setFormErrors({})
+    setError('')
+    setModal('edit')
   }
 
   return (
@@ -390,6 +507,14 @@ function TeamTab() {
                       <td style={{ padding: '12px 16px' }}>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button
+                            onClick={() => openEdit(m)}
+                            className="btn-ghost"
+                            style={{ padding: '4px 8px' }}
+                            title="Edit role, branches & privileges"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                          <button
                             onClick={() => handleToggleActive(m)}
                             className="btn-ghost"
                             style={{ padding: '4px 8px' }}
@@ -451,12 +576,12 @@ function TeamTab() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Role *</label>
-                <select className="input" value={form.role} onChange={set('role')}>
+                <select className="input" value={form.role} onChange={setRole}>
                   <option value="cashier">Cashier / IT Officer / Tech Officer</option>
                   <option value="manager">Manager</option>
                 </select>
                 <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'block' }}>
-                  {form.role === 'manager' ? 'Can view reports, manage products & customers.' : 'Can process sales, view customers, and manage job cards.'}
+                  Sets the starting privileges below — adjust the boxes freely.
                 </span>
               </div>
               <div>
@@ -504,10 +629,76 @@ function TeamTab() {
               )}
             </div>
 
+            <PermissionCheckboxes permissions={form.permissions} onToggle={togglePermission} />
+
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>
               <button type="submit" className="btn-gold" style={{ flex: 2 }} disabled={saving}>
                 {saving ? 'Creating…' : 'Add Staff Member'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {modal === 'edit' && editTarget && (
+        <Modal title={`Edit — ${editTarget.full_name}`} onClose={() => setModal(null)}>
+          <ErrorBanner msg={error} />
+          <form onSubmit={handleEditSave} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Full name *</label>
+                <input className={`input ${formErrors.full_name ? 'input-error' : ''}`}
+                  value={form.full_name} onChange={set('full_name')} placeholder="Full name" />
+                {formErrors.full_name && <span style={{ fontSize: 11, color: 'var(--error)', marginTop: 3, display: 'block' }}>{formErrors.full_name}</span>}
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Username</label>
+                <input className="input" value={form.username} disabled style={{ opacity: 0.6 }} />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Role *</label>
+              <select className="input" value={form.role} onChange={setRole}>
+                <option value="cashier">Cashier / IT Officer / Tech Officer</option>
+                <option value="manager">Manager</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 8 }}>
+                Assign to branch(es) *
+              </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {branches.map(b => {
+                  const sel = form.branch_ids.includes(b.id)
+                  return (
+                    <button key={b.id} type="button" onClick={() => toggleBranch(b.id)}
+                      style={{
+                        padding: '6px 14px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                        border: `1px solid ${sel ? 'rgba(201,168,76,0.4)' : 'var(--mid)'}`,
+                        background: sel ? 'var(--gold-dim)' : 'var(--navy)',
+                        color: sel ? 'var(--gold)' : 'var(--muted)',
+                        fontWeight: sel ? 500 : 400,
+                      }}>
+                      {b.name}
+                    </button>
+                  )
+                })}
+              </div>
+              {formErrors.branch_ids && (
+                <span style={{ fontSize: 11, color: 'var(--error)', marginTop: 4, display: 'block' }}>{formErrors.branch_ids}</span>
+              )}
+            </div>
+
+            <PermissionCheckboxes permissions={form.permissions} onToggle={togglePermission} />
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+              <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>
+              <button type="submit" className="btn-gold" style={{ flex: 2 }} disabled={saving}>
+                {saving ? 'Saving…' : 'Save Changes'}
               </button>
             </div>
           </form>
@@ -769,7 +960,7 @@ function BranchesTab() {
 // ─── Business profile tab ──────────────────────────────────────────────────
 
 function BusinessTab() {
-  const { isOwner } = useAuth()
+  const { isOwner, reloadUser } = useAuth()
   const toast = useToast()
 
   const [profile, setProfile]     = useState(null)
@@ -780,8 +971,9 @@ function BusinessTab() {
   const [savingSet, setSavingSet] = useState(false)
   const [error, setError]         = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+  const [logoError, setLogoError] = useState('')
 
-  const [profileForm, setProfileForm] = useState({ name: '', owner_name: '', phone_number: '', email: '', address: '' })
+  const [profileForm, setProfileForm] = useState({ name: '', owner_name: '', phone_number: '', email: '', address: '', logo_url: '' })
   const [settingsForm, setSettingsForm] = useState({
     custom_pricing_enabled: false,
     low_stock_alert_enabled: true,
@@ -807,6 +999,7 @@ function BusinessTab() {
         setProfileForm({
           name: p.name || '', owner_name: p.owner_name || '',
           phone_number: p.phone_number || '', email: p.email || '', address: p.address || '',
+          logo_url: p.logo_url || '',
         })
       }
       if (sRes.status === 'fulfilled') {
@@ -838,8 +1031,24 @@ function BusinessTab() {
       toast.success('Business profile updated')
       setSuccessMsg('Profile saved.')
       load()
+      reloadUser() // picks up a changed logo for the nav bar and receipts
     } catch (err) { setError(parseApiError(err)) }
     finally { setSaving(false) }
+  }
+
+  const handleLogoChange = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (!file.type.startsWith('image/')) { setLogoError('Please choose an image file.'); return }
+    if (file.size > 5 * 1024 * 1024) { setLogoError('Image is too large (max 5MB).'); return }
+    setLogoError('')
+    try {
+      const dataUrl = await resizeImageToDataUrl(file)
+      setProfileForm(f => ({ ...f, logo_url: dataUrl }))
+    } catch (err) {
+      setLogoError(err.message || 'Could not process that image.')
+    }
   }
 
   const handleSettingsSave = async (e) => {
@@ -904,6 +1113,40 @@ function BusinessTab() {
           <h3 style={{ fontSize: 15, fontWeight: 600, color: 'var(--light)', margin: 0 }}>Business Profile</h3>
         </div>
         <form onSubmit={handleProfileSave} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Business logo</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{
+                width: 52, height: 52, borderRadius: 10, flexShrink: 0,
+                background: profileForm.logo_url ? 'var(--white)' : 'var(--mid)',
+                border: '1px solid var(--mid)', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+              }}>
+                {profileForm.logo_url
+                  ? <img src={profileForm.logo_url} alt="Logo preview" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  : <ImagePlus size={18} color="var(--muted)" />}
+              </div>
+              {isOwner && (
+                <>
+                  <label className="btn-ghost" style={{ fontSize: 12, padding: '7px 14px', cursor: 'pointer' }}>
+                    {profileForm.logo_url ? 'Change image' : 'Upload image'}
+                    <input type="file" accept="image/*" onChange={handleLogoChange} style={{ display: 'none' }} />
+                  </label>
+                  {profileForm.logo_url && (
+                    <button type="button" onClick={() => setProfileForm(f => ({ ...f, logo_url: '' }))}
+                      style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', display: 'flex' }}
+                      title="Remove logo">
+                      <X size={16} />
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+            {logoError && <span style={{ fontSize: 11, color: 'var(--error)', marginTop: 4, display: 'block' }}>{logoError}</span>}
+            <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 4, display: 'block' }}>
+              Shown on printed sales and job card receipts. Save below to apply changes.
+            </span>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Business name</label>

@@ -40,6 +40,7 @@ const DEVICE_TYPES = [
 const EMPTY_JOB = {
   customer_name: '', customer_phone: '', device_description: '',
   customer_complaint: '', labour_charge: '0', branch_id: '', service_id: '',
+  pickup_date: '',
 }
 
 const EMPTY_SVC = { name: '', category: '', base_price: '', description: '' }
@@ -272,6 +273,7 @@ function JobCardsTab({ branches }) {
   const [saving, setSaving]         = useState(false)
   const [error, setError]           = useState('')
   const [newStatus, setNewStatus]   = useState('')
+  const [newPickupDate, setNewPickupDate] = useState('')
   const [payAmount, setPayAmount]   = useState('')
   const [payMethod, setPayMethod]   = useState('cash')
 
@@ -355,6 +357,7 @@ function JobCardsTab({ branches }) {
         customer_complaint: form.customer_complaint.trim(),
         labour_charge:      parseFloat(form.labour_charge) || 0,
         branch_id:          form.branch_id,
+        pickup_date:        form.pickup_date || undefined,
       })
       toast.success(`Job card ${res.data.job_number ?? ''} created for ${form.customer_name.trim()}`)
       setModal(null)
@@ -366,17 +369,24 @@ function JobCardsTab({ branches }) {
     }
   }
 
-  const openStatus = (job) => { setSelected(job); setNewStatus(job.status); setError(''); setModal('status') }
+  const openStatus = (job) => { setSelected(job); setNewStatus(job.status); setNewPickupDate(job.pickup_date || ''); setError(''); setModal('status') }
 
   const handleStatusUpdate = async () => {
-    if (!newStatus || newStatus === selected.status) { setModal(null); return }
+    const statusChanged = newStatus && newStatus !== selected.status
+    const pickupChanged = newPickupDate !== (selected.pickup_date || '')
+    if (!statusChanged && !pickupChanged) { setModal(null); return }
     setSaving(true); setError('')
     try {
-      await jobCardsAPI.update(selected.id, { status: newStatus })
-      if (newStatus === 'ready') {
+      const payload = {}
+      if (statusChanged) payload.status = newStatus
+      if (pickupChanged) payload.pickup_date = newPickupDate || null
+      await jobCardsAPI.update(selected.id, payload)
+      if (statusChanged && newStatus === 'ready') {
         toast.success(`${selected.job_number} is ready for collection — notify ${selected.customer_name}`)
-      } else {
+      } else if (statusChanged) {
         toast.info(`${selected.job_number} status updated to ${newStatus.replace(/_/g, ' ')}`)
+      } else {
+        toast.info(`${selected.job_number} pickup date updated`)
       }
       setModal(null); load()
     } catch (err) { setError(parseApiError(err)) }
@@ -529,7 +539,10 @@ function JobCardsTab({ branches }) {
                       <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, textTransform: 'capitalize', background: ps.bg, color: ps.text }}>{j.payment_status}</span>
                     </td>
                     <td style={{ padding: '12px 16px', color: parseFloat(j.balance_due) > 0 ? 'var(--error)' : 'var(--muted)', fontWeight: 500 }}>{formatNaira(j.balance_due)}</td>
-                    <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>{formatDate(j.created_at)}</td>
+                    <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>
+                      <div>{formatDate(j.created_at)}</div>
+                      {j.pickup_date && <div style={{ fontSize: 11, marginTop: 2 }}>Pickup: {formatDate(j.pickup_date)}</div>}
+                    </td>
                     <td style={{ padding: '12px 16px' }}>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <button onClick={() => openStatus(j)} className="btn-ghost" style={{ padding: '4px 8px', fontSize: 11 }}>Status</button>
@@ -541,8 +554,8 @@ function JobCardsTab({ branches }) {
                         </button>
                         <button
                           onClick={async () => {
-                            try { const res = await jobCardsAPI.get(j.id); printJobCardReceipt(res.data, user?.business_name) }
-                            catch { printJobCardReceipt(j, user?.business_name) }
+                            try { const res = await jobCardsAPI.get(j.id); printJobCardReceipt(res.data, user?.business_name, user?.business_logo) }
+                            catch { printJobCardReceipt(j, user?.business_name, user?.business_logo) }
                           }}
                           className="btn-ghost" style={{ padding: '4px 8px', fontSize: 11 }} title="Print">
                           <Printer size={13} />
@@ -643,6 +656,13 @@ function JobCardsTab({ branches }) {
               </div>
             </div>
 
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Expected pickup date</label>
+              <input className="input" type="date" min={new Date().toISOString().split('T')[0]}
+                value={form.pickup_date} onChange={set('pickup_date')} />
+              <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'block' }}>Optional — when the customer plans to collect the device.</span>
+            </div>
+
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>
               <button type="submit" className="btn-gold" style={{ flex: 2 }} disabled={saving}>
@@ -673,6 +693,11 @@ function JobCardsTab({ branches }) {
                 </button>
               )
             })}
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Expected pickup date</label>
+            <input className="input" type="date"
+              value={newPickupDate} onChange={e => setNewPickupDate(e.target.value)} />
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>

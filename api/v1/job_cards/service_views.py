@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status, serializers
 
 from core.models import ServiceType
-from core.permissions import IsCashierOrAbove, IsManagerOrAbove
+from core.permissions import IsCashierOrAbove, IsManagerOrAbove, HasPrivilege
 
 
 class ServiceTypeSerializer(serializers.ModelSerializer):
@@ -24,8 +24,8 @@ class WriteServiceTypeSerializer(serializers.Serializer):
 class ServiceTypeListCreateView(APIView):
     def get_permissions(self):
         if self.request.method == 'POST':
-            return [IsManagerOrAbove()]
-        return [IsCashierOrAbove()]
+            return [IsManagerOrAbove(), HasPrivilege('job_cards')()]
+        return [IsCashierOrAbove(), HasPrivilege('job_cards')()]
 
     def get(self, request):
         qs = ServiceType.objects.filter(business=request.user.business)
@@ -44,7 +44,7 @@ class ServiceTypeListCreateView(APIView):
 
 
 class ServiceTypeDetailView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('job_cards')]
 
     def get_object(self, request, pk):
         try:

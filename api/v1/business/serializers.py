@@ -25,6 +25,15 @@ class UpdateBusinessSerializer(serializers.Serializer):
     phone_number = serializers.CharField(max_length=20,  required=False)
     email        = serializers.EmailField(required=False)
     address      = serializers.CharField(required=False, allow_blank=True)
+    logo_url     = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    def validate_logo_url(self, value):
+        if value and not value.startswith('data:image/'):
+            raise serializers.ValidationError('Logo must be an uploaded image.')
+        # A data-URI logo is stored inline in the DB - keep it small.
+        if value and len(value) > 700_000:
+            raise serializers.ValidationError('Logo image is too large. Please use a smaller image (under ~500KB).')
+        return value
 
 
 class BusinessSettingsSerializer(serializers.ModelSerializer):

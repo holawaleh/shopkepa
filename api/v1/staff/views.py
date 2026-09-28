@@ -11,6 +11,22 @@ from .serializers import (
     StaffSerializer, CreateStaffSerializer, UpdateStaffSerializer
 )
 
+# Sensible starting checkboxes for a freshly-created staff member, applied
+# only when the owner doesn't explicitly pick permissions on the Add Staff
+# form. Fully editable afterwards from Settings > Team - this is just the
+# default state of the checkboxes, not a fixed ceiling.
+DEFAULT_PERMISSIONS_BY_ROLE = {
+    'manager': [
+        User.PRIVILEGE_POS, User.PRIVILEGE_PRODUCTS, User.PRIVILEGE_CUSTOMERS,
+        User.PRIVILEGE_JOB_CARDS, User.PRIVILEGE_HOTEL, User.PRIVILEGE_EXPENSES,
+        User.PRIVILEGE_REPORTS,
+    ],
+    'cashier': [
+        User.PRIVILEGE_POS, User.PRIVILEGE_CUSTOMERS,
+        User.PRIVILEGE_JOB_CARDS, User.PRIVILEGE_HOTEL,
+    ],
+}
+
 
 class StaffListCreateView(APIView):
 
@@ -50,6 +66,7 @@ class StaffListCreateView(APIView):
             email=data['email'],
             business=request.user.business,
             role=data['role'],
+            permissions=data.get('permissions') if 'permissions' in data else DEFAULT_PERMISSIONS_BY_ROLE.get(data['role'], []),
             created_by=request.user,
         )
 
@@ -139,6 +156,8 @@ class StaffDetailView(APIView):
             staff.full_name = data['full_name']
         if 'role' in data:
             staff.role = data['role']
+        if 'permissions' in data:
+            staff.permissions = data['permissions']
         staff.save()
 
         # Update branch assignments if provided

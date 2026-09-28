@@ -12,9 +12,11 @@ class JobCardPartSerializer(serializers.ModelSerializer):
 
 
 class JobCardSerializer(serializers.ModelSerializer):
-    customer_name    = serializers.CharField(
-        source='customer.full_name', read_only=True
-    )
+    # customer_name on the model is always filled in at intake (walk-in name
+    # typed by the cashier); customer is only set when linked to a saved
+    # Customer record. Prefer the linked record's name, but fall back to the
+    # typed-in name instead of showing nothing when there's no linked record.
+    customer_name    = serializers.SerializerMethodField()
     branch_name      = serializers.CharField(
         source='branch.name', read_only=True
     )
@@ -25,6 +27,9 @@ class JobCardSerializer(serializers.ModelSerializer):
         source='created_by.full_name', read_only=True
     )
 
+    def get_customer_name(self, obj):
+        return (obj.customer.full_name if obj.customer else None) or obj.customer_name
+
     class Meta:
         model  = JobCard
         fields = [
@@ -34,8 +39,8 @@ class JobCardSerializer(serializers.ModelSerializer):
             'customer_complaint', 'technician', 'technician_name',
             'status', 'labour_charge', 'parts_charge',
             'total_charge', 'amount_paid', 'balance_due',
-            'payment_status', 'intake_date', 'created_by_name',
-            'created_at',
+            'payment_status', 'intake_date', 'pickup_date',
+            'created_by_name', 'created_at',
         ]
         read_only_fields = [
             'id', 'job_number', 'parts_charge',
@@ -45,15 +50,16 @@ class JobCardSerializer(serializers.ModelSerializer):
 
 class JobCardDetailSerializer(serializers.ModelSerializer):
     parts           = JobCardPartSerializer(many=True, read_only=True)
-    customer_name   = serializers.CharField(
-        source='customer.full_name', read_only=True
-    )
+    customer_name   = serializers.SerializerMethodField()
     branch_name     = serializers.CharField(
         source='branch.name', read_only=True
     )
     technician_name = serializers.CharField(
         source='technician.full_name', read_only=True
     )
+
+    def get_customer_name(self, obj):
+        return (obj.customer.full_name if obj.customer else None) or obj.customer_name
 
     class Meta:
         model  = JobCard
@@ -66,7 +72,7 @@ class JobCardDetailSerializer(serializers.ModelSerializer):
             'total_charge', 'amount_paid', 'balance_due',
             'payment_status', 'payment_method',
             'warranty_days', 'collected_at',
-            'intake_date', 'created_at', 'parts',
+            'intake_date', 'pickup_date', 'created_at', 'parts',
         ]
 
 
@@ -86,6 +92,7 @@ class CreateJobCardSerializer(serializers.Serializer):
     technician_notes   = serializers.CharField(
         required=False, allow_blank=True
     )
+    pickup_date        = serializers.DateField(required=False, allow_null=True)
 
     def validate_branch_id(self, value):
         from core.models import Branch
@@ -128,6 +135,7 @@ class UpdateJobCardSerializer(serializers.Serializer):
     warranty_days    = serializers.IntegerField(
         min_value=1, required=False, allow_null=True
     )
+    pickup_date      = serializers.DateField(required=False, allow_null=True)
 
 
 class AddJobCardPartSerializer(serializers.Serializer):

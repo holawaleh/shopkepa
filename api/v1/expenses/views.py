@@ -6,7 +6,7 @@ from django.db.models import Sum, Q
 from django.utils.dateparse import parse_date
 
 from core.models import Expense, ExpenseCategory, Branch
-from core.permissions import IsManagerOrAbove
+from core.permissions import IsManagerOrAbove, HasPrivilege
 from core.utils import log_audit, get_client_ip
 from .serializers import (
     ExpenseSerializer, ExpenseCategorySerializer,
@@ -15,7 +15,7 @@ from .serializers import (
 
 
 class ExpenseCategoryListCreateView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('expenses')]
 
     def get(self, request):
         business = request.user.business
@@ -52,7 +52,7 @@ class ExpenseCategoryListCreateView(APIView):
 
 
 class ExpenseListCreateView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('expenses')]
 
     def get(self, request):
         business  = request.user.business
@@ -123,7 +123,7 @@ class ExpenseListCreateView(APIView):
 
 
 class ExpenseDetailView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('expenses')]
 
     def get_expense(self, request, expense_id):
         try:
@@ -191,7 +191,7 @@ class ExpenseDetailView(APIView):
 
 
 class ExpenseSummaryView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('expenses')]
 
     def get(self, request):
         business  = request.user.business

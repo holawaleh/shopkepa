@@ -9,7 +9,7 @@ from core.models import (
     Product, ProductCategory, ProductAttribute, BranchInventory,
     StockAdjustment, Branch, Module
 )
-from core.permissions import IsManagerOrAbove, IsCashierOrAbove
+from core.permissions import IsManagerOrAbove, IsCashierOrAbove, HasPrivilege
 from core.utils import log_audit, get_client_ip
 from core.services.product_categories import seed_default_product_categories
 from .serializers import (
@@ -22,8 +22,8 @@ class ProductCategoryListCreateView(APIView):
 
     def get_permissions(self):
         if self.request.method == 'POST':
-            return [IsManagerOrAbove()]
-        return [IsCashierOrAbove()]
+            return [IsManagerOrAbove(), HasPrivilege('products')()]
+        return [IsCashierOrAbove(), HasPrivilege('products')()]
 
     def get(self, request):
         business = request.user.business
@@ -42,7 +42,7 @@ class ProductCategoryListCreateView(APIView):
         return Response(serializer.data)
 
     def post(self, request):
-        self.permission_classes = [IsManagerOrAbove]
+        self.permission_classes = [IsManagerOrAbove, HasPrivilege('products')]
         self.check_permissions(request)
 
         serializer = CreateProductCategorySerializer(
@@ -70,8 +70,8 @@ class ProductListCreateView(APIView):
 
     def get_permissions(self):
         if self.request.method == 'POST':
-            return [IsManagerOrAbove()]
-        return [IsCashierOrAbove()]
+            return [IsManagerOrAbove(), HasPrivilege('products')()]
+        return [IsCashierOrAbove(), HasPrivilege('products')()]
 
     def get(self, request):
         business  = request.user.business
@@ -185,8 +185,8 @@ class ProductDetailView(APIView):
 
     def get_permissions(self):
         if self.request.method == 'GET':
-            return [IsCashierOrAbove()]
-        return [IsManagerOrAbove()]
+            return [IsCashierOrAbove(), HasPrivilege('products')()]
+        return [IsManagerOrAbove(), HasPrivilege('products')()]
 
     def get_product(self, request, product_id):
         try:
@@ -290,7 +290,7 @@ class ProductDetailView(APIView):
 
 
 class StockAdjustView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('products')]
 
     @transaction.atomic
     def post(self, request, product_id):
@@ -381,7 +381,7 @@ class StockAdjustView(APIView):
 
 
 class ProductInventoryView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('products')]
 
     def get(self, request, product_id):
         try:
@@ -414,7 +414,7 @@ class ProductInventoryView(APIView):
 
 
 class LowStockView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('products')]
 
     def get(self, request):
         business  = request.user.business
@@ -451,7 +451,7 @@ class LowStockView(APIView):
 
 
 class ExpiringProductsView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('products')]
 
     def get(self, request):
         from datetime import date, timedelta
@@ -492,7 +492,7 @@ class ExpiringProductsView(APIView):
         })
         
 class StockHistoryView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('products')]
 
     def get(self, request, product_id):
         try:
@@ -541,7 +541,7 @@ class StockHistoryView(APIView):
 
 
 class ProductBarcodeLookupView(APIView):
-    permission_classes = [IsCashierOrAbove]
+    permission_classes = [IsCashierOrAbove, HasPrivilege('products')]
 
     def get(self, request):
         barcode  = request.query_params.get('barcode', '').strip()

@@ -4,4 +4,5 @@ from .permissions import (
     IsCashierOrAbove,
     IsBusinessActive,
     IsSameBusiness,
+    HasPrivilege,
 )

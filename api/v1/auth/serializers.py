@@ -12,6 +12,14 @@ class RegisterSerializer(serializers.Serializer):
     email         = serializers.EmailField()
     password      = serializers.CharField(min_length=6, write_only=True)
     location      = serializers.CharField(required=False, default='')
+    logo          = serializers.CharField(required=False, allow_blank=True, default='')
+
+    def validate_logo(self, value):
+        if value and not value.startswith('data:image/'):
+            raise serializers.ValidationError('Logo must be an uploaded image.')
+        if value and len(value) > 700_000:
+            raise serializers.ValidationError('Logo image is too large. Please use a smaller image (under ~500KB).')
+        return value
 
     def validate_phone(self, value):
         if User.objects.filter(phone_number=value).exists():
@@ -44,6 +52,7 @@ class LoginSerializer(serializers.Serializer):
 class UserSerializer(serializers.ModelSerializer):
     business_name = serializers.SerializerMethodField()
     business_id   = serializers.SerializerMethodField()
+    business_logo = serializers.SerializerMethodField()
     branch_ids    = serializers.SerializerMethodField()
 
     def get_business_name(self, obj):
@@ -51,6 +60,9 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_business_id(self, obj):
         return obj.business_id
+
+    def get_business_logo(self, obj):
+        return obj.business.logo_url if obj.business else None
 
     def get_branch_ids(self, obj):
         return list(
@@ -63,7 +75,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'full_name', 'username',
             'phone_number', 'email', 'location',
-            'role', 'business_id', 'business_name',
+            'role', 'permissions', 'business_id', 'business_name', 'business_logo',
             'branch_ids', 'is_active', 'created_at',
         ]
 

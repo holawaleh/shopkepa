@@ -6,7 +6,7 @@ from django.db import transaction
 from decimal import Decimal
 
 from core.models import JobCard, JobCardPart, Branch, Customer, User
-from core.permissions import IsCashierOrAbove, IsManagerOrAbove
+from core.permissions import IsCashierOrAbove, IsManagerOrAbove, HasPrivilege
 from core.utils import generate_job_number, log_audit, get_client_ip
 from .serializers import (
     JobCardSerializer, JobCardDetailSerializer,
@@ -16,7 +16,7 @@ from .serializers import (
 
 
 class JobCardListCreateView(APIView):
-    permission_classes = [IsCashierOrAbove]
+    permission_classes = [IsCashierOrAbove, HasPrivilege('job_cards')]
 
     def get(self, request):
         business = request.user.business
@@ -106,6 +106,7 @@ class JobCardListCreateView(APIView):
             customer_complaint=data['customer_complaint'],
             technician=technician,
             technician_notes=data.get('technician_notes', ''),
+            pickup_date=data.get('pickup_date'),
             labour_charge=labour_charge,
             parts_charge=Decimal('0'),
             total_charge=labour_charge,
@@ -136,7 +137,7 @@ class JobCardListCreateView(APIView):
 
 
 class JobCardDetailView(APIView):
-    permission_classes = [IsCashierOrAbove]
+    permission_classes = [IsCashierOrAbove, HasPrivilege('job_cards')]
 
     def get_job_card(self, request, job_id):
         try:
@@ -214,6 +215,9 @@ class JobCardDetailView(APIView):
         if 'warranty_days' in data:
             job_card.warranty_days = data['warranty_days']
 
+        if 'pickup_date' in data:
+            job_card.pickup_date = data['pickup_date']
+
         job_card.save()
 
         log_audit(
@@ -263,7 +267,7 @@ class JobCardDetailView(APIView):
 
 
 class JobCardPartView(APIView):
-    permission_classes = [IsCashierOrAbove]
+    permission_classes = [IsCashierOrAbove, HasPrivilege('job_cards')]
 
     @transaction.atomic
     def post(self, request, job_id):
@@ -368,7 +372,7 @@ class JobCardPartView(APIView):
 
 
 class JobCardPaymentView(APIView):
-    permission_classes = [IsCashierOrAbove]
+    permission_classes = [IsCashierOrAbove, HasPrivilege('job_cards')]
 
     @transaction.atomic
     def post(self, request, job_id):

@@ -8,7 +8,7 @@ from django.db.models import Q
 
 from core.models import Customer, CustomerNote, Sale
 from core.services.sale_service import add_payment_to_customer
-from core.permissions import IsManagerOrAbove, IsCashierOrAbove
+from core.permissions import IsManagerOrAbove, IsCashierOrAbove, HasPrivilege
 from core.utils import log_audit, get_client_ip, update_customer_loyalty
 from .serializers import (
     CustomerSerializer, CustomerDetailSerializer,
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 class CustomerListCreateView(APIView):
-    permission_classes = [IsCashierOrAbove]
+    permission_classes = [IsCashierOrAbove, HasPrivilege('customers')]
 
     def get(self, request):
         business = request.user.business
@@ -97,8 +97,8 @@ class CustomerDetailView(APIView):
 
     def get_permissions(self):
         if self.request.method == 'GET':
-            return [IsCashierOrAbove()]
-        return [IsManagerOrAbove()]
+            return [IsCashierOrAbove(), HasPrivilege('customers')()]
+        return [IsManagerOrAbove(), HasPrivilege('customers')()]
 
     def get_customer(self, request, customer_id):
         try:
@@ -187,7 +187,7 @@ class CustomerDetailView(APIView):
 
 
 class CustomerPaymentView(APIView):
-    permission_classes = [IsCashierOrAbove]
+    permission_classes = [IsCashierOrAbove, HasPrivilege('customers')]
 
     def post(self, request, customer_id):
         try:
@@ -230,7 +230,7 @@ class CustomerPaymentView(APIView):
 
 
 class CustomerHistoryView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('customers')]
 
     def get(self, request, customer_id):
         try:
@@ -259,7 +259,7 @@ class CustomerHistoryView(APIView):
 
 
 class CustomerNoteView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('customers')]
 
     def post(self, request, customer_id):
         try:
@@ -312,7 +312,7 @@ class CustomerNoteView(APIView):
 
 
 class TopCustomersView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('customers')]
 
     def get(self, request):
         business    = request.user.business

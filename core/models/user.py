@@ -39,6 +39,31 @@ class User(AbstractBaseUser, PermissionsMixin):
         (ROLE_CASHIER, 'Cashier'),
     ]
 
+    # Granular, per-staff feature toggles layered on top of `role`. `role`
+    # still sets the base access tier (owner/manager/cashier) checked by
+    # IsOwner/IsManagerOrAbove/IsCashierOrAbove; PRIVILEGE_CHOICES narrows
+    # that tier further per staff member and is fully owner-editable at any
+    # time from Settings > Team, instead of being fixed to the role.
+    PRIVILEGE_POS        = 'pos'
+    PRIVILEGE_PRODUCTS   = 'products'
+    PRIVILEGE_CUSTOMERS  = 'customers'
+    PRIVILEGE_JOB_CARDS  = 'job_cards'
+    PRIVILEGE_HOTEL      = 'hotel'
+    PRIVILEGE_EXPENSES   = 'expenses'
+    PRIVILEGE_REPORTS    = 'reports'
+    PRIVILEGE_VOID_SALES = 'void_sales'
+    PRIVILEGE_CHOICES = [
+        (PRIVILEGE_POS,        'Make sales (POS)'),
+        (PRIVILEGE_PRODUCTS,   'Manage products & stock'),
+        (PRIVILEGE_CUSTOMERS,  'Manage customers'),
+        (PRIVILEGE_JOB_CARDS,  'Manage job cards'),
+        (PRIVILEGE_HOTEL,      'Manage hotel bookings'),
+        (PRIVILEGE_EXPENSES,   'Manage expenses'),
+        (PRIVILEGE_REPORTS,    'View reports'),
+        (PRIVILEGE_VOID_SALES, 'Void sales'),
+    ]
+    ALL_PRIVILEGES = [code for code, _ in PRIVILEGE_CHOICES]
+
     id           = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     business     = models.ForeignKey('core.Business', on_delete=models.CASCADE, related_name='users', null=True, blank=True)
     full_name    = models.CharField(max_length=150)
@@ -47,6 +72,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     email        = models.EmailField(unique=True)
     location     = models.TextField(null=True, blank=True)
     role         = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_CASHIER)
+    permissions  = models.JSONField(default=list, blank=True)
     is_active    = models.BooleanField(default=True)
     is_staff     = models.BooleanField(default=False)
     last_login_at = models.DateTimeField(null=True, blank=True)
@@ -66,3 +92,10 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f"{self.username} ({self.full_name})"
+
+    def has_privilege(self, code):
+        """Owners implicitly have every privilege; everyone else is gated
+        by their explicit, owner-editable `permissions` list."""
+        if self.role == self.ROLE_OWNER:
+            return True
+        return code in (self.permissions or [])

@@ -16,7 +16,7 @@ class StaffSerializer(serializers.ModelSerializer):
         model  = User
         fields = [
             'id', 'full_name', 'username', 'phone_number',
-            'email', 'role', 'is_active', 'created_at', 'branches'
+            'email', 'role', 'permissions', 'is_active', 'created_at', 'branches'
         ]
 
     def get_branches(self, obj):
@@ -37,6 +37,10 @@ class CreateStaffSerializer(serializers.Serializer):
     role         = serializers.ChoiceField(choices=['manager', 'cashier'])
     branch_ids   = serializers.ListField(
         child=serializers.UUIDField(), min_length=1
+    )
+    permissions  = serializers.ListField(
+        child=serializers.ChoiceField(choices=User.ALL_PRIVILEGES),
+        required=False,
     )
 
     def validate_username(self, value):
@@ -85,10 +89,14 @@ class CreateStaffSerializer(serializers.Serializer):
 
 
 class UpdateStaffSerializer(serializers.Serializer):
-    full_name  = serializers.CharField(max_length=150, required=False)
-    role       = serializers.ChoiceField(
+    full_name   = serializers.CharField(max_length=150, required=False)
+    role        = serializers.ChoiceField(
         choices=['manager', 'cashier'], required=False
     )
-    branch_ids = serializers.ListField(
+    branch_ids  = serializers.ListField(
         child=serializers.UUIDField(), required=False
+    )
+    permissions = serializers.ListField(
+        child=serializers.ChoiceField(choices=User.ALL_PRIVILEGES),
+        required=False,
     )

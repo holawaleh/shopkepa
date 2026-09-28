@@ -64,7 +64,7 @@ class BusinessProfileView(APIView):
             'email': business.email,
         }
 
-        for field in ['name', 'owner_name', 'phone_number', 'email', 'address']:
+        for field in ['name', 'owner_name', 'phone_number', 'email', 'address', 'logo_url']:
             if field in data:
                 setattr(business, field, data[field])
         business.save()

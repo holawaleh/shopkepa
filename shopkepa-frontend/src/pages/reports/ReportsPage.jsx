@@ -137,7 +137,7 @@ export default function ReportsPage() {
     setPrintingId(sale.id)
     try {
       const res = await salesAPI.get(sale.id)
-      printSaleReceipt(res.data, res.data.business_name || user?.business_name)
+      printSaleReceipt(res.data, res.data.business_name || user?.business_name, user?.business_logo)
     } catch {
       alert('Could not load this receipt. Please try again.')
     } finally {

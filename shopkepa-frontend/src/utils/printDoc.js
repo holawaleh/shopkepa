@@ -10,6 +10,7 @@ const STYLES = `
     padding: 24px;
     font-size: 13px;
   }
+  .logo { display: block; max-width: 120px; max-height: 70px; margin: 0 auto 8px; }
   h1 { font-size: 18px; text-align: center; margin-bottom: 2px; }
   h2 { font-size: 13px; text-align: center; font-weight: normal; color: #555; margin-bottom: 4px; }
   .center { text-align: center; }
@@ -74,9 +75,17 @@ function esc(value, fallback = '-') {
     .replace(/'/g, '&#39;')
 }
 
+function logoTag(logoUrl) {
+  // Only ever a data: URI the business uploaded itself (validated server-side) -
+  // never raw user/customer text, so this is safe to inline unescaped.
+  return logoUrl && logoUrl.startsWith('data:image/')
+    ? `<img class="logo" src="${logoUrl}" alt="">`
+    : ''
+}
+
 // Sale Receipt
 
-export function printSaleReceipt(sale, businessName = 'ShopKepa') {
+export function printSaleReceipt(sale, businessName = 'ShopKepa', logoUrl = null) {
   const companyName = sale.business_name || businessName || 'ShopKepa'
   const branchName = sale.branch_name || 'Branch not specified'
   const customerName = sale.customer_name || 'Walk-in Customer'
@@ -92,6 +101,7 @@ export function printSaleReceipt(sale, businessName = 'ShopKepa') {
   const change = Math.max(0, parseFloat(sale.amount_paid || 0) - parseFloat(sale.total_amount || 0))
 
   openPrint(`
+    ${logoTag(logoUrl)}
     <h1>${esc(companyName)}</h1>
     <h2>Sales Receipt</h2>
     <hr class="solid">
@@ -141,7 +151,7 @@ export function printSaleReceipt(sale, businessName = 'ShopKepa') {
 
 // Job Card Receipt
 
-export function printJobCardReceipt(job, businessName = 'ShopKepa') {
+export function printJobCardReceipt(job, businessName = 'ShopKepa', logoUrl = null) {
   const parts = (job.parts || []).map(p => `
     <tr>
       <td>${p.part_name}</td>
@@ -157,6 +167,7 @@ export function printJobCardReceipt(job, businessName = 'ShopKepa') {
   }[job.status] || '#555'
 
   openPrint(`
+    ${logoTag(logoUrl)}
     <h1>${businessName}</h1>
     <h2>Job Card Receipt</h2>
     <hr class="solid">
@@ -164,6 +175,7 @@ export function printJobCardReceipt(job, businessName = 'ShopKepa') {
     <table>
       <tr><td class="label">Job #</td><td class="right" style="font-weight:bold">${job.job_number || '-'}</td></tr>
       <tr><td class="label">Date</td><td class="right">${fmtDate(job.intake_date || job.created_at)}</td></tr>
+      ${job.pickup_date ? `<tr><td class="label">Expected Pickup</td><td class="right">${fmtDate(job.pickup_date)}</td></tr>` : ''}
       <tr><td class="label">Branch</td><td class="right">${job.branch_name || '-'}</td></tr>
       <tr><td class="label">Status</td><td class="right"><span class="badge" style="color:${statusColor};border:1px solid ${statusColor}">${job.status?.toUpperCase() || ''}</span></td></tr>
     </table>

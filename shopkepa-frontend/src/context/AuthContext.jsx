@@ -53,6 +53,16 @@ export function AuthProvider({ children }) {
     return me.data
   }, [loadModules])
 
+  const reloadUser = useCallback(async () => {
+    try {
+      const me = await authAPI.me()
+      setUser(me.data)
+      return me.data
+    } catch {
+      return null
+    }
+  }, [])
+
   const logout = useCallback(async () => {
     try { await authAPI.logout() } catch { /* best effort */ }
     clearAccessToken()
@@ -83,6 +93,7 @@ export function AuthProvider({ children }) {
       isOwner, isCashier, isManager,
       activeModules, activeCodes, hasModules,
       reloadModules: loadModules,
+      reloadUser,
       defaultRoute,
     }}>
       {children}

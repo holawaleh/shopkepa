@@ -53,6 +53,7 @@ def register_business(validated_data):
         phone_number=phone,
         email=email,
         address=location,
+        logo_url=validated_data.get('logo') or '',
     )
 
     # 2. Create Owner User

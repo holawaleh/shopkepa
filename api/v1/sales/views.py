@@ -6,7 +6,7 @@ from django.utils import timezone
 import logging
 
 from core.models import Sale, Branch, Module, Customer
-from core.permissions import IsCashierOrAbove, IsManagerOrAbove
+from core.permissions import IsCashierOrAbove, IsManagerOrAbove, HasPrivilege
 from core.services.sale_service import create_sale, add_payment_to_sale
 from core.utils import get_client_ip
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ from .serializers import (
 
 
 class SaleListCreateView(APIView):
-    permission_classes = [IsCashierOrAbove]
+    permission_classes = [IsCashierOrAbove, HasPrivilege('pos')]
 
     def get(self, request):
         business = request.user.business
@@ -145,7 +145,7 @@ class SaleListCreateView(APIView):
 
 
 class SaleDetailView(APIView):
-    permission_classes = [IsCashierOrAbove]
+    permission_classes = [IsCashierOrAbove, HasPrivilege('pos')]
 
     def get_sale(self, request, sale_id):
         try:
@@ -200,7 +200,7 @@ class SaleDetailView(APIView):
 
 
 class AddPaymentView(APIView):
-    permission_classes = [IsCashierOrAbove]
+    permission_classes = [IsCashierOrAbove, HasPrivilege('pos')]
 
     def post(self, request, sale_id):
         try:

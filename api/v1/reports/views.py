@@ -11,7 +11,7 @@ from core.models import (
     Expense, BranchInventory, InstallmentPlan,
     JobCard, Branch, Product
 )
-from core.permissions import IsManagerOrAbove
+from core.permissions import IsManagerOrAbove, HasPrivilege
 
 
 def get_date_range(request, default_days=30):
@@ -29,7 +29,7 @@ def get_date_range(request, default_days=30):
 
 
 class DailySalesReportView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('reports')]
 
     def get(self, request):
         business    = request.user.business
@@ -99,7 +99,7 @@ class DailySalesReportView(APIView):
 
 
 class WeeklySalesReportView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('reports')]
 
     def get(self, request):
         business  = request.user.business
@@ -176,7 +176,7 @@ class WeeklySalesReportView(APIView):
 
 
 class MonthlySalesReportView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('reports')]
 
     def get(self, request):
         business  = request.user.business
@@ -272,7 +272,7 @@ class MonthlySalesReportView(APIView):
 
 
 class DebtorReportView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('reports')]
 
     def get(self, request):
         business  = request.user.business
@@ -347,7 +347,7 @@ class DebtorReportView(APIView):
 
 
 class InventoryReportView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('reports')]
 
     def get(self, request):
         business  = request.user.business
@@ -404,7 +404,7 @@ class InventoryReportView(APIView):
 
 
 class CustomerReportView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('reports')]
 
     def get(self, request):
         business            = request.user.business
@@ -468,7 +468,7 @@ class CustomerReportView(APIView):
 
 
 class BranchReportView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('reports')]
 
     def get(self, request):
         business           = request.user.business
@@ -519,7 +519,7 @@ class BranchReportView(APIView):
 
 
 class ExpenseReportView(APIView):
-    permission_classes = [IsManagerOrAbove]
+    permission_classes = [IsManagerOrAbove, HasPrivilege('reports')]
 
     def get(self, request):
         business           = request.user.business

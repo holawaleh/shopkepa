@@ -62,6 +62,7 @@ class JobCard(models.Model):
     warranty_days      = models.IntegerField(null=True, blank=True)
     collected_at       = models.DateTimeField(null=True, blank=True)
     intake_date        = models.DateField(auto_now_add=True)
+    pickup_date        = models.DateField(null=True, blank=True)
     is_deleted         = models.BooleanField(default=False)
     deleted_at         = models.DateTimeField(null=True, blank=True)
     created_at         = models.DateTimeField(auto_now_add=True)
