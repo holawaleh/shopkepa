@@ -453,7 +453,7 @@ export default function LandingPage() {
                 <div style={{ fontSize: 10, fontWeight: 600, color: '#8AAAD4', marginBottom: 10 }}>Job cards - open</div>
                 {[
                   { device: 'iPhone 13 - screen crack', status: 'In repair', color: '#C9A84C' },
-                  { device: 'Samsung A54 - dead', status: 'Diagnosing', color: '#8AAAD4' },
+                  { device: 'HP elitebook 840 G1 - dead', status: 'Diagnosing', color: '#8AAAD4' },
                   { device: 'Laptop - battery', status: 'Awaiting parts', color: '#E8A838' },
                 ].map(j => (
                   <div key={j.device} style={{ padding: '5px 0', borderBottom: '1px solid #1E3A5F' }}>

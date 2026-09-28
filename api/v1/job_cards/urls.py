@@ -4,6 +4,7 @@ from .service_views import ServiceTypeListCreateView, ServiceTypeDetailView
 
 urlpatterns = [
     path('', views.JobCardListCreateView.as_view(), name='jobcard-list-create'),
+    path('technicians/', views.JobCardTechnicianListView.as_view(), name='jobcard-technicians'),
     path('services/', ServiceTypeListCreateView.as_view(), name='service-type-list'),
     path('services/<uuid:pk>/', ServiceTypeDetailView.as_view(), name='service-type-detail'),
     path('<uuid:job_id>/', views.JobCardDetailView.as_view(), name='jobcard-detail'),

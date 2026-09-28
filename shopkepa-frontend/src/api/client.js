@@ -167,6 +167,7 @@ export const jobCardsAPI = {
   pay:          (id, d)         => api.post(`/job-cards/${id}/add-payment/`, d),
   addPart:      (id, d)         => api.post(`/job-cards/${id}/parts/`, d),
   deletePart:   (id, partId)    => api.delete(`/job-cards/${id}/parts/${partId}/`),
+  technicians:  ()              => api.get('/job-cards/technicians/'),
   listServices: ()              => api.get('/job-cards/services/'),
   createService:(data)          => api.post('/job-cards/services/', data),
   updateService:(id, d)         => api.patch(`/job-cards/services/${id}/`, d),

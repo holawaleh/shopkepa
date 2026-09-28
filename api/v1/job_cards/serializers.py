@@ -1,5 +1,11 @@
 from rest_framework import serializers
-from core.models import JobCard, JobCardPart
+from core.models import JobCard, JobCardPart, User
+
+
+class TechnicianSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = User
+        fields = ['id', 'full_name', 'role']
 
 
 class JobCardPartSerializer(serializers.ModelSerializer):

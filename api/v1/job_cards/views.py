@@ -11,8 +11,24 @@ from core.utils import generate_job_number, log_audit, get_client_ip
 from .serializers import (
     JobCardSerializer, JobCardDetailSerializer,
     CreateJobCardSerializer, UpdateJobCardSerializer,
-    AddJobCardPartSerializer, JobCardPaymentSerializer
+    AddJobCardPartSerializer, JobCardPaymentSerializer,
+    TechnicianSerializer,
 )
+
+
+class JobCardTechnicianListView(APIView):
+    """Minimal staff picker for the 'technician in charge' field on a job
+    card - deliberately its own endpoint (id/name/role only) rather than
+    reusing /staff/, which is manager+ only and returns phone/email too."""
+    permission_classes = [IsCashierOrAbove, HasPrivilege('job_cards')]
+
+    def get(self, request):
+        technicians = User.objects.filter(
+            business=request.user.business,
+            is_deleted=False,
+            is_active=True,
+        ).order_by('full_name')
+        return Response(TechnicianSerializer(technicians, many=True).data)
 
 
 class JobCardListCreateView(APIView):
