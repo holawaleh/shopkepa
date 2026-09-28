@@ -162,13 +162,13 @@ function ServicesTab({ isOwner }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <p style={{ fontSize: 13, color: 'var(--muted)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
+        <p style={{ fontSize: 13, color: 'var(--muted)', flex: 1, minWidth: 240 }}>
           Define service types and standard prices for your repair shop. Staff pick from these when creating a job card.
           {!isOwner && <span style={{ color: 'var(--warning)', marginLeft: 6 }}>(View only — contact admin to make changes)</span>}
         </p>
         {isOwner && (
-          <button className="btn-gold" style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 16 }} onClick={openAdd}>
+          <button className="btn-gold" style={{ display: 'flex', alignItems: 'center', gap: 6, width: 'auto', flexShrink: 0 }} onClick={openAdd}>
             <Plus size={14} /> Add Service Type
           </button>
         )}
