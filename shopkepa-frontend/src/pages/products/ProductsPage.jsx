@@ -535,7 +535,7 @@ export default function ProductsPage() {
               <div className="product-form-grid" style={{ display: 'grid', gridTemplateColumns: branches.length > 1 ? '1fr 1fr' : '1fr', gap: 12 }}>
                 <FormField label="Opening stock (quantity)" error={formErrors.opening_stock}>
                   <input className="input" type="number" min="0" step="1" value={form.opening_stock} onChange={set('opening_stock')} placeholder="0" />
-                  <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'block' }}>How many you have right now. Later changes go through Adjust Stock.</span>
+                  <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'block' }}>Can also be changed through adjust stock</span>
                 </FormField>
                 {branches.length > 1 && (
                   <FormField label="Stock is at branch">
