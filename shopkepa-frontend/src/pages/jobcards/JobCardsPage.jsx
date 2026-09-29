@@ -734,7 +734,7 @@ function JobCardsTab({ branches }) {
               <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Additional notes</label>
               <textarea className="input" rows={3} style={{ resize: 'vertical' }}
                 value={form.technician_notes} onChange={set('technician_notes')}
-                placeholder="Anything else worth recording — condition on intake, accessories received, special instructions…" />
+                placeholder="Condition on intake, accessories received, special instructions…" />
               <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'block' }}>Optional — printed on the job card receipt.</span>
             </div>
 
@@ -790,7 +790,7 @@ function JobCardsTab({ branches }) {
             <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Additional notes</label>
             <textarea className="input" rows={3} style={{ resize: 'vertical' }}
               value={newNotes} onChange={e => setNewNotes(e.target.value)}
-              placeholder="Anything else worth recording…" />
+              placeholder="Important to note" />
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>
