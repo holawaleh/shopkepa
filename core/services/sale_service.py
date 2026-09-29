@@ -14,6 +14,36 @@ from core.utils import (
 
 logger = logging.getLogger(__name__)
 
+def find_or_create_customer(business, full_name, phone='', created_by=None):
+    """
+    Resolve a customer typed at checkout (name, optional phone) without
+    creating duplicates for returning customers:
+      1. same phone number in this business  -> that customer
+      2. else exactly one customer with this exact name (case-insensitive)
+      3. else a new customer
+    Call inside the sale's transaction so a failed sale leaves no orphan.
+    """
+    full_name = ' '.join(full_name.split())
+    phone = (phone or '').strip()
+    existing = Customer.objects.filter(business=business, is_deleted=False)
+
+    if phone:
+        match = existing.filter(phone_number=phone).order_by('created_at').first()
+        if match:
+            return match
+
+    same_name = list(existing.filter(full_name__iexact=full_name)[:2])
+    if len(same_name) == 1:
+        return same_name[0]
+
+    return Customer.objects.create(
+        business=business,
+        full_name=full_name,
+        phone_number=phone or None,
+        created_by=created_by,
+    )
+
+
 def money(value):
     if value is None or value == '':
         return Decimal('0')

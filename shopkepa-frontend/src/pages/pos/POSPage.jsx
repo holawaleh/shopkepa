@@ -318,6 +318,14 @@ export default function POSPage() {
     setModal(true)
   }
 
+  // A name typed in the customer box (or a half-filled "+ Add" form) that
+  // was never picked/saved. Sent with the sale so the server attaches or
+  // creates that customer, instead of silently recording a walk-in.
+  const pendingCustomer = selectedCustomer ? null
+    : (quickAddCustomer && quickForm.full_name.trim())
+      ? { name: quickForm.full_name.trim(), phone: quickForm.phone_number.trim() }
+      : customerSearch.trim() ? { name: customerSearch.trim(), phone: '' } : null
+
   const balanceDue = Math.max(0, cartTotal - parseFloat(amountPaid || 0))
   const change     = Math.max(0, parseFloat(amountPaid || 0) - cartTotal)
   const requiresCustomer = balanceDue > 0
@@ -326,7 +334,7 @@ export default function POSPage() {
     setSaleError('')
     const paid = parseFloat(amountPaid)
     if (isNaN(paid) || paid < 0) { setSaleError('Please enter the amount paid by the customer.'); return }
-    if (paid < cartTotal && !selectedCustomer) {
+    if (paid < cartTotal && !selectedCustomer && !pendingCustomer) {
       setSaleError('Select an existing customer below or add a new customer before recording this credit sale.')
       return
     }
@@ -337,6 +345,8 @@ export default function POSPage() {
         branch_id:      branchId,
         module_id:      moduleId,
         customer_id:    capturedCustomer?.id || undefined,
+        new_customer_name:  pendingCustomer?.name || undefined,
+        new_customer_phone: pendingCustomer?.phone || undefined,
         items: cart.map(i => ({
           product_id:      i.product.id,
           quantity:        i.qty,
@@ -357,7 +367,7 @@ export default function POSPage() {
         ...saleData,
         business_name: saleData.business_name || user?.business_name || 'ShopKepa',
         branch_name: saleData.branch_name || selectedBranch?.name || undefined,
-        customer_name: saleData.customer_name || capturedCustomer?.full_name || 'Walk-in Customer',
+        customer_name: saleData.customer_name || capturedCustomer?.full_name || pendingCustomer?.name || 'Walk-in Customer',
       }
       setSuccess(enrichedSale)
       // Fire success toast
@@ -376,6 +386,8 @@ export default function POSPage() {
       setCart([])
       setSelectedCustomer(null)
       setCustomerSearch('')
+      setQuickAddCustomer(false)
+      setQuickForm({ full_name: '', phone_number: '' })
       setModal(false)
       // Reload product grid to refresh stock counts
       setPage(1)
@@ -612,11 +624,16 @@ export default function POSPage() {
                   </div>
                 )}
                 {customerSearch.trim() && !showCustomerList && (
-                  <button
-                    onClick={() => { setQuickForm({ full_name: customerSearch.trim(), phone_number: '' }); setQuickAddCustomer(true) }}
-                    style={{ fontSize: 12, color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer', marginTop: 4, padding: 0 }}>
-                    + Add "{customerSearch.trim()}" as new customer
-                  </button>
+                  <>
+                    <button
+                      onClick={() => { setQuickForm({ full_name: customerSearch.trim(), phone_number: '' }); setQuickAddCustomer(true) }}
+                      style={{ fontSize: 12, color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer', marginTop: 4, padding: 0 }}>
+                      + Add "{customerSearch.trim()}" as new customer
+                    </button>
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                      Or just complete the sale — "{customerSearch.trim()}" will be saved as the customer.
+                    </div>
+                  </>
                 )}
               </div>
             )}
@@ -1049,11 +1066,16 @@ export default function POSPage() {
                         </div>
                       )}
                       {customerSearch.trim() && !showCustomerList && (
-                        <button
-                          onClick={() => { setQuickForm({ full_name: customerSearch.trim(), phone_number: '' }); setQuickAddCustomer(true) }}
-                          style={{ fontSize: 12, color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer', marginTop: 4, padding: 0 }}>
-                          + Add "{customerSearch.trim()}" as new customer
-                        </button>
+                        <>
+                          <button
+                            onClick={() => { setQuickForm({ full_name: customerSearch.trim(), phone_number: '' }); setQuickAddCustomer(true) }}
+                            style={{ fontSize: 12, color: 'var(--gold)', background: 'none', border: 'none', cursor: 'pointer', marginTop: 4, padding: 0 }}>
+                            + Add "{customerSearch.trim()}" as new customer
+                          </button>
+                          <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
+                            Or just complete the sale — "{customerSearch.trim()}" will be saved as the customer.
+                          </div>
+                        </>
                       )}
                     </div>
                   )}

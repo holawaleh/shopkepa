@@ -106,6 +106,11 @@ class CreateSaleSerializer(serializers.Serializer):
     branch_id       = serializers.UUIDField()
     module_id       = serializers.UUIDField()
     customer_id     = serializers.UUIDField(required=False, allow_null=True)
+    # A customer typed at checkout but never picked from the search list or
+    # saved via "+ Add". Used only when customer_id is absent: the sale
+    # attaches to a matching existing customer, or creates one.
+    new_customer_name  = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    new_customer_phone = serializers.CharField(max_length=20, required=False, allow_blank=True)
     items           = SaleItemInputSerializer(many=True, min_length=1)
     discount_amount = serializers.DecimalField(
         max_digits=15, decimal_places=2, default=0
@@ -198,7 +203,8 @@ class CreateSaleSerializer(serializers.Serializer):
             )
 
         total_amount -= Decimal(str(data.get('discount_amount', 0)))
-        if data['amount_paid'] < total_amount and not data.get('customer_id'):
+        if (data['amount_paid'] < total_amount and not data.get('customer_id')
+                and not (data.get('new_customer_name') or '').strip()):
             raise serializers.ValidationError({
                 'customer_id': 'Attach a customer before recording a partial or unpaid sale.'
             })

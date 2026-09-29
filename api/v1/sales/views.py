@@ -2,12 +2,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.db.models import Q
+from django.db import transaction
 from django.utils import timezone
 import logging
 
 from core.models import Sale, Branch, Module, Customer
 from core.permissions import IsCashierOrAbove, IsManagerOrAbove, HasPrivilege
-from core.services.sale_service import create_sale, add_payment_to_sale
+from core.services.sale_service import create_sale, add_payment_to_sale, find_or_create_customer
 from core.idempotency import idempotent
 from core.utils import get_client_ip
 logger = logging.getLogger(__name__)
@@ -115,22 +116,32 @@ class SaleListCreateView(APIView):
             except Exception:
                 pass
 
+        new_customer_name = (data.get('new_customer_name') or '').strip()
         try:
-            result = create_sale(
-                business=business,
-                branch=branch,
-                module=module,
-                items=data['items'],
-                payment_data={
-                    'amount_paid':     data['amount_paid'],
-                    'payment_method':  data['payment_method'],
-                    'reference_number': data.get('reference_number', ''),
-                },
-                customer=customer,
-                discount_amount=data.get('discount_amount', 0),
-                notes=data.get('notes', ''),
-                created_by=request.user,
-            )
+            # One transaction: a customer typed at checkout is only saved if
+            # the sale itself succeeds (ValueError propagates out and rolls
+            # both back).
+            with transaction.atomic():
+                if customer is None and new_customer_name:
+                    customer = find_or_create_customer(
+                        business, new_customer_name,
+                        data.get('new_customer_phone', ''), request.user,
+                    )
+                result = create_sale(
+                    business=business,
+                    branch=branch,
+                    module=module,
+                    items=data['items'],
+                    payment_data={
+                        'amount_paid':     data['amount_paid'],
+                        'payment_method':  data['payment_method'],
+                        'reference_number': data.get('reference_number', ''),
+                    },
+                    customer=customer,
+                    discount_amount=data.get('discount_amount', 0),
+                    notes=data.get('notes', ''),
+                    created_by=request.user,
+                )
         except ValueError as e:
             return Response(
                 {'error': str(e)},
