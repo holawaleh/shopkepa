@@ -6,7 +6,7 @@ import {
 import AppLayout from '../../components/layout/AppLayout'
 import { productsAPI, salesAPI, modulesAPI, branchesAPI, customersAPI } from '../../api/client'
 import { formatNaira, parseApiError } from '../../utils/format'
-import { printSaleReceipt } from '../../utils/printDoc'
+import { printSaleReceipt, buildBusinessInfo } from '../../utils/printDoc'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 
@@ -478,7 +478,7 @@ export default function POSPage() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
-              onClick={() => printSaleReceipt(success, success.business_name || user?.business_name, user?.business_logo)}
+              onClick={() => printSaleReceipt(success, buildBusinessInfo(user))}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '5px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer',

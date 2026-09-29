@@ -4,7 +4,7 @@ import { Plus, Search, X, AlertCircle, Wrench, Printer, Trash2, Edit2 } from 'lu
 import AppLayout from '../../components/layout/AppLayout'
 import { jobCardsAPI, branchesAPI } from '../../api/client'
 import { formatNaira, formatDate, parseApiError } from '../../utils/format'
-import { printJobCardReceipt } from '../../utils/printDoc'
+import { printJobCardReceipt, buildBusinessInfo } from '../../utils/printDoc'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 
@@ -41,7 +41,7 @@ const DEVICE_TYPES = [
 const EMPTY_JOB = {
   customer_name: '', customer_phone: '', device_description: '',
   customer_complaint: '', labour_charge: '0', branch_id: '', service_id: '',
-  pickup_date: '', technician_id: '', intake_date: '',
+  pickup_date: '', technician_id: '', intake_date: '', technician_notes: '',
 }
 
 const EMPTY_SVC = { name: '', category: '', base_price: '', description: '' }
@@ -279,6 +279,7 @@ function JobCardsTab({ branches }) {
   const [newPickupDate, setNewPickupDate] = useState('')
   const [newTechnicianId, setNewTechnicianId] = useState('')
   const [newIntakeDate, setNewIntakeDate] = useState('')
+  const [newNotes, setNewNotes] = useState('')
   const [payAmount, setPayAmount]   = useState('')
   const [payMethod, setPayMethod]   = useState('cash')
 
@@ -370,6 +371,7 @@ function JobCardsTab({ branches }) {
         pickup_date:        form.pickup_date || undefined,
         technician_id:      form.technician_id || undefined,
         intake_date:        form.intake_date || undefined,
+        technician_notes:   form.technician_notes.trim() || undefined,
       })
       toast.success(`Job card ${res.data.job_number ?? ''} created for ${form.customer_name.trim()}`)
       setModal(null)
@@ -387,6 +389,7 @@ function JobCardsTab({ branches }) {
     setNewPickupDate(job.pickup_date || '')
     setNewTechnicianId(job.technician || '')
     setNewIntakeDate(job.intake_date || '')
+    setNewNotes(job.technician_notes || '')
     setError('')
     setModal('status')
   }
@@ -396,7 +399,8 @@ function JobCardsTab({ branches }) {
     const pickupChanged     = newPickupDate !== (selected.pickup_date || '')
     const technicianChanged = newTechnicianId !== (selected.technician || '')
     const intakeChanged     = newIntakeDate && newIntakeDate !== (selected.intake_date || '')
-    if (!statusChanged && !pickupChanged && !technicianChanged && !intakeChanged) { setModal(null); return }
+    const notesChanged      = newNotes !== (selected.technician_notes || '')
+    if (!statusChanged && !pickupChanged && !technicianChanged && !intakeChanged && !notesChanged) { setModal(null); return }
     setSaving(true); setError('')
     try {
       const payload = {}
@@ -404,6 +408,7 @@ function JobCardsTab({ branches }) {
       if (pickupChanged) payload.pickup_date = newPickupDate || null
       if (technicianChanged) payload.technician_id = newTechnicianId || null
       if (intakeChanged) payload.intake_date = newIntakeDate
+      if (notesChanged) payload.technician_notes = newNotes
       await jobCardsAPI.update(selected.id, payload)
       if (statusChanged && newStatus === 'ready') {
         toast.success(`${selected.job_number} is ready for collection — notify ${selected.customer_name}`)
@@ -414,6 +419,8 @@ function JobCardsTab({ branches }) {
         toast.info(tech ? `${selected.job_number} assigned to ${tech.full_name}` : `${selected.job_number} unassigned`)
       } else if (intakeChanged) {
         toast.info(`${selected.job_number} date brought in updated`)
+      } else if (notesChanged) {
+        toast.info(`${selected.job_number} notes updated`)
       } else {
         toast.info(`${selected.job_number} pickup date updated`)
       }
@@ -597,8 +604,8 @@ function JobCardsTab({ branches }) {
                         </button>
                         <button
                           onClick={async () => {
-                            try { const res = await jobCardsAPI.get(j.id); printJobCardReceipt(res.data, user?.business_name, user?.business_logo) }
-                            catch { printJobCardReceipt(j, user?.business_name, user?.business_logo) }
+                            try { const res = await jobCardsAPI.get(j.id); printJobCardReceipt(res.data, buildBusinessInfo(user)) }
+                            catch { printJobCardReceipt(j, buildBusinessInfo(user)) }
                           }}
                           className="btn-ghost" style={{ padding: '4px 8px', fontSize: 11 }} title="Print">
                           <Printer size={13} />
@@ -723,6 +730,14 @@ function JobCardsTab({ branches }) {
               <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'block' }}>Optional — can be assigned later too.</span>
             </div>
 
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Additional notes</label>
+              <textarea className="input" rows={3} style={{ resize: 'vertical' }}
+                value={form.technician_notes} onChange={set('technician_notes')}
+                placeholder="Anything else worth recording — condition on intake, accessories received, special instructions…" />
+              <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'block' }}>Optional — printed on the job card receipt.</span>
+            </div>
+
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>
               <button type="submit" className="btn-gold" style={{ flex: 2 }} disabled={saving}>
@@ -764,12 +779,18 @@ function JobCardsTab({ branches }) {
             <input className="input" type="date"
               value={newPickupDate} onChange={e => setNewPickupDate(e.target.value)} />
           </div>
-          <div style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: 14 }}>
             <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Technician in charge</label>
             <select className="input" value={newTechnicianId} onChange={e => setNewTechnicianId(e.target.value)}>
               <option value="">Unassigned</option>
               {technicians.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
             </select>
+          </div>
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Additional notes</label>
+            <textarea className="input" rows={3} style={{ resize: 'vertical' }}
+              value={newNotes} onChange={e => setNewNotes(e.target.value)}
+              placeholder="Anything else worth recording…" />
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>

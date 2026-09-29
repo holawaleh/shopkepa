@@ -1,6 +1,19 @@
 // All print functions open a new window, inject styled HTML, then call print().
 // No external PDF libraries needed.
 
+// Builds the { name, logo, phone, email, address } bundle printSaleReceipt
+// and printJobCardReceipt expect, straight from the AuthContext user object
+// (set in Settings > Business Profile) - one call site instead of five.
+export function buildBusinessInfo(user) {
+  return {
+    name: user?.business_name,
+    logo: user?.business_logo,
+    phone: user?.business_phone,
+    email: user?.business_email,
+    address: user?.business_address,
+  }
+}
+
 const STYLES = `
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -13,7 +26,14 @@ const STYLES = `
   .logo { display: block; max-width: 120px; max-height: 70px; margin: 0 auto 8px; }
   h1 { font-size: 18px; text-align: center; margin-bottom: 2px; }
   h2 { font-size: 13px; text-align: center; font-weight: normal; color: #555; margin-bottom: 4px; }
+  .company-info { text-align: center; font-size: 11px; color: #555; margin-bottom: 6px; line-height: 1.5; }
   .center { text-align: center; }
+  .watermark {
+    position: fixed; top: 50%; left: 50%; width: 70%; max-width: 320px;
+    transform: translate(-50%, -50%) rotate(-25deg);
+    opacity: 0.05; z-index: 0; pointer-events: none;
+  }
+  .receipt-body { position: relative; z-index: 1; }
   .divider { border: none; border-top: 1px dashed #aaa; margin: 10px 0; }
   .solid   { border: none; border-top: 2px solid #111; margin: 10px 0; }
   table { width: 100%; border-collapse: collapse; }
@@ -31,9 +51,12 @@ const STYLES = `
   }
 `
 
-function openPrint(html) {
+function openPrint(html, watermarkUrl = null) {
   const win = window.open('', '_blank', 'width=560,height=750,scrollbars=yes')
   if (!win) { alert('Please allow pop-ups for ShopKepa to print.'); return }
+  const watermark = watermarkUrl && watermarkUrl.startsWith('data:image/')
+    ? `<img class="watermark" src="${watermarkUrl}" alt="">`
+    : ''
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>ShopKepa - Print Preview</title><style>
 ${STYLES}
 #print-bar{position:fixed;bottom:0;left:0;right:0;background:#1a1a2e;border-top:1px solid #333;padding:10px 16px;display:flex;gap:10px;justify-content:flex-end;z-index:99}
@@ -42,7 +65,7 @@ ${STYLES}
 #btn-cancel{background:transparent;color:#aaa;border:1px solid #444!important}
 body{padding-bottom:56px}
 @media print{#print-bar{display:none}body{padding-bottom:0}}
-</style></head><body>${html}
+</style></head><body>${watermark}<div class="receipt-body">${html}</div>
 <div id="print-bar">
   <button id="btn-cancel" onclick="window.close()">Cancel</button>
   <button id="btn-print" onclick="window.print()">Print</button>
@@ -75,18 +98,40 @@ function esc(value, fallback = '-') {
     .replace(/'/g, '&#39;')
 }
 
-function logoTag(logoUrl) {
-  // Only ever a data: URI the business uploaded itself (validated server-side) -
-  // never raw user/customer text, so this is safe to inline unescaped.
-  return logoUrl && logoUrl.startsWith('data:image/')
-    ? `<img class="logo" src="${logoUrl}" alt="">`
+// `business` is the { name, logo, phone, email, address } bundle every
+// print* function accepts - logo/name come from Settings > Business
+// Profile, phone/email/address from Settings > Business Profile fields.
+function normalizeBusiness(business, fallbackName) {
+  if (typeof business === 'string') business = { name: business } // old (businessName) callers
+  business = business || {}
+  return {
+    name: business.name || fallbackName || 'ShopKepa',
+    logo: business.logo || null,
+    phone: business.phone || '',
+    email: business.email || '',
+    address: business.address || '',
+  }
+}
+
+function companyHeader(business, subtitle) {
+  // Logo is only ever a data: URI the business uploaded itself (validated
+  // server-side) - never raw user/customer text, so safe to inline as-is.
+  const logoHtml = business.logo && business.logo.startsWith('data:image/')
+    ? `<img class="logo" src="${business.logo}" alt="">`
     : ''
+  const contactLine = [business.phone, business.email, business.address].filter(Boolean).map(v => esc(v)).join(' &middot; ')
+  return `
+    ${logoHtml}
+    <h1>${esc(business.name)}</h1>
+    ${contactLine ? `<p class="company-info">${contactLine}</p>` : ''}
+    <h2>${subtitle}</h2>
+  `
 }
 
 // Sale Receipt
 
-export function printSaleReceipt(sale, businessName = 'ShopKepa', logoUrl = null) {
-  const companyName = sale.business_name || businessName || 'ShopKepa'
+export function printSaleReceipt(sale, business = null) {
+  const biz = normalizeBusiness(business, sale.business_name)
   const branchName = sale.branch_name || 'Branch not specified'
   const customerName = sale.customer_name || 'Walk-in Customer'
   const items = (sale.items || []).map(i => `
@@ -101,13 +146,11 @@ export function printSaleReceipt(sale, businessName = 'ShopKepa', logoUrl = null
   const change = Math.max(0, parseFloat(sale.amount_paid || 0) - parseFloat(sale.total_amount || 0))
 
   openPrint(`
-    ${logoTag(logoUrl)}
-    <h1>${esc(companyName)}</h1>
-    <h2>Sales Receipt</h2>
+    ${companyHeader(biz, 'Sales Receipt')}
     <hr class="solid">
 
     <table>
-      <tr><td class="label">Company</td><td class="right" style="font-weight:bold">${esc(companyName)}</td></tr>
+      <tr><td class="label">Company</td><td class="right" style="font-weight:bold">${esc(biz.name)}</td></tr>
       <tr><td class="label">Branch</td><td class="right">${esc(branchName)}</td></tr>
       <tr><td class="label">Customer</td><td class="right">${esc(customerName)}</td></tr>
       <tr><td class="label">Receipt #</td><td class="right">${esc(sale.sale_number)}</td></tr>
@@ -146,12 +189,13 @@ export function printSaleReceipt(sale, businessName = 'ShopKepa', logoUrl = null
       Thank you for your patronage!<br>
       Powered by ShopKepa
     </p>
-  `)
+  `, biz.logo)
 }
 
 // Job Card Receipt
 
-export function printJobCardReceipt(job, businessName = 'ShopKepa', logoUrl = null) {
+export function printJobCardReceipt(job, business = null) {
+  const biz = normalizeBusiness(business)
   const parts = (job.parts || []).map(p => `
     <tr>
       <td>${p.part_name}</td>
@@ -167,9 +211,7 @@ export function printJobCardReceipt(job, businessName = 'ShopKepa', logoUrl = nu
   }[job.status] || '#555'
 
   openPrint(`
-    ${logoTag(logoUrl)}
-    <h1>${businessName}</h1>
-    <h2>Job Card Receipt</h2>
+    ${companyHeader(biz, 'Job Card Receipt')}
     <hr class="solid">
 
     <table>
@@ -228,7 +270,7 @@ export function printJobCardReceipt(job, businessName = 'ShopKepa', logoUrl = nu
       ${job.technician_name ? `Technician: ${job.technician_name}<br>` : ''}
       Powered by ShopKepa
     </p>
-  `)
+  `, biz.logo)
 }
 
 // Customer Statement

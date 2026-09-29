@@ -43,6 +43,7 @@ class JobCardSerializer(serializers.ModelSerializer):
             'customer', 'customer_name',
             'customer_phone', 'device_description',
             'customer_complaint', 'technician', 'technician_name',
+            'technician_notes',
             'status', 'labour_charge', 'parts_charge',
             'total_charge', 'amount_paid', 'balance_due',
             'payment_status', 'intake_date', 'pickup_date',

@@ -183,7 +183,7 @@ export default function TopNav() {
       {/* Mobile: floating trigger, since the rail is fully hidden at rest */}
       <button onClick={() => setMobileOpen(o => !o)} className="rail-hamburger"
         style={{
-          display: 'none', position: 'fixed', top: (isOnline ? 0 : OFFLINE_BANNER_HEIGHT) + 14, left: 14, zIndex: 210,
+          display: 'none', position: 'fixed', top: (isOnline ? 0 : OFFLINE_BANNER_HEIGHT) + 14, left: 14, zIndex: 160,
           width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
           background: 'var(--blue)', border: '1px solid var(--mid)', color: 'var(--light)', cursor: 'pointer',
         }}>
@@ -193,12 +193,15 @@ export default function TopNav() {
       {/* Backdrop behind the drawer on mobile */}
       {mobileOpen && (
         <div onClick={() => setMobileOpen(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 199 }} />
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 149 }} />
       )}
 
+      {/* z-index kept below every page Modal (z-index 200) so an open modal
+          always wins regardless of DOM order - the rail should never be
+          able to render on top of one. */}
       <nav className={`side-rail${mobileOpen ? ' expanded' : ''}`} style={{
         background: 'var(--blue)', borderRight: '1px solid var(--mid)',
-        position: 'fixed', top: isOnline ? 0 : OFFLINE_BANNER_HEIGHT, left: 0, bottom: 0, zIndex: 200,
+        position: 'fixed', top: isOnline ? 0 : OFFLINE_BANNER_HEIGHT, left: 0, bottom: 0, zIndex: 150,
         display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }}>
         {/* Brand */}
@@ -297,7 +300,7 @@ export default function TopNav() {
         .side-rail:hover .rail-label, .side-rail.expanded .rail-label { opacity: 1; }
         @media (max-width: 768px) {
           .side-rail { width: 0; border-right: none !important; }
-          .side-rail.expanded { width: 240px; }
+          .side-rail.expanded { width: ${RAIL_WIDTH_EXPANDED}px; }
           .rail-hamburger { display: flex !important; }
         }
       `}</style>

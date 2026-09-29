@@ -50,10 +50,13 @@ class LoginSerializer(serializers.Serializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    business_name = serializers.SerializerMethodField()
-    business_id   = serializers.SerializerMethodField()
-    business_logo = serializers.SerializerMethodField()
-    branch_ids    = serializers.SerializerMethodField()
+    business_name    = serializers.SerializerMethodField()
+    business_id      = serializers.SerializerMethodField()
+    business_logo    = serializers.SerializerMethodField()
+    business_phone   = serializers.SerializerMethodField()
+    business_email   = serializers.SerializerMethodField()
+    business_address = serializers.SerializerMethodField()
+    branch_ids       = serializers.SerializerMethodField()
 
     def get_business_name(self, obj):
         return obj.business.name if obj.business else None
@@ -63,6 +66,15 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_business_logo(self, obj):
         return obj.business.logo_url if obj.business else None
+
+    def get_business_phone(self, obj):
+        return obj.business.phone_number if obj.business else None
+
+    def get_business_email(self, obj):
+        return obj.business.email if obj.business else None
+
+    def get_business_address(self, obj):
+        return obj.business.address if obj.business else None
 
     def get_branch_ids(self, obj):
         return list(
@@ -76,6 +88,7 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'full_name', 'username',
             'phone_number', 'email', 'location',
             'role', 'permissions', 'business_id', 'business_name', 'business_logo',
+            'business_phone', 'business_email', 'business_address',
             'branch_ids', 'is_active', 'created_at',
         ]
 

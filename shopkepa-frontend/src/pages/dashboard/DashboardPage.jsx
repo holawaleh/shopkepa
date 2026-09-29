@@ -5,7 +5,7 @@ import AppLayout from '../../components/layout/AppLayout'
 import { salesAPI, productsAPI, customersAPI, jobCardsAPI, hotelAPI, reportsAPI } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import { formatNaira } from '../../utils/format'
-import { printSaleReceipt } from '../../utils/printDoc'
+import { printSaleReceipt, buildBusinessInfo } from '../../utils/printDoc'
 
 // ─── Alerts Panel ─────────────────────────────────────────────────────────
 
@@ -209,7 +209,7 @@ function SalesSection({ activeCodes }) {
     setPrintingId(sale.id)
     try {
       const res = await salesAPI.get(sale.id)
-      printSaleReceipt(res.data, res.data.business_name || user?.business_name, user?.business_logo)
+      printSaleReceipt(res.data, buildBusinessInfo(user))
     } catch {
       alert('Could not load this receipt. Please try again.')
     } finally {
@@ -419,7 +419,10 @@ function HotelSection() {
 
 export default function DashboardPage() {
   const { user, activeCodes } = useAuth()
-  const name  = user?.first_name || user?.email?.split('@')[0] || 'there'
+  // UserSerializer only ever exposes full_name (never first_name), so this
+  // used to always fall through to the email prefix - e.g. the business's
+  // own inbox name ("techaffairsandinnovation") instead of the owner's name.
+  const name  = user?.full_name?.trim().split(/\s+/)[0] || user?.username || user?.email?.split('@')[0] || 'there'
   const today = new Date().toLocaleDateString('en-NG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
   const hasSales    = ['general_trade','fashion','electronics','food','pharmacy','building_materials','stationery'].some(c => activeCodes.has(c))
@@ -428,7 +431,7 @@ export default function DashboardPage() {
 
   return (
     <AppLayout>
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 24, textAlign: 'center' }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 2, color: 'var(--light)' }}>
           {greeting()}, {name}
         </h1>

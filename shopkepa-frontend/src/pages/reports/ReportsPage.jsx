@@ -5,7 +5,7 @@ import AppLayout from '../../components/layout/AppLayout'
 import { reportsAPI, branchesAPI, salesAPI } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import { formatNaira, formatDate, parseApiError } from '../../utils/format'
-import { printSaleReceipt } from '../../utils/printDoc'
+import { printSaleReceipt, buildBusinessInfo } from '../../utils/printDoc'
 
 const PAYMENT_STATUS_STYLE = {
   paid:            { bg: 'rgba(76,175,125,0.12)', color: 'var(--success)' },
@@ -159,7 +159,7 @@ export default function ReportsPage() {
     setPrintingId(sale.id)
     try {
       const res = await salesAPI.get(sale.id)
-      printSaleReceipt(res.data, res.data.business_name || user?.business_name, user?.business_logo)
+      printSaleReceipt(res.data, buildBusinessInfo(user))
     } catch {
       alert('Could not load this receipt. Please try again.')
     } finally {
