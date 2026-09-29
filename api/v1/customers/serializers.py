@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 from core.models import Customer, CustomerNote
 
@@ -31,6 +33,7 @@ class CustomerSerializer(serializers.ModelSerializer):
 class CustomerDetailSerializer(serializers.ModelSerializer):
     notes = CustomerNoteSerializer(many=True, read_only=True)
     total_purchases = serializers.SerializerMethodField()
+    outstanding = serializers.SerializerMethodField()
 
     class Meta:
         model  = Customer
@@ -40,10 +43,38 @@ class CustomerDetailSerializer(serializers.ModelSerializer):
             'loyalty_tag', 'lifetime_spend',
             'total_outstanding_debt', 'last_purchase_date',
             'is_active', 'created_at', 'notes', 'total_purchases',
+            'outstanding',
         ]
 
     def get_total_purchases(self, obj):
         return obj.sales.filter(is_deleted=False).count()
+
+    def get_outstanding(self, obj):
+        """Everything this customer still owes, item by item, computed from
+        the sales and job cards themselves (the record of truth) rather
+        than the running total_outstanding_debt counter."""
+        items = []
+        for sale in obj.sales.filter(is_deleted=False, balance_due__gt=0).order_by('sale_date', 'created_at'):
+            items.append({
+                'type': 'sale', 'id': str(sale.id), 'reference': sale.sale_number,
+                'date': sale.sale_date, 'total': sale.total_amount,
+                'paid': sale.amount_paid, 'balance': sale.balance_due,
+            })
+        jobs = obj.job_cards.filter(is_deleted=False, balance_due__gt=0).exclude(status='cancelled')
+        for job in jobs.order_by('intake_date', 'created_at'):
+            items.append({
+                'type': 'job_card', 'id': str(job.id), 'reference': job.job_number,
+                'date': job.intake_date, 'total': job.total_charge,
+                'paid': job.amount_paid, 'balance': job.balance_due,
+            })
+        sales_total = sum((i['balance'] for i in items if i['type'] == 'sale'), Decimal('0'))
+        jobs_total = sum((i['balance'] for i in items if i['type'] == 'job_card'), Decimal('0'))
+        return {
+            'total': sales_total + jobs_total,
+            'sales_total': sales_total,
+            'job_cards_total': jobs_total,
+            'items': items,
+        }
 
 
 class CreateCustomerSerializer(serializers.Serializer):

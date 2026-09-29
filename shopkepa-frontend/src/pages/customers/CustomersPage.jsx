@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Plus, Search, Edit2, X, AlertCircle, Users, Printer, CreditCard, Trash2, MessageSquare, Send, Eye, FileText } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
 import { customersAPI, salesAPI } from '../../api/client'
@@ -49,6 +49,7 @@ export default function CustomersPage() {
   const { user } = useAuth()
   const toast    = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
   const canDownloadHistory = ['owner', 'manager', 'admin'].includes(user?.role)
   const [customers, setCustomers]   = useState([])
   const [loading, setLoading]       = useState(true)
@@ -158,6 +159,7 @@ export default function CustomersPage() {
           setProfileError(parseApiError(salesRes.reason))
         }
         if (custRes.status === 'fulfilled') {
+          setProfileCustomer(custRes.value.data) // includes the outstanding-debt record
           setNotes(custRes.value.data.notes || [])
         }
       }
@@ -238,6 +240,14 @@ export default function CustomersPage() {
       setSaving(false)
     }
   }
+
+  // Profile debt record from the server (sales + job cards). Falls back to
+  // the open sales already loaded while the customer detail is in flight.
+  const outstanding      = profileCustomer?.outstanding
+  const outstandingItems = outstanding?.items ?? []
+  const openSalesTotal   = openSales.reduce((sum, s) => sum + parseFloat(s.balance_due ?? 0), 0)
+  const outstandingTotal = outstanding ? parseFloat(outstanding.total) : openSalesTotal
+  const salesOwed        = outstanding ? parseFloat(outstanding.sales_total) : openSalesTotal
 
   const handleRepay = async () => {
     const amt = parseFloat(payAmount)
@@ -468,15 +478,65 @@ export default function CustomersPage() {
               <div style={{ fontSize: 13, color: 'var(--light)' }}>{formatDate(profileCustomer.last_purchase_date)}</div>
             </div>
             <div>
-              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Outstanding balance</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: openSales.length ? 'var(--warning)' : 'var(--success)' }}>
-                {formatNaira(openSales.reduce((sum, s) => sum + parseFloat(s.balance_due ?? 0), 0))}
+              <div style={{ fontSize: 11, color: 'var(--muted)' }}>Total outstanding</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: outstandingTotal > 0 ? 'var(--warning)' : 'var(--success)' }}>
+                {formatNaira(outstandingTotal)}
               </div>
             </div>
           </div>
 
-          {/* Repayment plan */}
-          {openSales.length > 0 && (
+          {/* Outstanding debt record: every unpaid sale and job card, so the
+              full amount owed is on record here (not printed on receipts). */}
+          {outstandingItems.length > 0 && (
+            <div style={{ marginBottom: 24 }}>
+              <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--light)', margin: '0 0 10px' }}>Outstanding debt record</h3>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--mid)' }}>
+                      {['Date', 'For', 'Reference', 'Total', 'Paid', 'Balance'].map(h => (
+                        <th key={h} style={{ padding: '6px 8px', textAlign: ['Total', 'Paid', 'Balance'].includes(h) ? 'right' : 'left', color: 'var(--muted)', fontWeight: 500, fontSize: 11, textTransform: 'uppercase' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {outstandingItems.map(item => (
+                      <tr key={`${item.type}-${item.id}`} style={{ borderBottom: '1px solid var(--mid)' }}>
+                        <td style={{ padding: '7px 8px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>{formatDate(item.date)}</td>
+                        <td style={{ padding: '7px 8px', color: 'var(--light)' }}>{item.type === 'sale' ? 'Sale' : 'Job card'}</td>
+                        <td style={{ padding: '7px 8px', fontFamily: 'monospace' }}>
+                          {item.type === 'job_card'
+                            ? <button onClick={() => navigate(`/jobcards?q=${encodeURIComponent(item.reference)}`)}
+                                title="Open this job card to record a payment"
+                                style={{ background: 'none', border: 'none', padding: 0, color: 'var(--gold)', cursor: 'pointer', fontFamily: 'monospace', fontSize: 12 }}>
+                                {item.reference}
+                              </button>
+                            : <span style={{ color: 'var(--light)' }}>{item.reference}</span>}
+                        </td>
+                        <td style={{ padding: '7px 8px', textAlign: 'right', color: 'var(--muted)' }}>{formatNaira(item.total)}</td>
+                        <td style={{ padding: '7px 8px', textAlign: 'right', color: 'var(--muted)' }}>{formatNaira(item.paid)}</td>
+                        <td style={{ padding: '7px 8px', textAlign: 'right', color: 'var(--error)', fontWeight: 600 }}>{formatNaira(item.balance)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colSpan={5} style={{ padding: '8px', textAlign: 'right', color: 'var(--light)', fontWeight: 600 }}>Total owed</td>
+                      <td style={{ padding: '8px', textAlign: 'right', color: 'var(--error)', fontWeight: 700 }}>{formatNaira(outstandingTotal)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              {outstanding?.job_cards_total > 0 && (
+                <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
+                  Job card balances are paid from the Job Cards page — click a job number to go there.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Repayment plan (applies to sales; job cards are paid on Job Cards) */}
+          {(salesOwed > 0 || openSales.length > 0) && (
             <div style={{ marginBottom: 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                 <CreditCard size={14} color="var(--warning)" />
