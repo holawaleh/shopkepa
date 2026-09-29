@@ -1,6 +1,6 @@
 from django.test import TestCase
 
-from core.models import Branch, BranchInventory, StockAdjustment
+from core.models import Branch, BranchInventory, Module, ProductCategory, StockAdjustment
 
 from .factories import activate_module, client_for, make_business
 
@@ -49,3 +49,39 @@ class OpeningStockTests(TestCase):
         _, other_business, foreign_branch = make_business('Other')
         res = self.add_product(opening_stock=5, opening_stock_branch_id=str(foreign_branch.id))
         self.assertEqual(res.status_code, 400)
+
+
+class CategoryScopingTests(TestCase):
+    """Categories belong to a module; a business only sees the categories of
+    modules it has switched on."""
+
+    def setUp(self):
+        self.owner, self.business, _ = make_business()
+        self.client = client_for(self.owner)
+
+    def list_categories(self, **params):
+        res = self.client.get('/api/v1/products/categories/', params)
+        self.assertEqual(res.status_code, 200)
+        return res.data
+
+    def test_signup_creates_no_product_categories(self):
+        self.assertFalse(ProductCategory.objects.filter(business=self.business).exists())
+
+    def test_no_active_modules_means_no_categories(self):
+        activate_module(self.business, 'fashion').business_modules.update(is_active=False)
+        self.assertEqual(self.list_categories(), [])
+
+    def test_only_active_module_categories_are_returned(self):
+        activate_module(self.business, 'electronics')
+        Module.objects.get_or_create(code='fashion', defaults={'name': 'Fashion'})  # exists, not active here
+
+        codes = {c['module_code'] for c in self.list_categories()}
+        self.assertEqual(codes, {'electronics'})
+
+    def test_deactivating_a_module_hides_its_categories(self):
+        activate_module(self.business, 'electronics')
+        fashion = activate_module(self.business, 'fashion')
+        self.assertIn('fashion', {c['module_code'] for c in self.list_categories()})
+
+        fashion.business_modules.filter(business=self.business).update(is_active=False)
+        self.assertNotIn('fashion', {c['module_code'] for c in self.list_categories()})

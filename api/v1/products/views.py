@@ -27,12 +27,22 @@ class ProductCategoryListCreateView(APIView):
 
     def get(self, request):
         business = request.user.business
-        seed_default_product_categories(business)
+        # Only modules this business has switched on: categories belong to
+        # their module, and a gadget shop shouldn't see Fashion or Pharmacy
+        # categories just because those modules exist on the platform.
+        active_modules = Module.objects.filter(
+            business_modules__business=business,
+            business_modules__is_active=True,
+        )
+        seed_default_product_categories(
+            business, module_codes=list(active_modules.values_list('code', flat=True)),
+        )
 
         queryset = ProductCategory.objects.filter(
             business=business,
             is_active=True,
-        ).select_related('module')
+            module__in=active_modules,
+        ).select_related('module').order_by('module__sort_order', 'name')
 
         module_id = request.query_params.get('module_id')
         if module_id:

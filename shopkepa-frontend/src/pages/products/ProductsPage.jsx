@@ -336,7 +336,18 @@ export default function ProductsPage() {
         </select>
         <select className="input" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
           <option value="">All categories</option>
-          {filterCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {filterModule || activeModules.length <= 1
+            ? filterCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)
+            // "All modules" with several modules: group each category under
+            // its module so it's clear which one it belongs to.
+            : activeModules.map(bm => {
+                const inModule = categoriesForModule(bm.module.id)
+                return inModule.length > 0 && (
+                  <optgroup key={bm.module.id} label={bm.module.name}>
+                    {inModule.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </optgroup>
+                )
+              })}
         </select>
       </div>
 

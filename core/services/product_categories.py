@@ -46,7 +46,7 @@ def seed_default_product_categories(business, module_codes=None):
     from core.models import Module, ProductCategory
 
     modules = Module.objects.filter(is_active=True)
-    if module_codes:
+    if module_codes is not None:  # [] means "none", not "all"
         modules = modules.filter(code__in=module_codes)
 
     created = []
