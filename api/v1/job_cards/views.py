@@ -123,6 +123,7 @@ class JobCardListCreateView(APIView):
             technician=technician,
             technician_notes=data.get('technician_notes', ''),
             pickup_date=data.get('pickup_date'),
+            intake_date=data.get('intake_date') or timezone.localdate(),
             labour_charge=labour_charge,
             parts_charge=Decimal('0'),
             total_charge=labour_charge,
@@ -233,6 +234,9 @@ class JobCardDetailView(APIView):
 
         if 'pickup_date' in data:
             job_card.pickup_date = data['pickup_date']
+
+        if 'intake_date' in data:
+            job_card.intake_date = data['intake_date']
 
         job_card.save()
 

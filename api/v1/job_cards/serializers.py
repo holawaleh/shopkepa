@@ -50,7 +50,7 @@ class JobCardSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id', 'job_number', 'parts_charge',
-            'total_charge', 'balance_due', 'intake_date', 'created_at'
+            'total_charge', 'balance_due', 'created_at'
         ]
 
 
@@ -99,6 +99,7 @@ class CreateJobCardSerializer(serializers.Serializer):
         required=False, allow_blank=True
     )
     pickup_date        = serializers.DateField(required=False, allow_null=True)
+    intake_date        = serializers.DateField(required=False)
 
     def validate_branch_id(self, value):
         from core.models import Branch
@@ -142,6 +143,7 @@ class UpdateJobCardSerializer(serializers.Serializer):
         min_value=1, required=False, allow_null=True
     )
     pickup_date      = serializers.DateField(required=False, allow_null=True)
+    intake_date      = serializers.DateField(required=False)
 
 
 class AddJobCardPartSerializer(serializers.Serializer):

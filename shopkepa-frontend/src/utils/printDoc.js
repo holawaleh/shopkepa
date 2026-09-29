@@ -174,7 +174,7 @@ export function printJobCardReceipt(job, businessName = 'ShopKepa', logoUrl = nu
 
     <table>
       <tr><td class="label">Job #</td><td class="right" style="font-weight:bold">${job.job_number || '-'}</td></tr>
-      <tr><td class="label">Date</td><td class="right">${fmtDate(job.intake_date || job.created_at)}</td></tr>
+      <tr><td class="label">Date Brought In</td><td class="right">${fmtDate(job.intake_date || job.created_at)}</td></tr>
       ${job.pickup_date ? `<tr><td class="label">Expected Pickup</td><td class="right">${fmtDate(job.pickup_date)}</td></tr>` : ''}
       <tr><td class="label">Branch</td><td class="right">${job.branch_name || '-'}</td></tr>
       <tr><td class="label">Status</td><td class="right"><span class="badge" style="color:${statusColor};border:1px solid ${statusColor}">${job.status?.toUpperCase() || ''}</span></td></tr>

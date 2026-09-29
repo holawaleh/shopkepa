@@ -1,5 +1,6 @@
 import uuid
 from django.db import models
+from django.core.serializers.json import DjangoJSONEncoder
 
 
 class AuditLog(models.Model):
@@ -24,8 +25,12 @@ class AuditLog(models.Model):
     action      = models.CharField(max_length=30, choices=ACTION_CHOICES)
     table_name  = models.CharField(max_length=100)
     record_id   = models.UUIDField()
-    old_values  = models.JSONField(null=True, blank=True)
-    new_values  = models.JSONField(null=True, blank=True)
+    # DjangoJSONEncoder so UUID/Decimal/date/datetime values already present
+    # in a view's validated_data (passed straight through as old/new_values
+    # in several call sites) serialize instead of crashing the request with
+    # a 500 the moment such a field is touched.
+    old_values  = models.JSONField(null=True, blank=True, encoder=DjangoJSONEncoder)
+    new_values  = models.JSONField(null=True, blank=True, encoder=DjangoJSONEncoder)
     ip_address  = models.CharField(max_length=45, null=True, blank=True)
     created_at  = models.DateTimeField(auto_now_add=True)
 

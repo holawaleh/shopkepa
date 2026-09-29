@@ -40,7 +40,7 @@ const DEVICE_TYPES = [
 const EMPTY_JOB = {
   customer_name: '', customer_phone: '', device_description: '',
   customer_complaint: '', labour_charge: '0', branch_id: '', service_id: '',
-  pickup_date: '', technician_id: '',
+  pickup_date: '', technician_id: '', intake_date: '',
 }
 
 const EMPTY_SVC = { name: '', category: '', base_price: '', description: '' }
@@ -276,6 +276,7 @@ function JobCardsTab({ branches }) {
   const [newStatus, setNewStatus]   = useState('')
   const [newPickupDate, setNewPickupDate] = useState('')
   const [newTechnicianId, setNewTechnicianId] = useState('')
+  const [newIntakeDate, setNewIntakeDate] = useState('')
   const [payAmount, setPayAmount]   = useState('')
   const [payMethod, setPayMethod]   = useState('cash')
 
@@ -317,7 +318,7 @@ function JobCardsTab({ branches }) {
   useEffect(() => { load() }, [load])
 
   const openAdd = () => {
-    setForm({ ...EMPTY_JOB, branch_id: branches[0]?.id || '' })
+    setForm({ ...EMPTY_JOB, branch_id: branches[0]?.id || '', intake_date: new Date().toISOString().split('T')[0] })
     setFormErrors({})
     setError('')
     setModal('add')
@@ -366,6 +367,7 @@ function JobCardsTab({ branches }) {
         branch_id:          form.branch_id,
         pickup_date:        form.pickup_date || undefined,
         technician_id:      form.technician_id || undefined,
+        intake_date:        form.intake_date || undefined,
       })
       toast.success(`Job card ${res.data.job_number ?? ''} created for ${form.customer_name.trim()}`)
       setModal(null)
@@ -382,6 +384,7 @@ function JobCardsTab({ branches }) {
     setNewStatus(job.status)
     setNewPickupDate(job.pickup_date || '')
     setNewTechnicianId(job.technician || '')
+    setNewIntakeDate(job.intake_date || '')
     setError('')
     setModal('status')
   }
@@ -390,13 +393,15 @@ function JobCardsTab({ branches }) {
     const statusChanged     = newStatus && newStatus !== selected.status
     const pickupChanged     = newPickupDate !== (selected.pickup_date || '')
     const technicianChanged = newTechnicianId !== (selected.technician || '')
-    if (!statusChanged && !pickupChanged && !technicianChanged) { setModal(null); return }
+    const intakeChanged     = newIntakeDate && newIntakeDate !== (selected.intake_date || '')
+    if (!statusChanged && !pickupChanged && !technicianChanged && !intakeChanged) { setModal(null); return }
     setSaving(true); setError('')
     try {
       const payload = {}
       if (statusChanged) payload.status = newStatus
       if (pickupChanged) payload.pickup_date = newPickupDate || null
       if (technicianChanged) payload.technician_id = newTechnicianId || null
+      if (intakeChanged) payload.intake_date = newIntakeDate
       await jobCardsAPI.update(selected.id, payload)
       if (statusChanged && newStatus === 'ready') {
         toast.success(`${selected.job_number} is ready for collection — notify ${selected.customer_name}`)
@@ -405,6 +410,8 @@ function JobCardsTab({ branches }) {
       } else if (technicianChanged) {
         const tech = technicians.find(t => t.id === newTechnicianId)
         toast.info(tech ? `${selected.job_number} assigned to ${tech.full_name}` : `${selected.job_number} unassigned`)
+      } else if (intakeChanged) {
+        toast.info(`${selected.job_number} date brought in updated`)
       } else {
         toast.info(`${selected.job_number} pickup date updated`)
       }
@@ -532,7 +539,7 @@ function JobCardsTab({ branches }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--mid)' }}>
-                {['Job #', 'Device', 'Customer', 'Status', 'Payment', 'Balance', 'Date', 'Actions'].map(h => (
+                {['Job #', 'Device', 'Customer', 'Status', 'Payment', 'Balance', 'Brought In', 'Actions'].map(h => (
                   <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, color: 'var(--muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.4 }}>{h}</th>
                 ))}
               </tr>
@@ -563,7 +570,7 @@ function JobCardsTab({ branches }) {
                     </td>
                     <td style={{ padding: '12px 16px', color: parseFloat(j.balance_due) > 0 ? 'var(--error)' : 'var(--muted)', fontWeight: 500 }}>{formatNaira(j.balance_due)}</td>
                     <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>
-                      <div>{formatDate(j.created_at)}</div>
+                      <div>{formatDate(j.intake_date || j.created_at)}</div>
                       {j.pickup_date && <div style={{ fontSize: 11, marginTop: 2 }}>Pickup: {formatDate(j.pickup_date)}</div>}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
@@ -681,19 +688,26 @@ function JobCardsTab({ branches }) {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
+                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Date brought in</label>
+                <input className="input" type="date" max={new Date().toISOString().split('T')[0]}
+                  value={form.intake_date} onChange={set('intake_date')} />
+                <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'block' }}>Defaults to today — back-date if logged late.</span>
+              </div>
+              <div>
                 <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Expected pickup date</label>
                 <input className="input" type="date" min={new Date().toISOString().split('T')[0]}
                   value={form.pickup_date} onChange={set('pickup_date')} />
                 <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'block' }}>Optional — when the customer plans to collect.</span>
               </div>
-              <div>
-                <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Technician in charge</label>
-                <select className="input" value={form.technician_id} onChange={set('technician_id')}>
-                  <option value="">Unassigned</option>
-                  {technicians.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
-                </select>
-                <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'block' }}>Optional — can be assigned later too.</span>
-              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Technician in charge</label>
+              <select className="input" value={form.technician_id} onChange={set('technician_id')}>
+                <option value="">Unassigned</option>
+                {technicians.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
+              </select>
+              <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'block' }}>Optional — can be assigned later too.</span>
             </div>
 
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
@@ -726,6 +740,11 @@ function JobCardsTab({ branches }) {
                 </button>
               )
             })}
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Date brought in</label>
+            <input className="input" type="date" max={new Date().toISOString().split('T')[0]}
+              value={newIntakeDate} onChange={e => setNewIntakeDate(e.target.value)} />
           </div>
           <div style={{ marginBottom: 14 }}>
             <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Expected pickup date</label>

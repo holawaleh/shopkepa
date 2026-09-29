@@ -1,5 +1,6 @@
 import uuid
 from django.db import models
+from django.utils import timezone
 from .business import Business
 from .customer import Customer
 
@@ -61,7 +62,10 @@ class JobCard(models.Model):
     payment_method     = models.CharField(max_length=20, choices=METHOD_CHOICES, null=True, blank=True)
     warranty_days      = models.IntegerField(null=True, blank=True)
     collected_at       = models.DateTimeField(null=True, blank=True)
-    intake_date        = models.DateField(auto_now_add=True)
+    # "Date brought in" - defaults to today but is a normal, settable field
+    # (not auto_now_add) so staff can back-date it if the device was dropped
+    # off before the job card was actually logged, and adjust it afterwards.
+    intake_date        = models.DateField(default=timezone.localdate)
     pickup_date        = models.DateField(null=True, blank=True)
     is_deleted         = models.BooleanField(default=False)
     deleted_at         = models.DateTimeField(null=True, blank=True)
