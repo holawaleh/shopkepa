@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, Search, X, AlertCircle, Wrench, Printer, Trash2, Edit2 } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
 import { jobCardsAPI, branchesAPI } from '../../api/client'
@@ -261,11 +262,12 @@ function ServicesTab({ isOwner }) {
 function JobCardsTab({ branches }) {
   const { user } = useAuth()
   const toast    = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [jobs, setJobs]             = useState([])
   const [services, setServices]     = useState([])
   const [technicians, setTechnicians] = useState([])
   const [loading, setLoading]       = useState(true)
-  const [search, setSearch]         = useState('')
+  const [search, setSearch]         = useState(searchParams.get('q') || '')
   const [statusFilter, setStatusFilter] = useState('')
   const [modal, setModal]           = useState(null)
   const [selected, setSelected]     = useState(null)
@@ -421,6 +423,17 @@ function JobCardsTab({ branches }) {
   }
 
   const openPayment = (job) => { setSelected(job); setPayAmount(''); setPayMethod('cash'); setError(''); setModal('payment') }
+
+  // Deep-link support (e.g. "Track" from Reports > Outstanding Debts):
+  // ?q= pre-filled the search above; once jobs load, jump straight into
+  // the matching job card's payment modal.
+  useEffect(() => {
+    const q = searchParams.get('q')
+    if (!q || loading || jobs.length === 0) return
+    const match = jobs.find(j => j.job_number === q) || jobs[0]
+    openPayment(match)
+    setSearchParams({}, { replace: true })
+  }, [jobs, loading])
 
   const handlePayment = async () => {
     if (!payAmount || parseFloat(payAmount) <= 0) { setError('Enter a valid payment amount.'); return }

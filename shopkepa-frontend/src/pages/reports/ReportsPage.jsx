@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { AlertCircle, TrendingUp, DollarSign, ShoppingCart, RefreshCw, Search, Printer } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { AlertCircle, TrendingUp, DollarSign, ShoppingCart, RefreshCw, Search, Printer, Phone, ArrowRight } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
 import { reportsAPI, branchesAPI, salesAPI } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
@@ -34,6 +35,19 @@ function daysAgo(n) {
   return d.toISOString().split('T')[0]
 }
 
+function startOfYear() {
+  const d = new Date()
+  return `${d.getFullYear()}-01-01`
+}
+
+const QUICK_RANGES = [
+  { label: '7d',  from: () => daysAgo(6) },
+  { label: '30d', from: () => daysAgo(29) },
+  { label: '90d', from: () => daysAgo(89) },
+  { label: 'This year', from: startOfYear },
+  { label: 'All time', from: () => '2020-01-01' },
+]
+
 function StatCard({ label, value, sub, accent = false }) {
   return (
     <div style={{
@@ -53,13 +67,15 @@ function StatCard({ label, value, sub, accent = false }) {
 
 export default function ReportsPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [branches, setBranches]   = useState([])
   const [branchId, setBranchId]   = useState('')
-  const [dateFrom, setDateFrom]   = useState(daysAgo(29))
+  const [dateFrom, setDateFrom]   = useState(daysAgo(89))
   const [dateTo, setDateTo]       = useState(today())
   const [daily, setDaily]         = useState(null)
   const [monthly, setMonthly]     = useState(null)
   const [inventory, setInventory] = useState(null)
+  const [debtors, setDebtors]     = useState(null)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
 
@@ -79,38 +95,44 @@ export default function ReportsPage() {
       .catch(err => setError(parseApiError(err)))
   }, [])
 
-  const load = async () => {
+  // Accept explicit dates so a quick-range click can run immediately
+  // instead of racing the setDateFrom/setDateTo state update.
+  const load = async (fromOverride, toOverride) => {
+    const df = fromOverride ?? dateFrom
+    const dt = toOverride ?? dateTo
     setLoading(true)
     setError('')
     try {
       const params = {
-        date_from: dateFrom,
-        date_to:   dateTo,
+        date_from: df,
+        date_to:   dt,
         branch_id: branchId || undefined,
       }
-      const [dailyRes, monthlyRes, invRes] = await Promise.allSettled([
+      const [dailyRes, monthlyRes, invRes, debtorsRes] = await Promise.allSettled([
         reportsAPI.dailySales({ date: today(), branch_id: branchId || undefined }),
         reportsAPI.monthlySales(params),
         reportsAPI.inventory({ branch_id: branchId || undefined }),
+        reportsAPI.debtors({ branch_id: branchId || undefined }),
       ])
       if (dailyRes.status === 'fulfilled')   setDaily(dailyRes.value.data)
       if (monthlyRes.status === 'fulfilled') setMonthly(monthlyRes.value.data)
       if (invRes.status === 'fulfilled')     setInventory(invRes.value.data)
+      if (debtorsRes.status === 'fulfilled') setDebtors(debtorsRes.value.data)
       if (dailyRes.status === 'rejected') throw dailyRes.reason
     } catch (err) {
       setError(parseApiError(err))
     } finally {
       setLoading(false)
     }
-    loadSales()
+    loadSales(df, dt)
   }
 
-  const loadSales = async () => {
+  const loadSales = async (fromOverride, toOverride) => {
     setSalesLoading(true)
     try {
       const res = await salesAPI.list({
-        date_from: dateFrom,
-        date_to:   dateTo,
+        date_from: fromOverride ?? dateFrom,
+        date_to:   toOverride ?? dateTo,
         branch_id: branchId || undefined,
         search:    salesSearch.trim() || undefined,
       })
@@ -147,7 +169,7 @@ export default function ReportsPage() {
 
   return (
     <AppLayout>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--light)' }}>Reports</h1>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {branches.length > 0 && (
@@ -168,6 +190,23 @@ export default function ReportsPage() {
             {loading ? 'Loading…' : 'Run'}
           </button>
         </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 6, marginBottom: 24, flexWrap: 'wrap' }}>
+        {QUICK_RANGES.map(r => {
+          const active = dateFrom === r.from()
+          return (
+            <button key={r.label} onClick={() => { const f = r.from(), t = today(); setDateFrom(f); setDateTo(t); load(f, t); }}
+              style={{
+                padding: '4px 10px', borderRadius: 20, fontSize: 11, cursor: 'pointer',
+                background: active ? 'var(--gold-dim)' : 'transparent',
+                border: `1px solid ${active ? 'rgba(201,168,76,0.3)' : 'var(--mid)'}`,
+                color: active ? 'var(--gold)' : 'var(--muted)',
+              }}>
+              {r.label}
+            </button>
+          )
+        })}
       </div>
 
       {error && (
@@ -215,7 +254,9 @@ export default function ReportsPage() {
           <p style={{ color: 'var(--muted)', fontSize: 13 }}>Loading…</p>
         ) : sales.length === 0 ? (
           <p style={{ color: 'var(--muted)', fontSize: 13 }}>
-            {salesSearch ? `No transactions match "${salesSearch}".` : 'No transactions in this period.'}
+            {salesSearch
+              ? `No transactions match "${salesSearch}".`
+              : `No transactions between ${formatDate(dateFrom)} and ${formatDate(dateTo)} — try "This year" or "All time" above if you expected some here.`}
           </p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
@@ -256,6 +297,87 @@ export default function ReportsPage() {
         )}
       </div>
 
+      {/* Outstanding debts - installment sale balances + unpaid job cards.
+          Not date-range scoped: a debt doesn't stop mattering once it falls
+          outside the selected window. */}
+      {debtors && (() => {
+        const saleRows = (debtors.debtors || []).map(d => ({
+          key: `sale-${d.plan_id}`,
+          name: d.customer_name,
+          phone: d.customer_phone,
+          reference: d.sale_number,
+          balance: parseFloat(d.balance || 0),
+          daysOutstanding: d.days_outstanding,
+          kind: 'Sale',
+          go: () => d.customer_id && navigate(`/customers?q=${encodeURIComponent(d.customer_phone || d.customer_name)}`),
+        }))
+        const jobRows = (debtors.unpaid_job_cards || []).map(j => ({
+          key: `job-${j.job_number}`,
+          name: j.customer_name,
+          phone: j.customer_phone,
+          reference: j.job_number,
+          balance: parseFloat(j.balance_due || 0),
+          daysOutstanding: null,
+          kind: 'Job Card',
+          go: () => navigate(`/jobcards?q=${encodeURIComponent(j.job_number)}`),
+        }))
+        const rows = [...saleRows, ...jobRows].sort((a, b) => b.balance - a.balance)
+
+        return (
+          <div style={{ background: 'var(--blue)', border: '1px solid var(--mid)', borderRadius: 10, padding: '20px 24px', marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+              <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--light)' }}>Outstanding Debts</h2>
+              {rows.length > 0 && (
+                <span style={{ fontSize: 13, color: 'var(--warning)', fontWeight: 600 }}>
+                  {formatNaira(debtors.total_outstanding || 0)} total
+                </span>
+              )}
+            </div>
+            {rows.length === 0 ? (
+              <p style={{ color: 'var(--success)', fontSize: 13 }}>No outstanding balances — everyone's paid up.</p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--mid)' }}>
+                      {['Customer', 'Phone', 'Reference', 'Type', 'Days', 'Balance', ''].map(h => (
+                        <th key={h} style={{
+                          padding: '8px 12px', textAlign: h === 'Balance' ? 'right' : 'left', fontSize: 11,
+                          color: 'var(--muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.4,
+                        }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(r => (
+                      <tr key={r.key} style={{ borderBottom: '1px solid var(--mid)' }}>
+                        <td style={{ padding: '10px 12px', color: 'var(--light)' }}>{r.name || '—'}</td>
+                        <td style={{ padding: '10px 12px', color: 'var(--muted)' }}>
+                          {r.phone
+                            ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Phone size={11} />{r.phone}</span>
+                            : '—'}
+                        </td>
+                        <td style={{ padding: '10px 12px', color: 'var(--muted)', fontFamily: 'monospace' }}>{r.reference}</td>
+                        <td style={{ padding: '10px 12px', color: 'var(--muted)' }}>{r.kind}</td>
+                        <td style={{ padding: '10px 12px', color: 'var(--muted)' }}>{r.daysOutstanding != null ? `${r.daysOutstanding}d` : '—'}</td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--error)', fontWeight: 600 }}>{formatNaira(r.balance)}</td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                          <button onClick={r.go}
+                            style={{ fontSize: 11, padding: '3px 9px', borderRadius: 4, background: 'none', border: '1px solid var(--mid)', color: 'var(--gold)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}
+                            title="Go collect this payment">
+                            Track <ArrowRight size={11} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
       {/* Period summary */}
       {monthly && (
         <div style={{ background: 'var(--blue)', border: '1px solid var(--mid)', borderRadius: 10, padding: '20px 24px', marginBottom: 24 }}>
@@ -286,7 +408,7 @@ export default function ReportsPage() {
               </tbody>
             </table>
           ) : (
-            <p style={{ color: 'var(--muted)', fontSize: 13 }}>No sales in this period.</p>
+            <p style={{ color: 'var(--muted)', fontSize: 13 }}>No sales in this period — try widening the date range above.</p>
           )}
         </div>
       )}

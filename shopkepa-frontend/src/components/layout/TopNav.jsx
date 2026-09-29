@@ -9,6 +9,15 @@ import { useAuth } from '../../context/AuthContext'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus'
 import { reportsAPI } from '../../api/client'
 
+// The rail's collapsed width - AppLayout reserves exactly this much space
+// at desktop widths so the rail can sit fixed/overlaying without reflow.
+export const RAIL_WIDTH = 64
+const RAIL_WIDTH_EXPANDED = 220
+// Fixed height of the offline banner - both the rail and AppLayout's main
+// content offset by this (only while offline) so the banner never overlaps
+// either of them, since all three are independently fixed/positioned.
+export const OFFLINE_BANNER_HEIGHT = 32
+
 const MODULE_NAV_ENABLES = {
   general_trade:      ['pos', 'products'],
   fashion:            ['pos', 'products'],
@@ -21,7 +30,6 @@ const MODULE_NAV_ENABLES = {
   hotel:              ['hotel'],
 }
 
-// Settings and AI live in the right-side utility bar, not the main nav
 const ALL_NAV = [
   { key: 'dashboard', to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['owner', 'admin', 'manager'], always: true },
   { key: 'pos',       to: '/pos',       label: 'POS',       icon: ShoppingCart,   roles: ['owner', 'admin', 'manager', 'cashier'], privilege: 'pos' },
@@ -33,18 +41,46 @@ const ALL_NAV = [
   { key: 'expenses',  to: '/expenses',  label: 'Expenses',  icon: ReceiptText,    roles: ['owner', 'admin', 'manager'], always: true, privilege: 'expenses' },
 ]
 
-// Utility items rendered as icon buttons on the right side
+// Rendered in the same rail, below a divider, rather than a separate bar
 const UTIL_NAV = [
-  { key: 'ai',       to: '/ai',       icon: Cpu,      roles: ['owner', 'admin', 'manager'], title: 'AI Assistant (Premium)' },
-  { key: 'settings', to: '/settings', icon: Settings, roles: ['owner', 'admin'],            title: 'Settings' },
+  { key: 'ai',       to: '/ai',       icon: Cpu,      label: 'AI Assistant', roles: ['owner', 'admin', 'manager'] },
+  { key: 'settings', to: '/settings', icon: Settings, label: 'Settings',     roles: ['owner', 'admin'] },
 ]
+
+function RailRow({ to, label, icon: Icon, active, onClick, badge }) {
+  const content = (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 14, width: RAIL_WIDTH_EXPANDED,
+      padding: '9px 0 9px 22px', color: active ? 'var(--gold)' : 'var(--muted)',
+      background: active ? 'var(--gold-dim)' : 'transparent',
+      textDecoration: 'none', fontSize: 13, fontWeight: active ? 500 : 400,
+      whiteSpace: 'nowrap', cursor: 'pointer', border: 'none',
+    }}>
+      <span style={{ position: 'relative', display: 'flex', flexShrink: 0 }}>
+        <Icon size={17} />
+        {badge > 0 && (
+          <span style={{
+            position: 'absolute', top: -6, right: -7, minWidth: 14, height: 14,
+            borderRadius: 999, background: 'var(--warning)', color: 'var(--navy)',
+            fontSize: 9, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '0 3px',
+          }}>{badge}</span>
+        )}
+      </span>
+      <span className="rail-label">{label}</span>
+    </div>
+  )
+  return to
+    ? <Link to={to} onClick={onClick} style={{ textDecoration: 'none' }}>{content}</Link>
+    : <button onClick={onClick} style={{ background: 'none', padding: 0, width: '100%', textAlign: 'left' }}>{content}</button>
+}
 
 export default function TopNav() {
   const { user, logout, isOwner, activeCodes } = useAuth()
   const isOnline = useOnlineStatus()
   const location  = useLocation()
   const navigate  = useNavigate()
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false)
   const [debtorOpen, setDebtorOpen] = useState(false)
   const [debtors, setDebtors] = useState([])
   const [debtorTotal, setDebtorTotal] = useState(0)
@@ -58,6 +94,9 @@ export default function TopNav() {
     setTheme(next)
     document.documentElement.dataset.theme = next
   }, [])
+
+  // Close the mobile drawer on navigation
+  useEffect(() => { setMobileOpen(false) }, [location.pathname])
 
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark'
@@ -126,165 +165,140 @@ export default function TopNav() {
     navigate('/customers')
   }
 
+  const utilItems = UTIL_NAV.filter(u => u.roles.includes(user?.role))
+
   return (
     <>
       {!isOnline && (
-        <div className="offline-banner" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        <div className="offline-banner" style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: 300,
+          height: OFFLINE_BANNER_HEIGHT, boxSizing: 'border-box',
+        }}>
           <WifiOff size={13} />
           Working offline - changes will sync when reconnected
         </div>
       )}
 
-      <nav style={{ background: 'var(--blue)', borderBottom: '1px solid var(--mid)', position: 'sticky', top: 0, zIndex: 100 }}>
-        <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 56 }}>
-          <Link to="/" style={{ color: 'var(--gold)', fontWeight: 700, fontSize: 18, textDecoration: 'none', letterSpacing: 0.5, flexShrink: 0 }}>
+      {/* Mobile: floating trigger, since the rail is fully hidden at rest */}
+      <button onClick={() => setMobileOpen(o => !o)} className="rail-hamburger"
+        style={{
+          display: 'none', position: 'fixed', top: (isOnline ? 0 : OFFLINE_BANNER_HEIGHT) + 14, left: 14, zIndex: 210,
+          width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+          background: 'var(--blue)', border: '1px solid var(--mid)', color: 'var(--light)', cursor: 'pointer',
+        }}>
+        {mobileOpen ? <X size={19} /> : <Menu size={19} />}
+      </button>
+
+      {/* Backdrop behind the drawer on mobile */}
+      {mobileOpen && (
+        <div onClick={() => setMobileOpen(false)}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 199 }} />
+      )}
+
+      <nav className={`side-rail${mobileOpen ? ' expanded' : ''}`} style={{
+        background: 'var(--blue)', borderRight: '1px solid var(--mid)',
+        position: 'fixed', top: isOnline ? 0 : OFFLINE_BANNER_HEIGHT, left: 0, bottom: 0, zIndex: 200,
+        display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      }}>
+        {/* Brand */}
+        <Link to="/" style={{
+          display: 'flex', alignItems: 'center', gap: 14, width: RAIL_WIDTH_EXPANDED,
+          height: 56, flexShrink: 0, padding: '0 0 0 20px', textDecoration: 'none',
+          borderBottom: '1px solid var(--mid)',
+        }}>
+          <span style={{
+            width: 26, height: 26, borderRadius: 7, background: 'var(--gold-dim)',
+            color: 'var(--gold)', fontWeight: 700, fontSize: 14, flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>S</span>
+          <span className="rail-label" style={{ color: 'var(--gold)', fontWeight: 700, fontSize: 16, letterSpacing: 0.5, whiteSpace: 'nowrap' }}>
             ShopKepa
-          </Link>
+          </span>
+        </Link>
 
-          <div style={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'nowrap', overflow: 'hidden' }} className="desktop-nav">
-            {visibleItems.map(({ to, label, icon: Icon }) => {
-              const active = location.pathname.startsWith(to)
-              return (
-                <Link key={to} to={to} style={{
-                  display: 'flex', alignItems: 'center', gap: 5,
-                  padding: '6px 10px', borderRadius: 'var(--r-sm)',
-                  color: active ? 'var(--gold)' : 'var(--muted)',
-                  background: active ? 'var(--gold-dim)' : 'transparent',
-                  textDecoration: 'none', fontSize: 13, fontWeight: active ? 500 : 400,
-                  transition: 'color 0.15s, background 0.15s', whiteSpace: 'nowrap',
+        {/* Main nav */}
+        <div style={{ display: 'flex', flexDirection: 'column', padding: '10px 0', overflowY: 'auto' }}>
+          {visibleItems.map(item => (
+            <RailRow key={item.key} to={item.to} label={item.label} icon={item.icon}
+              active={location.pathname.startsWith(item.to)} />
+          ))}
+        </div>
+
+        <div style={{ flex: 1 }} />
+
+        {/* Utility + account, pinned to the bottom */}
+        <div style={{ borderTop: '1px solid var(--mid)', padding: '8px 0', display: 'flex', flexDirection: 'column' }}>
+          {utilItems.map(u => (
+            <RailRow key={u.key} to={u.to} label={u.label} icon={u.icon}
+              active={location.pathname.startsWith(u.to)} />
+          ))}
+
+          <RailRow icon={theme === 'dark' ? Sun : Moon} label={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            onClick={toggleTheme} />
+
+          {['owner', 'admin', 'manager'].includes(user?.role) && (
+            <div style={{ position: 'relative' }}>
+              <RailRow icon={Bell} label="Debtors" badge={debtors.length}
+                onClick={() => setDebtorOpen(o => !o)} />
+              {debtorOpen && (
+                <div style={{
+                  position: 'absolute', left: '100%', bottom: 0, marginLeft: 8, width: 300,
+                  background: 'var(--blue)', border: '1px solid var(--mid)', borderRadius: 8,
+                  boxShadow: '0 18px 50px rgba(0,0,0,0.35)', padding: 10, zIndex: 250,
                 }}>
-                  <Icon size={14} />
-                  {label}
-                </Link>
-              )
-            })}
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-            <span style={{ fontSize: 11, color: isOnline ? 'var(--success)' : 'var(--warning)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              {isOnline ? <Wifi size={12} /> : <WifiOff size={12} />}
-            </span>
-
-            {UTIL_NAV.filter(u => u.roles.includes(user?.role)).map(u => {
-              const active = location.pathname.startsWith(u.to)
-              const Icon = u.icon
-              return (
-                <Link key={u.key} to={u.to} title={u.title} style={{
-                  display: 'flex', alignItems: 'center', padding: '5px 8px',
-                  borderRadius: 'var(--r-sm)', textDecoration: 'none',
-                  color: active ? 'var(--gold)' : 'var(--muted)',
-                  background: active ? 'var(--gold-dim)' : 'transparent',
-                  transition: 'color 0.15s',
-                }}>
-                  <Icon size={15} />
-                </Link>
-              )
-            })}
-
-            <button onClick={toggleTheme} className="btn-ghost"
-              style={{ padding: '6px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}
-              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}
-              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`}>
-              {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
-              <span style={{ color: 'var(--light)' }}>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
-            </button>
-
-            {['owner', 'admin', 'manager'].includes(user?.role) && (
-              <div style={{ position: 'relative' }}>
-                <button onClick={() => setDebtorOpen(o => !o)} className="btn-ghost"
-                  style={{ padding: '5px 8px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5, position: 'relative' }}
-                  title="Debtors">
-                  <Bell size={13} />
-                  {debtors.length > 0 && (
-                    <span style={{
-                      position: 'absolute', top: -4, right: -4, minWidth: 16, height: 16,
-                      borderRadius: 999, background: 'var(--warning)', color: 'var(--navy)',
-                      fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>{debtors.length}</span>
-                  )}
-                </button>
-                {debtorOpen && (
-                  <div style={{
-                    position: 'absolute', right: 0, top: 'calc(100% + 8px)', width: 300,
-                    background: 'var(--blue)', border: '1px solid var(--mid)', borderRadius: 8,
-                    boxShadow: '0 18px 50px rgba(0,0,0,0.35)', padding: 10, zIndex: 150,
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                      <span style={{ fontSize: 12, color: 'var(--light)', fontWeight: 600 }}>Debtors</span>
-                      <span style={{ fontSize: 11, color: 'var(--warning)' }}>NGN {debtorTotal.toLocaleString('en-NG')}</span>
-                    </div>
-                    {debtors.length === 0 ? (
-                      <div style={{ fontSize: 12, color: 'var(--muted)', padding: '8px 2px' }}>No outstanding debtors.</div>
-                    ) : (
-                      <div style={{ maxHeight: 300, overflowY: 'auto' }}>
-                        {debtors.map((d, idx) => (
-                          <button key={`${d.id}-${idx}`} onClick={closeDebtorsAndGo}
-                            style={{
-                              width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid var(--mid)',
-                              padding: '9px 2px', textAlign: 'left', cursor: 'pointer', display: 'grid', gap: 2,
-                            }}>
-                            <span style={{ fontSize: 12, color: 'var(--light)', fontWeight: 500 }}>{d.name}</span>
-                            <span style={{ fontSize: 11, color: 'var(--muted)' }}>{d.phone || 'No phone'} - {d.type} {d.ref}</span>
-                            <span style={{ fontSize: 11, color: 'var(--warning)' }}>Balance: NGN {Number(d.balance || 0).toLocaleString('en-NG')}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <span style={{ fontSize: 12, color: 'var(--light)', fontWeight: 600 }}>Debtors</span>
+                    <span style={{ fontSize: 11, color: 'var(--warning)' }}>NGN {debtorTotal.toLocaleString('en-NG')}</span>
                   </div>
-                )}
-              </div>
-            )}
+                  {debtors.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'var(--muted)', padding: '8px 2px' }}>No outstanding debtors.</div>
+                  ) : (
+                    <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                      {debtors.map((d, idx) => (
+                        <button key={`${d.id}-${idx}`} onClick={closeDebtorsAndGo}
+                          style={{
+                            width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid var(--mid)',
+                            padding: '9px 2px', textAlign: 'left', cursor: 'pointer', display: 'grid', gap: 2,
+                          }}>
+                          <span style={{ fontSize: 12, color: 'var(--light)', fontWeight: 500 }}>{d.name}</span>
+                          <span style={{ fontSize: 11, color: 'var(--muted)' }}>{d.phone || 'No phone'} - {d.type} {d.ref}</span>
+                          <span style={{ fontSize: 11, color: 'var(--warning)' }}>Balance: NGN {Number(d.balance || 0).toLocaleString('en-NG')}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
-            <span style={{ fontSize: 12, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 14, width: RAIL_WIDTH_EXPANDED,
+            padding: '10px 0 4px 22px', whiteSpace: 'nowrap',
+          }}>
+            <span style={{ flexShrink: 0, display: 'flex', color: isOnline ? 'var(--success)' : 'var(--warning)' }}>
+              {isOnline ? <Wifi size={15} /> : <WifiOff size={15} />}
+            </span>
+            <span className="rail-label" style={{ fontSize: 12, color: 'var(--muted)' }}>
               {user?.first_name || user?.email?.split('@')[0]}
               {isOwner && <span style={{ marginLeft: 4, color: 'var(--gold)', fontSize: 10 }}>- Owner</span>}
             </span>
-            <button onClick={handleLogout} className="btn-ghost" style={{ padding: '5px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 5 }}>
-              <LogOut size={13} /> Sign out
-            </button>
-            <button onClick={() => setMenuOpen(o => !o)}
-              style={{ background: 'none', border: 'none', color: 'var(--light)', cursor: 'pointer', display: 'none' }}
-              className="mobile-menu-btn">
-              {menuOpen ? <X size={22} /> : <Menu size={22} />}
-            </button>
           </div>
-        </div>
 
-        {menuOpen && (
-          <div style={{ background: 'var(--navy)', borderTop: '1px solid var(--mid)', padding: '8px 16px 16px' }}>
-            {[
-              ...visibleItems,
-              ...UTIL_NAV.filter(u => u.roles.includes(user?.role)).map(u => ({ ...u, label: u.title })),
-            ].map(({ to, label, icon: Icon }) => {
-              const active = location.pathname.startsWith(to)
-              return (
-                <Link key={to} to={to} onClick={() => setMenuOpen(false)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '12px 8px', borderBottom: '1px solid var(--mid)',
-                    color: active ? 'var(--gold)' : 'var(--light)',
-                    textDecoration: 'none', fontSize: 15,
-                  }}>
-                  <Icon size={18} />
-                  {label}
-                </Link>
-              )
-            })}
-            <button onClick={handleLogout} style={{
-              display: 'flex', alignItems: 'center', gap: 12, padding: '12px 8px',
-              color: 'var(--error)', background: 'none', border: 'none', width: '100%',
-              cursor: 'pointer', fontSize: 15, marginTop: 4,
-            }}>
-              <LogOut size={18} /> Sign out
-            </button>
-          </div>
-        )}
+          <RailRow icon={LogOut} label="Sign out" onClick={handleLogout} />
+        </div>
       </nav>
 
       <style>{`
+        .side-rail { width: ${RAIL_WIDTH}px; transition: width 0.18s ease; }
+        .side-rail:hover, .side-rail.expanded { width: ${RAIL_WIDTH_EXPANDED}px; box-shadow: 10px 0 40px rgba(0,0,0,0.35); }
+        .side-rail .rail-label { opacity: 0; transition: opacity 0.12s ease; }
+        .side-rail:hover .rail-label, .side-rail.expanded .rail-label { opacity: 1; }
         @media (max-width: 768px) {
-          .desktop-nav { display: none !important; }
-          .mobile-menu-btn { display: block !important; }
+          .side-rail { width: 0; border-right: none !important; }
+          .side-rail.expanded { width: 240px; }
+          .rail-hamburger { display: flex !important; }
         }
       `}</style>
     </>

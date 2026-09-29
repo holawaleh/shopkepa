@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Plus, Search, Edit2, X, AlertCircle, Users, Printer, CreditCard, Trash2, MessageSquare, Send, Eye, FileText } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
 import { customersAPI, salesAPI } from '../../api/client'
@@ -46,10 +47,11 @@ function Modal({ title, onClose, children, wide }) {
 export default function CustomersPage() {
   const { user } = useAuth()
   const toast    = useToast()
+  const [searchParams, setSearchParams] = useSearchParams()
   const canDownloadHistory = ['owner', 'manager', 'admin'].includes(user?.role)
   const [customers, setCustomers]   = useState([])
   const [loading, setLoading]       = useState(true)
-  const [search, setSearch]         = useState('')
+  const [search, setSearch]         = useState(searchParams.get('q') || '')
   const [modal, setModal]           = useState(null)
   const [editing, setEditing]       = useState(null)
   const [form, setForm]             = useState(EMPTY_FORM)
@@ -162,6 +164,16 @@ export default function CustomersPage() {
       setProfileLoading(false)
     }
   }
+
+  // Deep-link support (e.g. "Track" from Reports > Outstanding Debts):
+  // ?q= pre-filled the search above; once that search resolves, jump
+  // straight into the matching customer's profile/payment view.
+  useEffect(() => {
+    const q = searchParams.get('q')
+    if (!q || loading || customers.length === 0) return
+    openProfile(customers[0])
+    setSearchParams({}, { replace: true })
+  }, [customers, loading])
 
   const handleAddNote = async () => {
     if (!noteText.trim()) { setProfileError('Note text is required.'); return }
