@@ -8,6 +8,7 @@ import logging
 from core.models import Sale, Branch, Module, Customer
 from core.permissions import IsCashierOrAbove, IsManagerOrAbove, HasPrivilege
 from core.services.sale_service import create_sale, add_payment_to_sale
+from core.idempotency import idempotent
 from core.utils import get_client_ip
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,7 @@ class SaleListCreateView(APIView):
         serializer = SaleSerializer(queryset, many=True)
         return Response(serializer.data)
 
+    @idempotent
     def post(self, request):
         serializer = CreateSaleSerializer(
             data=request.data,
@@ -134,7 +136,8 @@ class SaleListCreateView(APIView):
                 {'error': str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        except Exception:
+
+        except Exception:
             logger.exception('Unexpected error while creating sale')
             return Response(
                 {'error': 'Could not complete sale. Please retry or contact support if it continues.'},
@@ -205,6 +208,7 @@ class SaleDetailView(APIView):
 class AddPaymentView(APIView):
     permission_classes = [IsCashierOrAbove, HasPrivilege('pos')]
 
+    @idempotent
     def post(self, request, sale_id):
         try:
             sale = Sale.objects.get(
@@ -236,7 +240,8 @@ class AddPaymentView(APIView):
                 {'error': str(e)},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        except Exception:
+
+        except Exception:
             logger.exception('Unexpected error while creating sale')
             return Response(
                 {'error': 'Could not complete sale. Please retry or contact support if it continues.'},

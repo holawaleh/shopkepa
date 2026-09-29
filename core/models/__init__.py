@@ -13,3 +13,4 @@ from .hotel import Room, Booking
 from .audit import AuditLog
 from .ai_usage import AIUsageLog
 from .password_reset import PasswordResetToken
+from .idempotency import IdempotencyRecord

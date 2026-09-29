@@ -5,9 +5,10 @@ from django.utils import timezone
 from django.db import transaction
 from decimal import Decimal
 
+from core.idempotency import idempotent
 from core.models import JobCard, JobCardPart, Branch, Customer, User
 from core.permissions import IsCashierOrAbove, IsManagerOrAbove, HasPrivilege
-from core.utils import generate_job_number, log_audit, get_client_ip
+from core.utils import generate_job_number, save_with_unique_number, log_audit, get_client_ip
 from .serializers import (
     JobCardSerializer, JobCardDetailSerializer,
     CreateJobCardSerializer, UpdateJobCardSerializer,
@@ -67,6 +68,7 @@ class JobCardListCreateView(APIView):
         serializer = JobCardSerializer(queryset, many=True)
         return Response(serializer.data)
 
+    @idempotent
     def post(self, request):
         serializer = CreateJobCardSerializer(
             data=request.data,
@@ -111,10 +113,9 @@ class JobCardListCreateView(APIView):
 
         labour_charge = Decimal(str(data.get('labour_charge', 0)))
 
-        job_card = JobCard.objects.create(
+        job_card = save_with_unique_number(JobCard(
             business=business,
             branch_id=data['branch_id'],
-            job_number=generate_job_number(business.id),
             customer=customer,
             customer_name=data['customer_name'],
             customer_phone=data.get('customer_phone', ''),
@@ -132,7 +133,7 @@ class JobCardListCreateView(APIView):
             payment_status='unpaid',
             status='received',
             created_by=request.user,
-        )
+        ), 'job_number', lambda: generate_job_number(business.id))
 
         log_audit(
             business_id=business.id,
@@ -394,10 +395,13 @@ class JobCardPartView(APIView):
 class JobCardPaymentView(APIView):
     permission_classes = [IsCashierOrAbove, HasPrivilege('job_cards')]
 
+    @idempotent
     @transaction.atomic
     def post(self, request, job_id):
         try:
-            job_card = JobCard.objects.get(
+            # Row lock: two payments at once must not both read the same
+            # balance_due and each apply against it.
+            job_card = JobCard.objects.select_for_update().get(
                 id=job_id,
                 business=request.user.business,
                 is_deleted=False
@@ -440,11 +444,12 @@ class JobCardPaymentView(APIView):
         job_card.save()
 
         # Update customer debt if linked
-        if job_card.customer:
-            job_card.customer.total_outstanding_debt -= amount
-            if job_card.customer.total_outstanding_debt < 0:
-                job_card.customer.total_outstanding_debt = Decimal('0')
-            job_card.customer.save(
+        if job_card.customer_id:
+            customer = Customer.objects.select_for_update().get(pk=job_card.customer_id)
+            customer.total_outstanding_debt -= amount
+            if customer.total_outstanding_debt < 0:
+                customer.total_outstanding_debt = Decimal('0')
+            customer.save(
                 update_fields=['total_outstanding_debt', 'updated_at']
             )
 

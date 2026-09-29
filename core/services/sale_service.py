@@ -1,13 +1,16 @@
-from django.db import transaction, IntegrityError
+from django.db import transaction
 from django.utils import timezone
 from decimal import Decimal
 import logging
 
 from core.models import (
     Sale, SaleItem, Payment, InstallmentPlan,
-    InstallmentPayment, BranchInventory, StockAdjustment
+    InstallmentPayment, BranchInventory, StockAdjustment, Customer,
 )
-from core.utils import generate_sale_number, update_customer_loyalty, log_audit
+from core.utils import (
+    generate_sale_number, save_with_unique_number,
+    update_customer_loyalty, log_audit,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,32 +72,25 @@ def create_sale(business, branch, module, items, payment_data,
         payment_status = Sale.STATUS_UNPAID
 
     # ── 3. Create Sale ────────────────────────────────────────────────
-    sale = None
-    for attempt in range(5):
-        try:
-            with transaction.atomic():
-                sale = Sale.objects.create(
-                    business=business,
-                    branch=branch,
-                    module=module,
-                    customer=customer,
-                    sale_number=generate_sale_number(business.id),
-                    subtotal=subtotal,
-                    discount_amount=money(discount_amount),
-                    total_amount=total_amount,
-                    amount_paid=amount_paid,
-                    balance_due=balance_due,
-                    payment_status=payment_status,
-                    has_installment_plan=balance_due > 0 and customer is not None,
-                    notes=notes,
-                    created_by=created_by,
-                )
-            break
-        except IntegrityError as exc:
-            if 'sale_number' not in str(exc) or attempt == 4:
-                raise
-    if sale is None:
-        raise ValueError('Could not generate a unique sale number. Please retry.')
+    sale = save_with_unique_number(
+        Sale(
+            business=business,
+            branch=branch,
+            module=module,
+            customer=customer,
+            subtotal=subtotal,
+            discount_amount=money(discount_amount),
+            total_amount=total_amount,
+            amount_paid=amount_paid,
+            balance_due=balance_due,
+            payment_status=payment_status,
+            has_installment_plan=balance_due > 0 and customer is not None,
+            notes=notes,
+            created_by=created_by,
+        ),
+        'sale_number',
+        lambda: generate_sale_number(business.id),
+    )
 
     # ── 4. Create Sale Items + Deduct Stock ───────────────────────────
     for item in items:
@@ -190,6 +186,10 @@ def create_sale(business, branch, module, items, payment_data,
 
     # ── 7. Update Customer Stats ──────────────────────────────────────
     if customer:
+        # Re-read under a row lock: the passed-in object may be stale, and two
+        # concurrent sales to the same customer would otherwise each add to
+        # the same old total and one update would be lost.
+        customer = Customer.objects.select_for_update().get(pk=customer.pk)
         customer.lifetime_spend = money(customer.lifetime_spend) + amount_paid
         customer.last_purchase_date   = timezone.now().date()
         customer.total_outstanding_debt = money(customer.total_outstanding_debt) + balance_due
@@ -229,6 +229,11 @@ def add_payment_to_sale(sale, payment_data, created_by):
     Records an additional payment against an existing sale.
     Updates installment plan and customer debt.
     """
+    # Re-read under a row lock so two payments on the same sale can't both
+    # pass the overpayment check against the same stale balance. This also
+    # serializes updates to the sale's installment plan.
+    sale = Sale.objects.select_for_update().get(pk=sale.pk)
+
     if sale.payment_status == Sale.STATUS_PAID:
         raise ValueError('This sale is already fully paid.')
 
@@ -296,15 +301,16 @@ def add_payment_to_sale(sale, payment_data, created_by):
         )
 
     # Update customer debt
-    if sale.customer:
-        sale.customer.lifetime_spend = money(sale.customer.lifetime_spend) + amount
-        sale.customer.total_outstanding_debt = money(sale.customer.total_outstanding_debt) - amount
-        if sale.customer.total_outstanding_debt < 0:
-            sale.customer.total_outstanding_debt = Decimal('0')
-        sale.customer.save(update_fields=[
+    if sale.customer_id:
+        customer = Customer.objects.select_for_update().get(pk=sale.customer_id)
+        customer.lifetime_spend = money(customer.lifetime_spend) + amount
+        customer.total_outstanding_debt = money(customer.total_outstanding_debt) - amount
+        if customer.total_outstanding_debt < 0:
+            customer.total_outstanding_debt = Decimal('0')
+        customer.save(update_fields=[
             'lifetime_spend', 'total_outstanding_debt', 'updated_at'
         ])
-        update_customer_loyalty(sale.customer)
+        update_customer_loyalty(customer)
 
     return {
         'sale':              sale,

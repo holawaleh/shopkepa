@@ -7,7 +7,8 @@ from decimal import Decimal
 
 from core.models import Room, Booking
 from core.permissions import IsCashierOrAbove, IsManagerOrAbove, HasPrivilege
-from core.utils import generate_booking_number, get_client_ip
+from core.idempotency import idempotent
+from core.utils import generate_booking_number, save_with_unique_number, get_client_ip
 from .serializers import (
     RoomSerializer, CreateRoomSerializer, UpdateRoomSerializer,
     BookingSerializer, CreateBookingSerializer, BookingPaymentSerializer,
@@ -101,6 +102,7 @@ class BookingListCreateView(APIView):
             qs = qs.filter(check_in_date__lte=date_to)
         return Response(BookingSerializer(qs, many=True).data)
 
+    @idempotent
     @transaction.atomic
     def post(self, request):
         s = CreateBookingSerializer(data=request.data)
@@ -109,7 +111,10 @@ class BookingListCreateView(APIView):
         d = s.validated_data
 
         try:
-            room = Room.objects.get(id=d['room_id'], business=request.user.business, is_active=True)
+            # Lock the room so two simultaneous bookings for the same dates are
+            # serialized: the second one waits, then sees the first in the
+            # overlap check below instead of both passing it.
+            room = Room.objects.select_for_update().get(id=d['room_id'], business=request.user.business, is_active=True)
         except Room.DoesNotExist:
             return Response({'error': 'Room not found.'}, status=404)
 
@@ -126,7 +131,6 @@ class BookingListCreateView(APIView):
         amount_paid = Decimal(str(d.get('amount_paid', 0)))
         booking = Booking(
             business       = request.user.business,
-            booking_number = generate_booking_number(request.user.business.id),
             room           = room,
             guest_name     = d['guest_name'],
             guest_phone    = d.get('guest_phone', ''),
@@ -140,7 +144,9 @@ class BookingListCreateView(APIView):
             status         = Booking.STATUS_CONFIRMED,
             created_by     = request.user,
         )
-        booking.save()  # triggers nights/total/balance calc in model.save()
+        # save() also computes nights/total/balance (see Booking.save)
+        save_with_unique_number(booking, 'booking_number',
+                                lambda: generate_booking_number(request.user.business.id))
 
         if amount_paid > 0:
             if amount_paid >= booking.total_amount:
@@ -233,10 +239,11 @@ class BookingCheckOutView(APIView):
 class BookingPaymentView(APIView):
     permission_classes = [IsCashierOrAbove, HasPrivilege('hotel')]
 
+    @idempotent
     @transaction.atomic
     def post(self, request, booking_id):
         try:
-            b = Booking.objects.get(id=booking_id, business=request.user.business)
+            b = Booking.objects.select_for_update().get(id=booking_id, business=request.user.business)
         except Booking.DoesNotExist:
             return Response({'error': 'Booking not found.'}, status=404)
         if b.payment_status == Booking.PAYMENT_PAID:

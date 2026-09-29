@@ -1,4 +1,27 @@
+from django.db import IntegrityError, transaction
 from django.utils import timezone
+
+
+def save_with_unique_number(instance, number_field, generate, attempts=5):
+    """
+    Save a new model instance whose `number_field` comes from a
+    "last number + 1" generator (sale, job card, booking numbers).
+
+    Two concurrent requests for the same business can read the same "last
+    number" and pick the same next one; the per-business unique constraint
+    then rejects the second insert. Rather than surfacing that as a 500,
+    retry with a freshly generated number - by then the winner's row is
+    committed and visible, so the next attempt picks the number after it.
+    """
+    for attempt in range(attempts):
+        setattr(instance, number_field, generate())
+        try:
+            with transaction.atomic():  # savepoint: a failed insert can't poison the outer transaction
+                instance.save(force_insert=True)
+            return instance
+        except IntegrityError as exc:
+            if number_field not in str(exc) or attempt == attempts - 1:
+                raise
 
 
 def generate_sale_number(business_id):

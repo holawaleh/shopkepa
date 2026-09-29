@@ -9,6 +9,7 @@ from django.db.models import Q
 from core.models import Customer, CustomerNote, Sale
 from core.services.sale_service import add_payment_to_customer
 from core.permissions import IsManagerOrAbove, IsCashierOrAbove, HasPrivilege
+from core.idempotency import idempotent
 from core.utils import log_audit, get_client_ip, update_customer_loyalty
 from .serializers import (
     CustomerSerializer, CustomerDetailSerializer,
@@ -189,6 +190,7 @@ class CustomerDetailView(APIView):
 class CustomerPaymentView(APIView):
     permission_classes = [IsCashierOrAbove, HasPrivilege('customers')]
 
+    @idempotent
     def post(self, request, customer_id):
         try:
             customer = Customer.objects.get(
