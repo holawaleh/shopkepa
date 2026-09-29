@@ -9,6 +9,7 @@ import { formatNaira, parseApiError } from '../../utils/format'
 import { printSaleReceipt, buildBusinessInfo } from '../../utils/printDoc'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
+import { newIdempotencyKey } from '../../utils/idempotency'
 
 const PAGE_SIZE = 12
 const POS_SETUP_KEY = 'shopkepa_pos_setup'
@@ -303,8 +304,13 @@ export default function POSPage() {
   }
 
   // -- Checkout --------------------------------------------------------------
+  // One key per checkout: every submit of this modal (double-tap, retry after
+  // a dropped connection) reuses it, so the server records the sale once.
+  const checkoutKeyRef = useRef(null)
+
   const openCheckout = () => {
     if (cart.length === 0) return
+    checkoutKeyRef.current = newIdempotencyKey()
     setAmountPaid(cartTotal.toFixed(2))
     setPayMethod('cash')
     setNotes('')
@@ -342,7 +348,8 @@ export default function POSPage() {
         amount_paid:     paid,
         notes,
         discount_amount: 0,
-      })
+      }, checkoutKeyRef.current)
+      checkoutKeyRef.current = null
       const saleData = res.data
       const selectedBranch = branches.find(b => b.id === branchId)
       // Keep receipt details complete even if the API response omits display names.

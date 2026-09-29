@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Plus, Search, X, AlertCircle, Wrench, Printer, Trash2, Edit2 } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
@@ -7,6 +7,7 @@ import { formatNaira, formatDate, parseApiError } from '../../utils/format'
 import { printJobCardReceipt, buildBusinessInfo } from '../../utils/printDoc'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
+import { newIdempotencyKey } from '../../utils/idempotency'
 
 // ─── Shared constants ─────────────────────────────────────────────────────
 
@@ -282,6 +283,9 @@ function JobCardsTab({ branches }) {
   const [newNotes, setNewNotes] = useState('')
   const [payAmount, setPayAmount]   = useState('')
   const [payMethod, setPayMethod]   = useState('cash')
+  // One key per create/payment form opening; see utils/idempotency
+  const createKeyRef = useRef(null)
+  const payKeyRef    = useRef(null)
 
   // ── Parts management ──────────────────────────────────────────────────────
   const [partsJob, setPartsJob]       = useState(null)
@@ -321,6 +325,7 @@ function JobCardsTab({ branches }) {
   useEffect(() => { load() }, [load])
 
   const openAdd = () => {
+    createKeyRef.current = newIdempotencyKey()
     setForm({ ...EMPTY_JOB, branch_id: branches[0]?.id || '', intake_date: new Date().toISOString().split('T')[0] })
     setFormErrors({})
     setError('')
@@ -372,7 +377,7 @@ function JobCardsTab({ branches }) {
         technician_id:      form.technician_id || undefined,
         intake_date:        form.intake_date || undefined,
         technician_notes:   form.technician_notes.trim() || undefined,
-      })
+      }, createKeyRef.current)
       toast.success(`Job card ${res.data.job_number ?? ''} created for ${form.customer_name.trim()}`)
       setModal(null)
       load()
@@ -429,7 +434,7 @@ function JobCardsTab({ branches }) {
     finally { setSaving(false) }
   }
 
-  const openPayment = (job) => { setSelected(job); setPayAmount(''); setPayMethod('cash'); setError(''); setModal('payment') }
+  const openPayment = (job) => { payKeyRef.current = newIdempotencyKey(); setSelected(job); setPayAmount(''); setPayMethod('cash'); setError(''); setModal('payment') }
 
   // Deep-link support (e.g. "Track" from Reports > Outstanding Debts):
   // ?q= pre-filled the search above; once jobs load, jump straight into
@@ -446,7 +451,7 @@ function JobCardsTab({ branches }) {
     if (!payAmount || parseFloat(payAmount) <= 0) { setError('Enter a valid payment amount.'); return }
     setSaving(true); setError('')
     try {
-      const res = await jobCardsAPI.pay(selected.id, { amount: parseFloat(payAmount), payment_method: payMethod })
+      const res = await jobCardsAPI.pay(selected.id, { amount: parseFloat(payAmount), payment_method: payMethod }, payKeyRef.current)
       const remaining = parseFloat(res.data?.balance_due ?? 0)
       if (remaining <= 0) {
         toast.success(`${formatNaira(parseFloat(payAmount))} received — ${selected.job_number} fully paid`)

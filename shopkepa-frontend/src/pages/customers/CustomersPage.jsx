@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Plus, Search, Edit2, X, AlertCircle, Users, Printer, CreditCard, Trash2, MessageSquare, Send, Eye, FileText } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
@@ -7,6 +7,7 @@ import { formatNaira, formatDate, parseApiError } from '../../utils/format'
 import { printCustomerStatement, printCustomerHistoryPDF } from '../../utils/printDoc'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
+import { newIdempotencyKey } from '../../utils/idempotency'
 
 const EMPTY_FORM = {
   full_name: '', phone_number: '', email: '',
@@ -70,6 +71,7 @@ export default function CustomersPage() {
   const [payNotes, setPayNotes]               = useState('')
   const [payReference, setPayReference]       = useState('')
   const [paySaving, setPaySaving]             = useState(false)
+  const payKeyRef = useRef(null)  // one key per repayment; see utils/idempotency
   const [notes, setNotes]                     = useState([])
   const [noteText, setNoteText]               = useState('')
   const [noteSaving, setNoteSaving]           = useState(false)
@@ -132,6 +134,7 @@ export default function CustomersPage() {
     setOpenSales([])
     setNotes([])
     setPayAmount(''); setPayNotes(''); setPayReference('')
+    payKeyRef.current = newIdempotencyKey()
     try {
       if (canDownloadHistory) {
         const historyRes = await customersAPI.history(c.id)
@@ -246,7 +249,7 @@ export default function CustomersPage() {
         payment_method: payMethod,
         reference_number: payReference.trim() || undefined,
         notes: payNotes.trim() || undefined,
-      })
+      }, payKeyRef.current)
       toast.success(`Payment of ${formatNaira(amt)} recorded for ${profileCustomer.full_name}`)
       await openProfile(profileCustomer)
       load()

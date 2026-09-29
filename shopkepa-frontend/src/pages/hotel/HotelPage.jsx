@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Plus, Search, X, AlertCircle, Hotel, BedDouble, Calendar, LogIn, LogOut, CreditCard } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
 import { hotelAPI } from '../../api/client'
 import { formatNaira, parseApiError } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import { newIdempotencyKey } from '../../utils/idempotency'
 
 // ─── Shared ────────────────────────────────────────────────────────────────
 
@@ -263,6 +264,9 @@ function BookingsTab() {
   const [payMethod, setPayMethod] = useState('cash')
   const [error, setError]         = useState('')
   const [saving, setSaving]       = useState(false)
+  // One key per booking/payment form opening; see utils/idempotency
+  const createKeyRef = useRef(null)
+  const payKeyRef    = useRef(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -281,7 +285,7 @@ function BookingsTab() {
 
   const set = f => e => setForm(p => ({ ...p, [f]: e.target.value }))
 
-  const openAdd = () => { setForm({ ...EMPTY_BOOKING, room_id: rooms[0]?.id || '' }); setError(''); setModal('add') }
+  const openAdd = () => { createKeyRef.current = newIdempotencyKey(); setForm({ ...EMPTY_BOOKING, room_id: rooms[0]?.id || '' }); setError(''); setModal('add') }
 
   const handleCreate = async e => {
     e.preventDefault()
@@ -298,7 +302,7 @@ function BookingsTab() {
         notes:          form.notes,
         amount_paid:    parseFloat(form.amount_paid) || 0,
         payment_method: form.amount_paid > 0 ? form.payment_method : undefined,
-      })
+      }, createKeyRef.current)
       toast.success(`Booking ${res.data.booking_number ?? ''} created for ${form.guest_name.trim()}`)
       setModal(null); load()
     } catch (e) { setError(parseApiError(e)) }
@@ -327,13 +331,13 @@ function BookingsTab() {
     } catch (e) { alert(parseApiError(e)) }
   }
 
-  const openPay = b => { setSelected(b); setPayAmount(''); setPayMethod('cash'); setError(''); setModal('pay') }
+  const openPay = b => { payKeyRef.current = newIdempotencyKey(); setSelected(b); setPayAmount(''); setPayMethod('cash'); setError(''); setModal('pay') }
 
   const handlePay = async () => {
     if (!payAmount || parseFloat(payAmount) <= 0) { setError('Enter a valid amount.'); return }
     setSaving(true); setError('')
     try {
-      const res = await hotelAPI.pay(selected.id, { amount: parseFloat(payAmount), payment_method: payMethod })
+      const res = await hotelAPI.pay(selected.id, { amount: parseFloat(payAmount), payment_method: payMethod }, payKeyRef.current)
       const remaining = parseFloat(res.data?.balance_due ?? 0)
       if (remaining <= 0) {
         toast.success(`${formatNaira(parseFloat(payAmount))} received — booking fully paid`)

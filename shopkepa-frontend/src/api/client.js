@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { withIdempotencyKey } from '../utils/idempotency'
 
 const RAW_BASE_URL = import.meta.env.VITE_API_URL || 'https://shopkepa-backend.onrender.com/api/v1'
 const BACKEND_ROOT = RAW_BASE_URL.replace(/\/+$/, '').replace(/\/api\/v1$/, '')
@@ -128,16 +129,16 @@ export const productsAPI = {
 
 export const salesAPI = {
   list:       (params) => api.get('/sales/', { params }),
-  create:     (data)   => api.post('/sales/', data),
+  create:     (data, key)   => api.post('/sales/', data, withIdempotencyKey(key)),
   get:        (id)     => api.get(`/sales/${id}/`),
-  addPayment: (id, d)  => api.post(`/sales/${id}/add-payment/`, d),
+  addPayment: (id, d, key)  => api.post(`/sales/${id}/add-payment/`, d, withIdempotencyKey(key)),
   void:       (id)     => api.delete(`/sales/${id}/`),
 }
 
 export const customersAPI = {
   list:       (params)          => api.get('/customers/', { params }),
   get:        (id)              => api.get(`/customers/${id}/`),
-  addPayment: (id, data)        => api.post(`/customers/${id}/add-payment/`, data),
+  addPayment: (id, data, key)   => api.post(`/customers/${id}/add-payment/`, data, withIdempotencyKey(key)),
   history:    (id)              => api.get(`/customers/${id}/history/`),
   create:     (data)            => api.post('/customers/', data),
   update:     (id, d)           => api.patch(`/customers/${id}/`, d),
@@ -161,10 +162,10 @@ export const reportsAPI = {
 export const jobCardsAPI = {
   list:         (params)        => api.get('/job-cards/', { params }),
   get:          (id)            => api.get(`/job-cards/${id}/`),
-  create:       (data)          => api.post('/job-cards/', data),
+  create:       (data, key)     => api.post('/job-cards/', data, withIdempotencyKey(key)),
   update:       (id, d)         => api.patch(`/job-cards/${id}/`, d),
   delete:       (id)            => api.delete(`/job-cards/${id}/`),
-  pay:          (id, d)         => api.post(`/job-cards/${id}/add-payment/`, d),
+  pay:          (id, d, key)    => api.post(`/job-cards/${id}/add-payment/`, d, withIdempotencyKey(key)),
   addPart:      (id, d)         => api.post(`/job-cards/${id}/parts/`, d),
   deletePart:   (id, partId)    => api.delete(`/job-cards/${id}/parts/${partId}/`),
   technicians:  ()              => api.get('/job-cards/technicians/'),
@@ -210,11 +211,11 @@ export const hotelAPI = {
   // Bookings
   listBookings:  (params) => api.get('/hotel/bookings/', { params }),
   getBooking:    (id)     => api.get(`/hotel/bookings/${id}/`),
-  createBooking: (data)   => api.post('/hotel/bookings/', data),
+  createBooking: (data, key) => api.post('/hotel/bookings/', data, withIdempotencyKey(key)),
   updateBooking: (id, d)  => api.patch(`/hotel/bookings/${id}/`, d),
   checkIn:       (id)     => api.post(`/hotel/bookings/${id}/check-in/`),
   checkOut:      (id)     => api.post(`/hotel/bookings/${id}/check-out/`),
-  pay:           (id, d)  => api.post(`/hotel/bookings/${id}/payment/`, d),
+  pay:           (id, d, key) => api.post(`/hotel/bookings/${id}/payment/`, d, withIdempotencyKey(key)),
   // Stats
   occupancy:     ()       => api.get('/hotel/occupancy/'),
 }
