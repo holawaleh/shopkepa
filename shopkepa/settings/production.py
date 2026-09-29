@@ -14,7 +14,13 @@ if EMAIL_HOST:
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['*'])
+# Never fall back to '*' (accepts any Host header - enables host-header
+# poisoning of password-reset links etc.). Render sets
+# RENDER_EXTERNAL_HOSTNAME automatically; add custom domains via
+# ALLOWED_HOSTS in the Render dashboard.
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[]) + [
+    h for h in [env('RENDER_EXTERNAL_HOSTNAME', default=''), 'shopkepa-backend.onrender.com'] if h
+]
 
 # Override the database from base.py completely
 # Uses DATABASE_URL from Render environment variables
@@ -60,6 +66,22 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
 SECURE_BROWSER_XSS_FILTER   = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
 X_FRAME_OPTIONS             = 'DENY'
+
+# HTTPS. Render terminates TLS at its proxy and forwards plain HTTP with
+# X-Forwarded-Proto, so trust that header to know the original scheme -
+# without it Django thinks every request is HTTP and SSL redirect loops.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT     = env.bool('SECURE_SSL_REDIRECT', default=True)
+SECURE_REDIRECT_EXEMPT  = [r'^$', r'^health/$']  # plain-HTTP health probes
+
+# HSTS: browsers refuse plain HTTP to this host for a year. Scoped to this
+# exact host only (no subdomains, no preload list) so it's easy to back out.
+SECURE_HSTS_SECONDS            = env.int('SECURE_HSTS_SECONDS', default=31536000)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD            = False
+
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE    = True
 
 # Static files
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
