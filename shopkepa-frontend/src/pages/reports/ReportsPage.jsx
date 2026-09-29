@@ -86,6 +86,13 @@ export default function ReportsPage() {
   const [printingId, setPrintingId]     = useState(null)
   const salesSearchTimer                = useRef(null)
 
+  // Arriving via a "Debtors" link (sidebar, dashboard) lands on #debtors -
+  // the section only exists once its data has loaded, so wait for that.
+  useEffect(() => {
+    if (window.location.hash !== '#debtors' || !debtors) return
+    document.getElementById('debtors')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [debtors])
+
   useEffect(() => {
     branchesAPI.list()
       .then(res => {
@@ -324,7 +331,7 @@ export default function ReportsPage() {
         const rows = [...saleRows, ...jobRows].sort((a, b) => b.balance - a.balance)
 
         return (
-          <div style={{ background: 'var(--blue)', border: '1px solid var(--mid)', borderRadius: 10, padding: '20px 24px', marginBottom: 24 }}>
+          <div id="debtors" style={{ background: 'var(--blue)', border: '1px solid var(--mid)', borderRadius: 10, padding: '20px 24px', marginBottom: 24, scrollMarginTop: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
               <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--light)' }}>Outstanding Debts</h2>
               {rows.length > 0 && (

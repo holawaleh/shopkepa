@@ -81,9 +81,7 @@ export default function TopNav() {
   const location  = useLocation()
   const navigate  = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [debtorOpen, setDebtorOpen] = useState(false)
   const [debtors, setDebtors] = useState([])
-  const [debtorTotal, setDebtorTotal] = useState(0)
   const [theme, setTheme] = useState('dark')
 
   useEffect(() => {
@@ -149,7 +147,6 @@ export default function TopNav() {
           type: 'Job',
         }))
         setDebtors([...salesDebtors, ...jobDebtors].filter(d => d.name))
-        setDebtorTotal(parseFloat(res.data?.total_outstanding || 0))
       })
       .catch(() => {})
     return () => { cancelled = true }
@@ -158,11 +155,6 @@ export default function TopNav() {
   const handleLogout = async () => {
     await logout()
     navigate('/login')
-  }
-
-  const closeDebtorsAndGo = () => {
-    setDebtorOpen(false)
-    navigate('/customers')
   }
 
   const utilItems = UTIL_NAV.filter(u => u.roles.includes(user?.role))
@@ -241,39 +233,11 @@ export default function TopNav() {
             onClick={toggleTheme} />
 
           {['owner', 'admin', 'manager'].includes(user?.role) && (
-            <div style={{ position: 'relative' }}>
-              <RailRow icon={Bell} label="Debtors" badge={debtors.length}
-                onClick={() => setDebtorOpen(o => !o)} />
-              {debtorOpen && (
-                <div style={{
-                  position: 'absolute', left: '100%', bottom: 0, marginLeft: 8, width: 300,
-                  background: 'var(--blue)', border: '1px solid var(--mid)', borderRadius: 8,
-                  boxShadow: '0 18px 50px rgba(0,0,0,0.35)', padding: 10, zIndex: 250,
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <span style={{ fontSize: 12, color: 'var(--light)', fontWeight: 600 }}>Debtors</span>
-                    <span style={{ fontSize: 11, color: 'var(--warning)' }}>NGN {debtorTotal.toLocaleString('en-NG')}</span>
-                  </div>
-                  {debtors.length === 0 ? (
-                    <div style={{ fontSize: 12, color: 'var(--muted)', padding: '8px 2px' }}>No outstanding debtors.</div>
-                  ) : (
-                    <div style={{ maxHeight: 300, overflowY: 'auto' }}>
-                      {debtors.map((d, idx) => (
-                        <button key={`${d.id}-${idx}`} onClick={closeDebtorsAndGo}
-                          style={{
-                            width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid var(--mid)',
-                            padding: '9px 2px', textAlign: 'left', cursor: 'pointer', display: 'grid', gap: 2,
-                          }}>
-                          <span style={{ fontSize: 12, color: 'var(--light)', fontWeight: 500 }}>{d.name}</span>
-                          <span style={{ fontSize: 11, color: 'var(--muted)' }}>{d.phone || 'No phone'} - {d.type} {d.ref}</span>
-                          <span style={{ fontSize: 11, color: 'var(--warning)' }}>Balance: NGN {Number(d.balance || 0).toLocaleString('en-NG')}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            // A plain link like every other rail item - clicking takes you
+            // straight to the full Outstanding Debts list in Reports,
+            // rather than a small popover with no way out to the real page.
+            <RailRow to="/reports#debtors" icon={Bell} label="Debtors" badge={debtors.length}
+              active={location.pathname.startsWith('/reports') && location.hash === '#debtors'} />
           )}
 
           <div style={{
