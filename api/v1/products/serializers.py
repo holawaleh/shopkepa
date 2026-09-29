@@ -109,6 +109,20 @@ class CreateProductSerializer(serializers.Serializer):
     attributes      = serializers.ListField(
         child=serializers.DictField(), required=False, default=[]
     )
+    # Starting quantity on hand, so a new product doesn't need a separate
+    # "Adjust stock" step. Goes to opening_stock_branch_id, or the main
+    # branch when omitted.
+    opening_stock           = serializers.IntegerField(min_value=0, required=False, default=0)
+    opening_stock_branch_id = serializers.UUIDField(required=False, allow_null=True)
+
+    def validate_opening_stock_branch_id(self, value):
+        if not value:
+            return value
+        from core.models import Branch
+        business = self.context['request'].user.business
+        if not Branch.objects.filter(id=value, business=business, is_deleted=False).exists():
+            raise serializers.ValidationError('Branch not found.')
+        return value
 
     def validate_module_id(self, value):
         from core.models import BusinessModule

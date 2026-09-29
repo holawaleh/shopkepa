@@ -455,12 +455,12 @@ export default function ReportsPage() {
           {inventory.low_stock_items?.length > 0 ? (
             <>
               <p style={{ fontSize: 12, color: 'var(--warning)', marginBottom: 12 }}>
-                {inventory.low_stock_items.length} product(s) at or below reorder level
+                {inventory.low_stock_items.length} product(s) at or below their low stock alert
               </p>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--mid)' }}>
-                    {['Product', 'Branch', 'In Stock', 'Reorder At'].map(h => (
+                    {['Product', 'Branch', 'In Stock', 'Alert At'].map(h => (
                       <th key={h} style={{
                         padding: '8px 12px', textAlign: 'left', fontSize: 11,
                         color: 'var(--muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.4,
@@ -483,7 +483,7 @@ export default function ReportsPage() {
               </table>
             </>
           ) : (
-            <p style={{ color: 'var(--success)', fontSize: 13 }}>All products are above reorder level.</p>
+            <p style={{ color: 'var(--success)', fontSize: 13 }}>All products are above their low stock alert.</p>
           )}
         </div>
       )}

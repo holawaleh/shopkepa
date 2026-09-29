@@ -162,6 +162,33 @@ class ProductListCreateView(APIView):
                 quantity_in_stock=0,
             )
 
+        # Opening stock: set it on the chosen (or main) branch and record it
+        # as an opening_stock adjustment, same as a restock would be.
+        opening_stock = data.get('opening_stock') or 0
+        if opening_stock > 0:
+            target = (
+                branches.filter(id=data['opening_stock_branch_id']).first()
+                if data.get('opening_stock_branch_id')
+                else branches.order_by('-is_main_branch', 'created_at').first()
+            )
+            if target:
+                inventory = BranchInventory.objects.get(branch=target, product=product)
+                inventory.quantity_in_stock = opening_stock
+                inventory.last_restocked_at = timezone.now()
+                inventory.last_restocked_by = request.user
+                inventory.save()
+                StockAdjustment.objects.create(
+                    business=business,
+                    branch=target,
+                    product=product,
+                    adjustment_type=StockAdjustment.TYPE_OPENING_STOCK,
+                    quantity_change=opening_stock,
+                    quantity_before=0,
+                    quantity_after=opening_stock,
+                    reason='Opening stock (set when product was added)',
+                    created_by=request.user,
+                )
+
         log_audit(
             business_id=business.id,
             user_id=request.user.id,
@@ -428,7 +455,7 @@ class LowStockView(APIView):
         if branch_id:
             inventory = inventory.filter(branch_id=branch_id)
 
-        # Filter where stock <= reorder level
+        # Filter where stock is less than or equal to reorder level and product is not deleted
         low_stock = [
             i for i in inventory
             if i.quantity_in_stock <= i.product.reorder_level

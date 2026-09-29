@@ -9,6 +9,7 @@ const EMPTY_FORM = {
   name: '', sku: '', description: '', module_id: '', category_id: '',
   unit_type: '', retail_price: '', wholesale_price: '',
   cost_price: '', reorder_level: '0',
+  opening_stock: '', opening_stock_branch_id: '',
 }
 
 const MODULE_PLACEHOLDERS = {
@@ -128,7 +129,7 @@ export default function ProductsPage() {
 
   const openAdd = () => {
     setEditing(null)
-    setForm({ ...EMPTY_FORM, module_id: filterModule || '' })
+    setForm({ ...EMPTY_FORM, module_id: filterModule || '', opening_stock_branch_id: branches[0]?.id || '' })
     setFormErrors({})
     setError('')
     setModal('add')
@@ -181,6 +182,8 @@ export default function ProductsPage() {
     if (!form.retail_price)       e.retail_price    = 'Retail price is required'
     if (!form.wholesale_price)    e.wholesale_price = 'Wholesale price is required'
     if (parseFloat(form.retail_price) <= 0) e.retail_price = 'Must be greater than zero'
+    if (form.opening_stock !== '' && !/^\d+$/.test(String(form.opening_stock).trim()))
+      e.opening_stock = 'Enter a whole number (0 or more)'
     setFormErrors(e)
     return Object.keys(e).length === 0
   }
@@ -204,8 +207,15 @@ export default function ProductsPage() {
         reorder_level:    parseInt(form.reorder_level) || 0,
       }
       if (modal === 'add') {
-        await productsAPI.create(payload)
-        toast.success(`${payload.name} added to catalogue`)
+        const openingStock = parseInt(form.opening_stock, 10) || 0
+        await productsAPI.create({
+          ...payload,
+          opening_stock: openingStock,
+          opening_stock_branch_id: openingStock > 0 ? (form.opening_stock_branch_id || undefined) : undefined,
+        })
+        toast.success(openingStock > 0
+          ? `${payload.name} added with ${openingStock} in stock`
+          : `${payload.name} added to catalogue`)
       } else {
         await productsAPI.update(editing.id, payload)
         toast.success(`${payload.name} updated`)
@@ -515,10 +525,27 @@ export default function ProductsPage() {
               <FormField label="Cost price (NGN)" error={formErrors.cost_price}>
                 <input className="input" type="number" min="0" step="0.01" value={form.cost_price} onChange={set('cost_price')} placeholder="0.00" />
               </FormField>
-              <FormField label="Reorder level" error={formErrors.reorder_level}>
+              <FormField label="Low stock alert" error={formErrors.reorder_level}>
                 <input className="input" type="number" min="0" value={form.reorder_level} onChange={set('reorder_level')} placeholder="0" />
+                <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'block' }}>Warn me when stock falls to this number.</span>
               </FormField>
             </div>
+
+            {modal === 'add' && (
+              <div className="product-form-grid" style={{ display: 'grid', gridTemplateColumns: branches.length > 1 ? '1fr 1fr' : '1fr', gap: 12 }}>
+                <FormField label="Opening stock (quantity)" error={formErrors.opening_stock}>
+                  <input className="input" type="number" min="0" step="1" value={form.opening_stock} onChange={set('opening_stock')} placeholder="0" />
+                  <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'block' }}>How many you have right now. Later changes go through Adjust Stock.</span>
+                </FormField>
+                {branches.length > 1 && (
+                  <FormField label="Stock is at branch">
+                    <select className="input" value={form.opening_stock_branch_id} onChange={set('opening_stock_branch_id')}>
+                      {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
+                  </FormField>
+                )}
+              </div>
+            )}
 
             <div className="product-modal-actions" style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>
