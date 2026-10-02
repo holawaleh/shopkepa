@@ -16,6 +16,7 @@ import hmac
 import logging
 import secrets
 
+from core.authentication import account_block_reason
 from core.models import User, PasswordResetToken
 from core.models.user import validate_username
 from core.services.auth_service import register_business
@@ -54,6 +55,30 @@ def _set_refresh_cookie(response, token):
 
 def _clear_refresh_cookie(response):
     response.delete_cookie(REFRESH_COOKIE, path='/api/v1/auth/')
+
+
+PASSWORD_RESET_TTL = timedelta(minutes=30)
+
+
+def issue_password_reset_link(user, request_ip=None, frontend_url=None):
+    """Create a single-use, 30-minute password reset link for `user`.
+
+    Any earlier unused links for the user are invalidated. Only a hash of
+    the token is stored, so the returned URL is the one place the raw token
+    exists. Used by the self-service "forgot password" flow and by the
+    platform admin's "generate reset link" action.
+    """
+    raw_token = secrets.token_urlsafe(32)
+    now = timezone.now()
+    PasswordResetToken.objects.filter(user=user, used_at__isnull=True).update(used_at=now)
+    PasswordResetToken.objects.create(
+        user=user,
+        token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
+        expires_at=now + PASSWORD_RESET_TTL,
+        request_ip=request_ip,
+    )
+    base = (frontend_url or settings.FRONTEND_URL).rstrip('/')
+    return f'{base}/reset-password?token={raw_token}'
 
 
 class RegisterView(APIView):
@@ -183,6 +208,20 @@ class TokenRefreshCookieView(APIView):
             )
         try:
             refresh = RefreshToken(raw_token)
+
+            # A refresh token outlives a deactivation (it's valid for 7 days),
+            # so re-check the account before handing out a new access token.
+            user = User.objects.select_related('business').get(pk=refresh.get('user_id'))
+            blocked = account_block_reason(user)
+            if blocked:
+                try:
+                    refresh.blacklist()
+                except AttributeError:
+                    pass
+                resp = Response({'error': blocked}, status=status.HTTP_403_FORBIDDEN)
+                _clear_refresh_cookie(resp)
+                return resp
+
             access = str(refresh.access_token)
 
             response = Response({'access': access})
@@ -193,8 +232,6 @@ class TokenRefreshCookieView(APIView):
                     refresh.blacklist()
                 except AttributeError:
                     pass
-                user_id = refresh.get('user_id')
-                user = User.objects.get(pk=user_id)
                 new_refresh = RefreshToken.for_user(user)
                 _set_refresh_cookie(response, str(new_refresh))
 
@@ -282,21 +319,7 @@ class PasswordResetRequestView(APIView):
         ).select_related('business').first()
 
         if user:
-            raw_token = secrets.token_urlsafe(32)
-            token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
-            now = timezone.now()
-            PasswordResetToken.objects.filter(
-                user=user,
-                used_at__isnull=True,
-            ).update(used_at=now)
-            PasswordResetToken.objects.create(
-                user=user,
-                token_hash=token_hash,
-                expires_at=now + timedelta(minutes=30),
-                request_ip=get_client_ip(request),
-            )
-
-            reset_url = f'{settings.FRONTEND_URL}/reset-password?token={raw_token}'
+            reset_url = issue_password_reset_link(user, request_ip=get_client_ip(request))
             try:
                 send_mail(
                     subject='Reset your ShopKepa password',

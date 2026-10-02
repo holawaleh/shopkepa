@@ -228,6 +228,18 @@ export const modulesAPI = {
   toggle:   (id, is_active) => api.patch(`/modules/${id}/toggle/`, { is_active }),
 }
 
+// Platform owner (superuser) only - every business on ShopKepa
+export const platformAPI = {
+  overview:       ()           => api.get('/platform/overview/'),
+  businesses:     (params)     => api.get('/platform/businesses/', { params }),
+  business:       (id)         => api.get(`/platform/businesses/${id}/`),
+  updateBusiness: (id, data)   => api.patch(`/platform/businesses/${id}/`, data),
+  users:          (params)     => api.get('/platform/users/', { params }),
+  updateUser:     (id, data)   => api.patch(`/platform/users/${id}/`, data),
+  resetLink:      (id)         => api.post(`/platform/users/${id}/reset-link/`),
+  activity:       (params)     => api.get('/platform/activity/', { params }),
+}
+
 export const staffAPI = {
   list:   ()           => api.get('/staff/'),
   create: (data)       => api.post('/staff/', data),

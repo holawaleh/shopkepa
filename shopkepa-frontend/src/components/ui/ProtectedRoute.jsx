@@ -21,6 +21,10 @@ export function ProtectedRoute({ children, roles }) {
 
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />
 
+  // A platform admin with no business of their own has nothing to do in the
+  // business screens (and no modules to onboard) - send them to /platform.
+  if (user.is_superuser && !user.business_id) return <Navigate to="/platform" replace />
+
   if (roles && !roles.includes(user.role)) return <Navigate to="/dashboard" replace />
 
   // Redirect to onboarding until modules are chosen (skip if already on /onboarding)
@@ -32,8 +36,18 @@ export function ProtectedRoute({ children, roles }) {
 }
 
 export function GuestRoute({ children }) {
-  const { user, loading } = useAuth()
+  const { user, loading, defaultRoute } = useAuth()
   if (loading) return null
-  if (user) return <Navigate to="/dashboard" replace />
+  if (user) return <Navigate to={defaultRoute()} replace />
+  return children
+}
+
+// Platform admin area: superusers only, no business or modules required.
+export function PlatformRoute({ children }) {
+  const { user, loading } = useAuth()
+  const location = useLocation()
+  if (loading) return <Spinner />
+  if (!user) return <Navigate to="/login" state={{ from: location }} replace />
+  if (!user.is_superuser) return <Navigate to="/dashboard" replace />
   return children
 }

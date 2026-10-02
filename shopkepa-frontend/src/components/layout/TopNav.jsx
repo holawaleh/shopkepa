@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   ShoppingCart, LayoutDashboard, Package, Users,
   BarChart2, Wrench, Settings, LogOut, Menu, X, Wifi, WifiOff, Hotel,
-  ReceiptText, Bell, Cpu, Sun, Moon,
+  ReceiptText, Bell, Cpu, Sun, Moon, ShieldCheck,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus'
@@ -157,7 +157,10 @@ export default function TopNav() {
     navigate('/login')
   }
 
-  const utilItems = UTIL_NAV.filter(u => u.roles.includes(user?.role))
+  const utilItems = [
+    ...(user?.is_superuser ? [{ key: 'platform', to: '/platform', icon: ShieldCheck, label: 'Platform admin' }] : []),
+    ...UTIL_NAV.filter(u => u.roles.includes(user?.role)),
+  ]
 
   return (
     <>

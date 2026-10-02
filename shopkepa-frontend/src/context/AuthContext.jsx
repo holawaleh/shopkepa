@@ -80,7 +80,14 @@ export function AuthProvider({ children }) {
   const activeCodes = new Set(activeModules.map(bm => bm.module?.code).filter(Boolean))
   const hasModules  = activeModules.length > 0
 
-  const defaultRoute = () => {
+  // Platform owner (Django superuser). Without a business of their own they
+  // only use the platform admin area, never business onboarding.
+  const isPlatformAdmin = !!user?.is_superuser
+
+  // `u` lets callers pass the user just returned by login(), before the
+  // state update above has re-rendered this context.
+  const defaultRoute = (u = user) => {
+    if (u?.is_superuser && !u?.business_id) return '/platform'
     if (!hasModules) return '/onboarding'
     if (isOwner || isManager) return '/dashboard'
     if (isCashier)            return '/pos'
@@ -90,7 +97,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user, loading, login, logout,
-      isOwner, isCashier, isManager,
+      isOwner, isCashier, isManager, isPlatformAdmin,
       activeModules, activeCodes, hasModules,
       reloadModules: loadModules,
       reloadUser,

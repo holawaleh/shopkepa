@@ -43,7 +43,7 @@ export default function LoginPage() {
 
     try {
       const user = await login(form.email, form.password)
-      const dest = from || defaultRoute()
+      const dest = from || defaultRoute(user)
       navigate(dest, { replace: true })
     } catch (err) {
       if (err?.retryAfter) {

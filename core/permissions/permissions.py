@@ -88,3 +88,17 @@ class IsSameBusiness(BasePermission):
             business = getattr(obj, 'business', None)
             business_id = business.id if business else None
         return str(business_id) == str(request.user.business_id)
+
+class IsPlatformAdmin(BasePermission):
+    """
+    ShopKepa platform owner (Django superuser) - sees and manages every
+    business on the platform. Deliberately separate from the business
+    'owner' role, which only ever reaches its own business's data.
+    """
+    message = 'Platform administrators only.'
+
+    def has_permission(self, request, view):
+        return bool(
+            request.user and request.user.is_authenticated
+            and request.user.is_superuser and request.user.is_active
+        )

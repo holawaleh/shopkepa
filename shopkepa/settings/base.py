@@ -112,7 +112,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # DRF
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # JWT + re-checks user/business is still active on every request
+        'core.authentication.ActiveAccountJWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',

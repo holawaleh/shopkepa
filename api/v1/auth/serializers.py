@@ -89,7 +89,7 @@ class UserSerializer(serializers.ModelSerializer):
             'phone_number', 'email', 'location',
             'role', 'permissions', 'business_id', 'business_name', 'business_logo',
             'business_phone', 'business_email', 'business_address',
-            'branch_ids', 'is_active', 'created_at',
+            'branch_ids', 'is_active', 'is_superuser', 'created_at',
         ]
 
 

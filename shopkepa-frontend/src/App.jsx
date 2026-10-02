@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { lazy, Suspense, useEffect } from 'react'
 import { AuthProvider } from './context/AuthContext'
 import { ToastProvider, useToast } from './context/ToastContext'
-import { ProtectedRoute, GuestRoute } from './components/ui/ProtectedRoute'
+import { ProtectedRoute, GuestRoute, PlatformRoute } from './components/ui/ProtectedRoute'
 import LoginPage from './pages/auth/LoginPage'
 import SignupPage from './pages/auth/SignupPage'
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
@@ -11,6 +11,7 @@ import LandingPage from './pages/landing/LandingPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
 
 const OnboardingPage = lazy(() => import('./pages/onboarding/OnboardingPage'))
+const PlatformPage   = lazy(() => import('./pages/platform/PlatformPage'))
 const POSPage        = lazy(() => import('./pages/pos/POSPage'))
 const ProductsPage   = lazy(() => import('./pages/products/ProductsPage'))
 const CustomersPage  = lazy(() => import('./pages/customers/CustomersPage'))
@@ -86,6 +87,7 @@ export default function App() {
               <Route path="/settings"    element={<ProtectedRoute roles={['owner','admin']}><SettingsPage /></ProtectedRoute>} />
               <Route path="/expenses"    element={<ProtectedRoute roles={['owner','admin','manager']}><ExpensesPage /></ProtectedRoute>} />
               <Route path="/ai"          element={<ProtectedRoute><AIPage /></ProtectedRoute>} />
+              <Route path="/platform"    element={<PlatformRoute><PlatformPage /></PlatformRoute>} />
               <Route path="/"            element={<LandingPage />} />
               <Route path="*"            element={<Navigate to="/" replace />} />
             </Routes>
