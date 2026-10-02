@@ -1,0 +1,10 @@
+// Cloudflare Workers deploy for the static frontend (built by `npm run build`).
+{
+  "name": "shopkepa",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    // Serve index.html for app routes like /platform so refreshes don't 404
+    "not_found_handling": "single-page-application"
+  }
+}
