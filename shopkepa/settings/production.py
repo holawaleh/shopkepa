@@ -51,18 +51,15 @@ else:
         }
     }
 
-# CORS — allow production URLs + preview deployments on Vercel and Cloudflare
+# CORS — allow production URL + all Vercel preview deployments for this project
 _cors_env = env.list('CORS_ALLOWED_ORIGINS', default=[])
 CORS_ALLOWED_ORIGINS = list(set(_cors_env + [
     'https://shopkepa.vercel.app',
-    'https://shopkepa.holawaleh.workers.dev',
 ]))
 
 # Covers preview URLs like shopkepa-abc123-holawalehs-projects.vercel.app
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r'^https://shopkepa[a-z0-9-]*\.vercel\.app$',
-    # Cloudflare preview URLs like abc123-shopkepa.holawaleh.workers.dev
-    r'^https://([a-z0-9-]+-)?shopkepa\.holawaleh\.workers\.dev$',
 ]
 
 # Security
