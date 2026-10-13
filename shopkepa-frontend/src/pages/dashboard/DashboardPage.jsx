@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, X, Printer } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
+import InstallAppPrompt from '../../components/ui/InstallAppPrompt'
 import { salesAPI, productsAPI, customersAPI, jobCardsAPI, hotelAPI, reportsAPI } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import { formatNaira } from '../../utils/format'
@@ -450,6 +451,7 @@ export default function DashboardPage() {
           <p style={{ color: 'var(--muted)', fontSize: 14, marginBottom: 16 }}>No modules active. Go to <Link to="/settings" style={{ color: 'var(--gold)' }}>Settings → Modules</Link> to activate features for your business.</p>
         </div>
       )}
+      <InstallAppPrompt />
     </AppLayout>
   )
 }

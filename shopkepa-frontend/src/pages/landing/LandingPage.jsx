@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import InstallAppPrompt from '../../components/ui/InstallAppPrompt'
 import {
   ShoppingCart, BarChart2, Users, Package, Wifi, Shield,
   Check, Star, Menu, X, ArrowRight, Zap, TrendingUp,
@@ -938,6 +939,7 @@ export default function LandingPage() {
           .sk-edge-cards { display: none !important; }
         }
       `}</style>
+      <InstallAppPrompt />
     </div>
   )
 }
