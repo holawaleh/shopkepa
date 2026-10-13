@@ -125,6 +125,7 @@ export const productsAPI = {
   inventory:    (id)     => api.get(`/products/${id}/inventory/`),
   lowStock:       (params) => api.get('/products/low-stock/',  { params }),
   expiring:       (params) => api.get('/products/expiring/',   { params }),
+  generateMissingBarcodes: () => api.post('/products/barcodes/generate-missing/'),
 }
 
 export const salesAPI = {

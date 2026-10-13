@@ -268,6 +268,26 @@ export default function POSPage() {
 
   const removeFromCart = (productId) => setCart(c => c.filter(i => i.product.id !== productId))
 
+  // Barcode scanners type the code then press Enter. An exact barcode (or
+  // SKU) match goes straight into the cart and the box clears for the next scan.
+  const handleSearchEnter = async () => {
+    const code = query.trim()
+    if (!code) return
+    const exact = (list) => list.find(p => p.barcode === code || (p.sku && p.sku.toLowerCase() === code.toLowerCase()))
+    let product = exact(products)
+    if (!product) {
+      try {
+        const res = await productsAPI.list({ branch_id: branchId, module_id: moduleId, is_active: true, search: code, page_size: PAGE_SIZE })
+        const raw = res.data
+        product = exact(Array.isArray(raw) ? raw : (raw?.results ?? []))
+      } catch { /* fall through to "not found" */ }
+    }
+    if (!product) { toast.error(`No product with barcode ${code}`); return }
+    if (getStock(product) <= 0) { toast.error(`${product.name} is out of stock`); return }
+    addToCart(product)
+    handleQueryChange('')
+  }
+
   const cartTotal     = cart.reduce((s, i) => s + i.qty * i.unit_price, 0)
   const cartItemCount = cart.reduce((s, i) => s + i.qty, 0)
 
@@ -522,9 +542,10 @@ export default function POSPage() {
             <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
             <input
               className="input"
-              placeholder="Search products by name or SKU..."
+              placeholder="Search by name or SKU, or scan a barcode..."
               value={query}
               onChange={e => handleQueryChange(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleSearchEnter() } }}
               style={{ paddingLeft: 36 }}
               autoFocus
             />

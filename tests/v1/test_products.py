@@ -85,3 +85,74 @@ class CategoryScopingTests(TestCase):
 
         fashion.business_modules.filter(business=self.business).update(is_active=False)
         self.assertNotIn('fashion', {c['module_code'] for c in self.list_categories()})
+
+
+class BarcodeTests(TestCase):
+    def setUp(self):
+        self.owner, self.business, self.main = make_business()
+        self.module = activate_module(self.business)
+        self.client = client_for(self.owner)
+
+    def add_product(self, name='Rice 50kg', **extra):
+        return self.client.post('/api/v1/products/', {
+            'name': name, 'module_id': str(self.module.id),
+            'retail_price': '60000', 'wholesale_price': '58000', **extra,
+        }, format='json')
+
+    def assert_valid_store_ean13(self, code):
+        from core.services.barcodes import ean13_check_digit
+        self.assertRegex(code, r'^2\d{12}$')
+        self.assertEqual(code[-1], ean13_check_digit(code[:12]))
+
+    def test_check_digit_matches_a_known_ean13(self):
+        from core.services.barcodes import ean13_check_digit
+        self.assertEqual(ean13_check_digit('400638133393'), '1')  # 4006381333931
+
+    def test_new_product_gets_a_generated_barcode(self):
+        res = self.add_product()
+        self.assertEqual(res.status_code, 201, res.data)
+        self.assert_valid_store_ean13(res.data['barcode'])
+
+    def test_manufacturer_barcode_is_kept(self):
+        res = self.add_product(barcode='5449000000996')
+        self.assertEqual(res.data['barcode'], '5449000000996')
+
+    def test_duplicate_barcode_is_rejected(self):
+        self.add_product(barcode='5449000000996')
+        res = self.add_product(name='Coke 2', barcode='5449000000996')
+        self.assertEqual(res.status_code, 400)
+        self.assertIn('barcode', res.data)
+
+    def test_product_can_keep_its_own_barcode_on_edit(self):
+        pid = self.add_product(barcode='5449000000996').data['id']
+        res = self.client.patch(f'/api/v1/products/{pid}/', {'barcode': '5449000000996'}, format='json')
+        self.assertEqual(res.status_code, 200, res.data)
+
+    def test_same_barcode_allowed_in_another_business(self):
+        self.add_product(barcode='5449000000996')
+        other_owner, other_business, _ = make_business('Other')
+        other_module = activate_module(other_business)
+        res = client_for(other_owner).post('/api/v1/products/', {
+            'name': 'Coke', 'module_id': str(other_module.id),
+            'retail_price': '500', 'wholesale_price': '450', 'barcode': '5449000000996',
+        }, format='json')
+        self.assertEqual(res.status_code, 201, res.data)
+
+    def test_generate_missing_fills_only_blank_barcodes(self):
+        from core.models import Product
+        from .factories import make_product
+        kept = self.add_product(barcode='5449000000996').data['id']
+        a = make_product(self.business, self.main, self.module, name='A')
+        b = make_product(self.business, self.main, self.module, name='B')
+        Product.objects.filter(id__in=[a.id, b.id]).update(barcode='')
+
+        res = self.client.post('/api/v1/products/barcodes/generate-missing/')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.data['generated'], 2)
+        codes = list(Product.objects.filter(id__in=[a.id, b.id]).values_list('barcode', flat=True))
+        for code in codes:
+            self.assert_valid_store_ean13(code)
+        self.assertEqual(len(set(codes)), 2)
+        self.assertEqual(Product.objects.get(id=kept).barcode, '5449000000996')
+
+        self.assertEqual(self.client.post('/api/v1/products/barcodes/generate-missing/').data['generated'], 0)

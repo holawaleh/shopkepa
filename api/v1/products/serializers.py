@@ -93,10 +93,20 @@ class ProductSerializer(serializers.ModelSerializer):
         ).data
 
 
+def validate_unique_barcode(value, business, product=None):
+    from core.services.barcodes import barcode_in_use
+    value = (value or '').strip()
+    if value and barcode_in_use(business, value, exclude_product_id=product.id if product else None):
+        raise serializers.ValidationError('Another product already uses this barcode.')
+    return value
+
+
 class CreateProductSerializer(serializers.Serializer):
     name            = serializers.CharField(max_length=200)
     description     = serializers.CharField(required=False, allow_blank=True)
     sku             = serializers.CharField(required=False, allow_blank=True)
+    # Blank means "generate one for me"
+    barcode         = serializers.CharField(max_length=100, required=False, allow_blank=True)
     module_id       = serializers.UUIDField()
     category_id     = serializers.UUIDField(required=False, allow_null=True)
     unit_type       = serializers.CharField(required=False, allow_blank=True)
@@ -137,6 +147,9 @@ class CreateProductSerializer(serializers.Serializer):
             )
         return value
 
+    def validate_barcode(self, value):
+        return validate_unique_barcode(value, self.context['request'].user.business)
+
     def validate_retail_price(self, value):
         if value <= 0:
             raise serializers.ValidationError(
@@ -172,7 +185,7 @@ class UpdateProductSerializer(serializers.Serializer):
     name            = serializers.CharField(max_length=200, required=False)
     description     = serializers.CharField(required=False, allow_blank=True)
     sku             = serializers.CharField(required=False, allow_blank=True)
-    barcode         = serializers.CharField(required=False, allow_blank=True)
+    barcode         = serializers.CharField(max_length=100, required=False, allow_blank=True)
     category_id     = serializers.UUIDField(required=False, allow_null=True)
     unit_type       = serializers.CharField(required=False, allow_blank=True)
     wholesale_price = serializers.DecimalField(
@@ -189,6 +202,10 @@ class UpdateProductSerializer(serializers.Serializer):
     attributes      = serializers.ListField(
         child=serializers.DictField(), required=False
     )
+
+    def validate_barcode(self, value):
+        product = self.context['product']
+        return validate_unique_barcode(value, product.business, product)
 
     def validate(self, data):
         category_id = data.get('category_id')

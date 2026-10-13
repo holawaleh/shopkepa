@@ -12,6 +12,7 @@ from core.models import (
 from core.permissions import IsManagerOrAbove, IsCashierOrAbove, HasPrivilege
 from core.utils import log_audit, get_client_ip
 from core.services.product_categories import seed_default_product_categories
+from core.services.barcodes import generate_barcode, fill_missing_barcodes
 from .serializers import (
     ProductSerializer, ProductCategorySerializer, CreateProductCategorySerializer,
     CreateProductSerializer, UpdateProductSerializer, StockAdjustmentSerializer,
@@ -142,6 +143,7 @@ class ProductListCreateView(APIView):
             name=data['name'],
             description=data.get('description', ''),
             sku=data.get('sku', ''),
+            barcode=data.get('barcode') or generate_barcode(business),
             unit_type=data.get('unit_type', ''),
             wholesale_price=data['wholesale_price'],
             retail_price=data['retail_price'],
@@ -575,6 +577,27 @@ class StockHistoryView(APIView):
                 for a in adjustments
             ],
         })
+
+
+class GenerateMissingBarcodesView(APIView):
+    """Give every product that has no barcode a generated store barcode."""
+    permission_classes = [IsManagerOrAbove, HasPrivilege('products')]
+
+    @transaction.atomic
+    def post(self, request):
+        business = request.user.business
+        count = fill_missing_barcodes(business)
+        if count:
+            log_audit(
+                business_id=business.id,
+                user_id=request.user.id,
+                action='UPDATE',
+                table_name='products',
+                record_id=business.id,
+                new_values={'barcodes_generated': count},
+                ip_address=get_client_ip(request),
+            )
+        return Response({'generated': count})
 
 
 class ProductBarcodeLookupView(APIView):

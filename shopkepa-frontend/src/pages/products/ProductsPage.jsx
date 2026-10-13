@@ -1,12 +1,14 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Plus, Search, Edit2, Trash2, X, AlertCircle, Package, PackagePlus, Tag } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { Plus, Search, Edit2, Trash2, X, AlertCircle, Package, PackagePlus, Tag, Barcode, Printer, Wand2 } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
 import { productsAPI, modulesAPI, branchesAPI } from '../../api/client'
 import { formatNaira, parseApiError } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
+import { useAuth } from '../../context/AuthContext'
+import { drawBarcode, printBarcodeLabels } from '../../utils/barcodes'
 
 const EMPTY_FORM = {
-  name: '', sku: '', description: '', module_id: '', category_id: '',
+  name: '', sku: '', barcode: '', description: '', module_id: '', category_id: '',
   unit_type: '', retail_price: '', wholesale_price: '',
   cost_price: '', reorder_level: '0',
   opening_stock: '', opening_stock_branch_id: '',
@@ -60,6 +62,20 @@ function Modal({ title, onClose, children }) {
   )
 }
 
+// Barcodes always render black on white so they scan in dark mode too
+function BarcodePreview({ code, height = 46 }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (ref.current && code) drawBarcode(ref.current, code, { height })
+  }, [code, height])
+  if (!code) return null
+  return (
+    <div style={{ background: '#fff', borderRadius: 6, padding: '6px 8px', display: 'inline-flex', maxWidth: '100%' }}>
+      <svg ref={ref} style={{ maxWidth: '100%', height: 'auto' }} />
+    </div>
+  )
+}
+
 function FormField({ label, children, error }) {
   return (
     <div>
@@ -92,6 +108,10 @@ export default function ProductsPage() {
   const [saving, setSaving]           = useState(false)
   const [error, setError]             = useState('')
   const [deleting, setDeleting]       = useState(null)
+  const [labelItems, setLabelItems]   = useState([]) // [{ product, copies }]
+  const [labelShowPrice, setLabelShowPrice] = useState(true)
+  const [generating, setGenerating]   = useState(false)
+  const { user } = useAuth()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -138,7 +158,7 @@ export default function ProductsPage() {
   const openEdit = (p) => {
     setEditing(p)
     setForm({
-      name: p.name, sku: p.sku || '', description: p.description || '',
+      name: p.name, sku: p.sku || '', barcode: p.barcode || '', description: p.description || '',
       module_id: p.module || '', category_id: p.category || '',
       unit_type: p.unit_type || '',
       retail_price: p.retail_price,
@@ -197,6 +217,7 @@ export default function ProductsPage() {
       const payload = {
         name:             form.name.trim(),
         sku:              form.sku.trim(),
+        barcode:          form.barcode.trim(),
         description:      form.description.trim(),
         module_id:        form.module_id,
         category_id:      form.category_id || null,
@@ -290,6 +311,38 @@ export default function ProductsPage() {
     }
   }
 
+  const missingBarcodes = products.filter(p => !p.barcode).length
+  const totalStockNumber = (p) => { const n = totalStock(p); return typeof n === 'number' ? Math.max(0, n) : 0 }
+
+  const handleGenerateBarcodes = async () => {
+    setGenerating(true)
+    try {
+      const res = await productsAPI.generateMissingBarcodes()
+      toast.success(`Barcodes created for ${res.data.generated} product${res.data.generated === 1 ? '' : 's'}`)
+      load()
+    } catch (err) {
+      setError(parseApiError(err))
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const openLabels = (list) => {
+    setLabelItems(list.filter(p => p.barcode).map(product => ({ product, copies: 1 })))
+    setModal('labels')
+  }
+
+  const setLabelCopies = (id, value) => setLabelItems(items => items.map(i =>
+    i.product.id === id ? { ...i, copies: Math.max(0, Math.min(500, parseInt(value, 10) || 0)) } : i))
+
+  const totalLabels = labelItems.reduce((n, i) => n + i.copies, 0)
+
+  const handlePrintLabels = () => {
+    printBarcodeLabels(labelItems.filter(i => i.copies > 0), {
+      businessName: user?.business_name, showPrice: labelShowPrice,
+    })
+  }
+
   const totalStock = (p) => {
     if (Array.isArray(p.stock)) {
       return p.stock.reduce((sum, s) => sum + (s.quantity_in_stock ?? 0), 0)
@@ -303,9 +356,24 @@ export default function ProductsPage() {
     <AppLayout>
       <div className="products-page-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, gap: 12 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--light)' }}>Products</h1>
-        <button className="btn-gold add-product-btn" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={openAdd}>
-          <Plus size={15} /> Add Product
-        </button>
+        <div className="products-head-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {missingBarcodes > 0 && (
+            <button className="btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              onClick={handleGenerateBarcodes} disabled={generating}
+              title="Give every product without a barcode a new one">
+              <Wand2 size={14} /> {generating ? 'Creating...' : `Create ${missingBarcodes} missing barcode${missingBarcodes === 1 ? '' : 's'}`}
+            </button>
+          )}
+          {products.some(p => p.barcode) && (
+            <button className="btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              onClick={() => openLabels(products)} title="Print barcode stickers for the products listed">
+              <Printer size={14} /> Print labels
+            </button>
+          )}
+          <button className="btn-gold add-product-btn" style={{ display: 'flex', alignItems: 'center', gap: 6 }} onClick={openAdd}>
+            <Plus size={15} /> Add Product
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -367,7 +435,7 @@ export default function ProductsPage() {
           <table className="products-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--mid)' }}>
-                {['Name', 'SKU', 'Module', 'Category', 'Retail Price', 'Stock', 'Status', ''].map(h => (
+                {['Name', 'SKU / Barcode', 'Module', 'Category', 'Retail Price', 'Stock', 'Status', ''].map(h => (
                   <th key={h} style={{
                     padding: '10px 16px', textAlign: 'left', fontSize: 11,
                     color: 'var(--muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.4,
@@ -379,7 +447,10 @@ export default function ProductsPage() {
               {products.map(p => (
                 <tr key={p.id} style={{ borderBottom: '1px solid var(--mid)' }}>
                   <td style={{ padding: '12px 16px', color: 'var(--light)', fontWeight: 500 }}>{p.name}</td>
-                  <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>{p.sku || '-'}</td>
+                  <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>
+                    {p.sku || '-'}
+                    {p.barcode && <div style={{ fontSize: 11, fontFamily: 'monospace', marginTop: 2 }}>{p.barcode}</div>}
+                  </td>
                   <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>{p.module_name || '-'}</td>
                   <td style={{ padding: '12px 16px', color: 'var(--muted)' }}>{p.category_name || 'Uncategorised'}</td>
                   <td style={{ padding: '12px 16px', color: 'var(--gold)', fontWeight: 500 }}>{formatNaira(p.retail_price)}</td>
@@ -397,6 +468,10 @@ export default function ProductsPage() {
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button onClick={() => openRestock(p)} className="btn-ghost" style={{ padding: '4px 8px' }} title="Adjust stock">
                         <PackagePlus size={13} />
+                      </button>
+                      <button onClick={() => openLabels([p])} className="btn-ghost" style={{ padding: '4px 8px' }}
+                        title={p.barcode ? 'Print barcode label' : 'No barcode yet'} disabled={!p.barcode}>
+                        <Barcode size={13} />
                       </button>
                       <button onClick={() => openEdit(p)} className="btn-ghost" style={{ padding: '4px 8px' }} title="Edit">
                         <Edit2 size={13} />
@@ -441,6 +516,8 @@ export default function ProductsPage() {
                   <strong className="gold-value">{formatNaira(p.retail_price)}</strong>
                   <span>Stock</span>
                   <strong>{totalStock(p)}</strong>
+                  <span>Barcode</span>
+                  <strong style={{ fontFamily: 'monospace', fontWeight: 500 }}>{p.barcode || '-'}</strong>
                 </div>
                 <div className="product-mobile-actions">
                   <button onClick={() => openRestock(p)} className="btn-ghost" title="Adjust stock">
@@ -449,6 +526,11 @@ export default function ProductsPage() {
                   <button onClick={() => openEdit(p)} className="btn-ghost" title="Edit">
                     <Edit2 size={13} /> Edit
                   </button>
+                  {p.barcode && (
+                    <button onClick={() => openLabels([p])} className="btn-ghost" title="Print barcode label">
+                      <Barcode size={13} /> Label
+                    </button>
+                  )}
                   <button
                     onClick={() => handleDelete(p)}
                     disabled={deleting === p.id}
@@ -518,6 +600,16 @@ export default function ProductsPage() {
                 <input className="input" value={form.unit_type} onChange={set('unit_type')} placeholder="e.g. pcs, kg, carton" />
               </FormField>
             </div>
+
+            <FormField label="Barcode" error={formErrors.barcode}>
+              <input className="input" value={form.barcode} onChange={set('barcode')} inputMode="numeric"
+                placeholder={modal === 'add' ? "Scan the maker's barcode, or leave blank to create one" : 'Scan or type a barcode'} />
+              {form.barcode.trim()
+                ? <div style={{ marginTop: 8 }}><BarcodePreview code={form.barcode.trim()} height={40} /></div>
+                : <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'block' }}>
+                    {modal === 'add' ? 'A barcode is created automatically when you save.' : "Leave blank to remove this product's barcode."}
+                  </span>}
+            </FormField>
 
             <FormField label="Description" error={formErrors.description}>
               <input className="input" value={form.description} onChange={set('description')} placeholder="Optional notes, size, brand, pack count..." />
@@ -687,7 +779,7 @@ export default function ProductsPage() {
 
         .product-mobile-actions {
           display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
           gap: 8px;
         }
 
@@ -703,6 +795,15 @@ export default function ProductsPage() {
           .products-page-head {
             align-items: stretch !important;
             flex-direction: column;
+          }
+
+          .products-head-actions {
+            justify-content: stretch !important;
+          }
+
+          .products-head-actions > button {
+            flex: 1 1 auto;
+            justify-content: center;
           }
 
           .add-product-btn {
@@ -743,6 +844,52 @@ export default function ProductsPage() {
           }
         }
       `}</style>
+      {modal === 'labels' && (
+        <Modal title="Print barcode labels" onClose={() => setModal(null)}>
+          {labelItems.length === 1 && (
+            <div style={{ textAlign: 'center', marginBottom: 14 }}>
+              <BarcodePreview code={labelItems[0].product.barcode} />
+            </div>
+          )}
+          <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
+            Prints on A4 sticker sheets (3 x 7 labels, 63.5 x 38.1 mm). Set how many stickers you need for each product.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: '40vh', overflowY: 'auto', marginBottom: 12 }}>
+            {labelItems.map(({ product, copies }) => (
+              <div key={product.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--navy)', borderRadius: 8, padding: '8px 10px' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: 'var(--light)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'monospace' }}>{product.barcode} - {formatNaira(product.retail_price)}</div>
+                </div>
+                <input className="input" type="number" min="0" max="500" value={copies} aria-label={`Labels for ${product.name}`}
+                  onChange={e => setLabelCopies(product.id, e.target.value)} style={{ width: 72, textAlign: 'center' }} />
+              </div>
+            ))}
+          </div>
+          {labelItems.length > 1 && (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+              <button type="button" className="btn-ghost" style={{ fontSize: 12, padding: '4px 10px' }}
+                onClick={() => setLabelItems(items => items.map(i => ({ ...i, copies: 1 })))}>1 each</button>
+              <button type="button" className="btn-ghost" style={{ fontSize: 12, padding: '4px 10px' }}
+                onClick={() => setLabelItems(items => items.map(i => ({ ...i, copies: Math.min(500, totalStockNumber(i.product)) })))}>One per item in stock</button>
+              <button type="button" className="btn-ghost" style={{ fontSize: 12, padding: '4px 10px' }}
+                onClick={() => setLabelItems(items => items.map(i => ({ ...i, copies: 0 })))}>Clear</button>
+            </div>
+          )}
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--light)', marginBottom: 16 }}>
+            <input type="checkbox" checked={labelShowPrice} onChange={e => setLabelShowPrice(e.target.checked)} />
+            Show price on label
+          </label>
+          <div className="product-modal-actions" style={{ display: 'flex', gap: 10 }}>
+            <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => setModal(null)}>Cancel</button>
+            <button type="button" className="btn-gold" style={{ flex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+              disabled={totalLabels === 0} onClick={handlePrintLabels}>
+              <Printer size={14} /> Print {totalLabels} label{totalLabels === 1 ? '' : 's'}
+            </button>
+          </div>
+        </Modal>
+      )}
+
       {modal === 'restock' && restockTarget && (
         <Modal title={`Adjust Stock - ${restockTarget.name}`} onClose={() => setModal(null)}>
           {error && (
