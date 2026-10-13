@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertCircle, TrendingUp, DollarSign, ShoppingCart, RefreshCw, Search, Printer, Phone, ArrowRight } from 'lucide-react'
+import { AlertCircle, TrendingUp, DollarSign, ShoppingCart, RefreshCw, Search, Printer, Phone, ArrowRight, Undo2, Receipt } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
 import { reportsAPI, branchesAPI, salesAPI } from '../../api/client'
 import { useAuth } from '../../context/AuthContext'
 import { formatNaira, formatDate, parseApiError } from '../../utils/format'
-import { printSaleReceipt, buildBusinessInfo } from '../../utils/printDoc'
+import { printSaleReceipt, printReturnReceipt, buildBusinessInfo } from '../../utils/printDoc'
+import ReturnDialog from '../../components/sales/ReturnDialog'
+import { useToast } from '../../context/ToastContext'
 
 const PAYMENT_STATUS_STYLE = {
   paid:            { bg: 'rgba(76,175,125,0.12)', color: 'var(--success)' },
@@ -66,8 +68,10 @@ function StatCard({ label, value, sub, accent = false }) {
 }
 
 export default function ReportsPage() {
-  const { user } = useAuth()
+  const { user, isOwner, isManager } = useAuth()
+  const toast = useToast()
   const navigate = useNavigate()
+  const canReturn = isOwner || isManager
   const [branches, setBranches]   = useState([])
   const [branchId, setBranchId]   = useState('')
   const [dateFrom, setDateFrom]   = useState(daysAgo(89))
@@ -76,6 +80,9 @@ export default function ReportsPage() {
   const [monthly, setMonthly]     = useState(null)
   const [inventory, setInventory] = useState(null)
   const [debtors, setDebtors]     = useState(null)
+  const [tax, setTax]             = useState(null)
+  const [returns, setReturns]     = useState([])
+  const [returnSaleId, setReturnSaleId] = useState(null)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
 
@@ -115,12 +122,16 @@ export default function ReportsPage() {
         date_to:   dt,
         branch_id: branchId || undefined,
       }
-      const [dailyRes, monthlyRes, invRes, debtorsRes] = await Promise.allSettled([
+      const [dailyRes, monthlyRes, invRes, debtorsRes, taxRes, returnsRes] = await Promise.allSettled([
         reportsAPI.dailySales({ date: today(), branch_id: branchId || undefined }),
         reportsAPI.monthlySales(params),
         reportsAPI.inventory({ branch_id: branchId || undefined }),
         reportsAPI.debtors({ branch_id: branchId || undefined }),
+        reportsAPI.tax(params),
+        salesAPI.returns(params),
       ])
+      if (taxRes.status === 'fulfilled')     setTax(taxRes.value.data)
+      if (returnsRes.status === 'fulfilled') setReturns(Array.isArray(returnsRes.value.data) ? returnsRes.value.data : [])
       if (dailyRes.status === 'fulfilled')   setDaily(dailyRes.value.data)
       if (monthlyRes.status === 'fulfilled') setMonthly(monthlyRes.value.data)
       if (invRes.status === 'fulfilled')     setInventory(invRes.value.data)
@@ -174,8 +185,18 @@ export default function ReportsPage() {
     }
   }
 
+  const handleReturnDone = (ret, sale) => {
+    setReturnSaleId(null)
+    toast.success(`Return ${ret.return_number} recorded${parseFloat(ret.refund_amount) > 0 ? ` - refund ${formatNaira(ret.refund_amount)}` : ''}`)
+    printReturnReceipt(ret, sale, buildBusinessInfo(user))
+    load()
+  }
+
   return (
     <AppLayout>
+      {returnSaleId && (
+        <ReturnDialog saleId={returnSaleId} onClose={() => setReturnSaleId(null)} onDone={handleReturnDone} />
+      )}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600, color: 'var(--light)' }}>Reports</h1>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -286,8 +307,19 @@ export default function ReportsPage() {
                     <td style={{ padding: '10px 12px', color: 'var(--light)' }}>{s.customer_name ?? 'Walk-in'}</td>
                     <td style={{ padding: '10px 12px', color: 'var(--muted)' }}>{s.branch_name ?? '—'}</td>
                     <td style={{ padding: '10px 12px' }}><StatusBadge status={s.payment_status} /></td>
-                    <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--gold)', fontWeight: 500 }}>{formatNaira(s.total_amount || 0)}</td>
-                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--gold)', fontWeight: 500 }}>
+                      {formatNaira(s.total_amount || 0)}
+                      {parseFloat(s.returned_amount) > 0 && (
+                        <div style={{ fontSize: 11, color: 'var(--warning)', fontWeight: 400 }}>{formatNaira(s.returned_amount)} returned</div>
+                      )}
+                    </td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      {canReturn && (
+                        <button onClick={() => setReturnSaleId(s.id)} title="Record items brought back"
+                          style={{ fontSize: 11, padding: '3px 9px', borderRadius: 4, background: 'none', border: '1px solid var(--mid)', color: 'var(--light)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap', marginRight: 6 }}>
+                          <Undo2 size={11} /> Return
+                        </button>
+                      )}
                       <button
                         onClick={() => handleReprint(s)}
                         disabled={printingId === s.id}
@@ -385,17 +417,131 @@ export default function ReportsPage() {
         )
       })()}
 
+      {/* Returns */}
+      <div style={{ background: 'var(--blue)', border: '1px solid var(--mid)', borderRadius: 10, padding: '20px 24px', marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--light)' }}>Returns ({formatDate(dateFrom)} – {formatDate(dateTo)})</h2>
+          {returns.length > 0 && (
+            <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+              {formatNaira(returns.reduce((t, r) => t + parseFloat(r.value || 0), 0))} returned ·{' '}
+              {formatNaira(returns.reduce((t, r) => t + parseFloat(r.refund_amount || 0), 0))} refunded
+            </span>
+          )}
+        </div>
+        {returns.length === 0 ? (
+          <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+            No returns in this period.{canReturn && ' To record one, find the sale in Transaction History and press Return.'}
+          </p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--mid)' }}>
+                  {['Date', 'Return #', 'Sale', 'Customer', 'Items', 'Reason', 'Value', 'Refund', ''].map(h => (
+                    <th key={h} style={{ padding: '8px 12px', textAlign: ['Value', 'Refund'].includes(h) ? 'right' : 'left', fontSize: 11, color: 'var(--muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.4 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {returns.map(r => (
+                  <tr key={r.id} style={{ borderBottom: '1px solid var(--mid)' }}>
+                    <td style={{ padding: '10px 12px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>{formatDate(r.return_date)}</td>
+                    <td style={{ padding: '10px 12px', color: 'var(--light)', fontFamily: 'monospace' }}>{r.return_number}</td>
+                    <td style={{ padding: '10px 12px', color: 'var(--muted)', fontFamily: 'monospace' }}>{r.sale_number}</td>
+                    <td style={{ padding: '10px 12px', color: 'var(--light)' }}>{r.customer_name || 'Walk-in'}</td>
+                    <td style={{ padding: '10px 12px', color: 'var(--muted)' }}>
+                      {r.items.map(i => `${i.quantity} × ${i.product_name}${i.restocked ? '' : ' (damaged)'}`).join(', ')}
+                    </td>
+                    <td style={{ padding: '10px 12px', color: 'var(--muted)' }}>{r.reason || '—'}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--light)' }}>{formatNaira(r.value)}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--warning)' }}>
+                      {parseFloat(r.refund_amount) > 0 ? `${formatNaira(r.refund_amount)} ${r.refund_method}` : '—'}
+                    </td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right' }}>
+                      <button onClick={() => printReturnReceipt(r, null, buildBusinessInfo(user))} title="Print return receipt"
+                        style={{ fontSize: 11, padding: '3px 9px', borderRadius: 4, background: 'none', border: '1px solid var(--mid)', color: 'var(--gold)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <Printer size={11} /> Print
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* VAT */}
+      {tax && (
+        <div style={{ background: 'var(--blue)', border: '1px solid var(--mid)', borderRadius: 10, padding: '20px 24px', marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+            <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--light)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Receipt size={15} /> VAT report ({formatDate(tax.date_from)} – {formatDate(tax.date_to)})
+            </h2>
+            <span style={{ fontSize: 12, color: 'var(--muted)' }}>
+              {tax.vat_enabled ? `VAT ${parseFloat(tax.vat_rate)}% included in prices` : 'VAT is off'}
+              {tax.tax_id_number && ` · TIN ${tax.tax_id_number}`}
+            </span>
+          </div>
+          {!tax.vat_enabled && parseFloat(tax.totals.vat_collected) === 0 ? (
+            <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+              VAT isn't switched on, so no VAT has been recorded. If your business is VAT-registered, turn it on in{' '}
+              <button type="button" onClick={() => navigate('/settings#tax')} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--gold)', cursor: 'pointer', fontSize: 13 }}>Settings → Tax</button> and every sale from then on records the VAT in its price.
+            </p>
+          ) : (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 16 }}>
+                <StatCard label="Net sales" value={formatNaira(tax.totals.net_sales)} sub={`after ${formatNaira(tax.totals.returns)} returns`} />
+                <StatCard label="VAT collected" value={formatNaira(tax.totals.vat_collected)} sub="output VAT to remit" accent />
+                <StatCard label="Sales excl. VAT" value={formatNaira(tax.totals.sales_excluding_vat)} sub="your actual income" />
+                <StatCard label="Sales with no VAT" value={formatNaira(tax.totals.non_vat_sales)} sub="made while VAT was off" />
+              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--mid)' }}>
+                      {['Month', 'Sales', 'Returns', 'Net sales', 'VAT collected', 'Excl. VAT', 'File by'].map(h => (
+                        <th key={h} style={{ padding: '8px 12px', textAlign: ['Month', 'File by'].includes(h) ? 'left' : 'right', fontSize: 11, color: 'var(--muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.4 }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tax.months.map(m => (
+                      <tr key={m.month} style={{ borderBottom: '1px solid var(--mid)' }}>
+                        <td style={{ padding: '10px 12px', color: 'var(--light)' }}>
+                          {new Date(`${m.month}-01T00:00:00`).toLocaleDateString('en-NG', { month: 'long', year: 'numeric' })}
+                        </td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--muted)' }}>{formatNaira(m.gross_sales)}</td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--muted)' }}>{parseFloat(m.returns) > 0 ? `- ${formatNaira(m.returns)}` : '—'}</td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--light)' }}>{formatNaira(m.net_sales)}</td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--gold)', fontWeight: 600 }}>{formatNaira(m.vat_collected)}</td>
+                        <td style={{ padding: '10px 12px', textAlign: 'right', color: 'var(--muted)' }}>{formatNaira(m.sales_excluding_vat)}</td>
+                        <td style={{ padding: '10px 12px', color: 'var(--muted)', whiteSpace: 'nowrap' }}>{formatDate(m.filing_due)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p style={{ fontSize: 11, color: 'var(--muted)', marginTop: 10 }}>
+                Output VAT on sales only. Returns are taken off the month of the original sale. VAT you paid on purchases (input VAT)
+                isn't tracked here - deduct it when you file. Monthly VAT returns are due by the 21st of the next month.
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Period summary */}
       {monthly && (
         <div style={{ background: 'var(--blue)', border: '1px solid var(--mid)', borderRadius: 10, padding: '20px 24px', marginBottom: 24 }}>
           <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--light)', marginBottom: 16 }}>
             Period Summary ({formatDate(dateFrom)} – {formatDate(dateTo)})
           </h2>
-          {Array.isArray(monthly.results) && monthly.results.length > 0 ? (
+          {monthly.weekly_breakdown?.length > 0 ? (
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--mid)' }}>
-                  {['Date', 'Revenue', 'Transactions', 'Discount'].map(h => (
+                  {['Week of', 'Revenue', 'Transactions'].map(h => (
                     <th key={h} style={{
                       padding: '8px 12px', textAlign: 'left', fontSize: 11,
                       color: 'var(--muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.4,
@@ -404,14 +550,18 @@ export default function ReportsPage() {
                 </tr>
               </thead>
               <tbody>
-                {monthly.results.map((row, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--mid)' }}>
-                    <td style={{ padding: '10px 12px', color: 'var(--light)' }}>{formatDate(row.date || row.week || row.month)}</td>
-                    <td style={{ padding: '10px 12px', color: 'var(--gold)', fontWeight: 500 }}>{formatNaira(row.total_revenue || row.revenue || 0)}</td>
-                    <td style={{ padding: '10px 12px', color: 'var(--muted)' }}>{row.total_transactions ?? row.transactions ?? '—'}</td>
-                    <td style={{ padding: '10px 12px', color: 'var(--muted)' }}>{formatNaira(row.total_discount || row.discount || 0)}</td>
+                {monthly.weekly_breakdown.map(row => (
+                  <tr key={row.week} style={{ borderBottom: '1px solid var(--mid)' }}>
+                    <td style={{ padding: '10px 12px', color: 'var(--light)' }}>{formatDate(row.week)}</td>
+                    <td style={{ padding: '10px 12px', color: 'var(--gold)', fontWeight: 500 }}>{formatNaira(row.revenue || 0)}</td>
+                    <td style={{ padding: '10px 12px', color: 'var(--muted)' }}>{row.transactions}</td>
                   </tr>
                 ))}
+                <tr>
+                  <td style={{ padding: '10px 12px', color: 'var(--light)', fontWeight: 600 }}>Total</td>
+                  <td style={{ padding: '10px 12px', color: 'var(--gold)', fontWeight: 700 }}>{formatNaira(monthly.total_revenue || 0)}</td>
+                  <td style={{ padding: '10px 12px', color: 'var(--light)', fontWeight: 600 }}>{monthly.transactions}</td>
+                </tr>
               </tbody>
             </table>
           ) : (

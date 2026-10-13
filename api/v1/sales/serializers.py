@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from core.models import Sale, SaleItem, Payment, InstallmentPlan
+from core.models import Sale, SaleItem, Payment, InstallmentPlan, SaleReturn, SaleReturnItem
 
 
 class SaleItemSerializer(serializers.ModelSerializer):
@@ -8,7 +8,7 @@ class SaleItemSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'product', 'product_name', 'quantity',
             'unit_type', 'price_type', 'unit_price',
-            'discount_amount', 'line_total',
+            'discount_amount', 'line_total', 'returned_quantity',
         ]
 
 
@@ -19,7 +19,7 @@ class PaymentSerializer(serializers.ModelSerializer):
         model  = Payment
         fields = [
             'id', 'payment_method', 'amount',
-            'payment_date', 'reference_number', 'tranche_number',
+            'payment_date', 'reference_number', 'tranche_number', 'notes',
             'created_by', 'created_by_name', 'created_at',
         ]
 
@@ -56,13 +56,50 @@ class SaleSerializer(serializers.ModelSerializer):
             'module', 'module_name', 'customer', 'customer_name',
             'subtotal', 'discount_amount', 'total_amount',
             'amount_paid', 'balance_due', 'payment_status',
+            'tax_rate', 'tax_amount', 'returned_amount',
             'has_installment_plan', 'sale_date', 'notes',
             'payments', 'created_by_name', 'created_at',
         ]
 
 
+class SaleReturnItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = SaleReturnItem
+        fields = ['id', 'sale_item', 'product', 'product_name', 'quantity', 'unit_value', 'line_value', 'restocked']
+
+
+class SaleReturnSerializer(serializers.ModelSerializer):
+    items           = SaleReturnItemSerializer(many=True, read_only=True)
+    sale_number     = serializers.CharField(source='sale.sale_number', read_only=True)
+    customer_name   = serializers.CharField(source='customer.full_name', read_only=True, default=None)
+    branch_name     = serializers.CharField(source='branch.name', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.full_name', read_only=True, default=None)
+
+    class Meta:
+        model  = SaleReturn
+        fields = [
+            'id', 'return_number', 'sale', 'sale_number', 'customer', 'customer_name',
+            'branch', 'branch_name', 'reason', 'value', 'debt_reduction', 'refund_amount',
+            'refund_method', 'tax_amount', 'return_date', 'items',
+            'created_by_name', 'created_at',
+        ]
+
+
+class ReturnItemInputSerializer(serializers.Serializer):
+    sale_item_id = serializers.UUIDField()
+    quantity     = serializers.IntegerField(min_value=0)
+    restock      = serializers.BooleanField(default=True)
+
+
+class CreateReturnSerializer(serializers.Serializer):
+    items         = ReturnItemInputSerializer(many=True)
+    refund_method = serializers.ChoiceField(choices=SaleReturn.REFUND_CHOICES, required=False, allow_null=True)
+    reason        = serializers.CharField(required=False, allow_blank=True, max_length=500)
+
+
 class SaleDetailSerializer(serializers.ModelSerializer):
     items            = SaleItemSerializer(many=True, read_only=True)
+    returns          = SaleReturnSerializer(many=True, read_only=True)
     payments         = PaymentSerializer(many=True, read_only=True)
     installment_plan = InstallmentPlanSerializer(read_only=True)
     customer_name    = serializers.CharField(
@@ -85,8 +122,9 @@ class SaleDetailSerializer(serializers.ModelSerializer):
             'module', 'module_name', 'customer', 'customer_name',
             'subtotal', 'discount_amount', 'total_amount',
             'amount_paid', 'balance_due', 'payment_status',
+            'tax_rate', 'tax_amount', 'returned_amount',
             'has_installment_plan', 'installment_plan',
-            'sale_date', 'notes', 'items', 'payments', 'created_by_name', 'created_at',
+            'sale_date', 'notes', 'items', 'payments', 'returns', 'created_by_name', 'created_at',
         ]
 
 

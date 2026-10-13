@@ -121,6 +121,7 @@ class BusinessSettingsView(APIView):
             'loyalty_silver_threshold', 'loyalty_gold_threshold',
             'low_stock_alert_enabled', 'expiry_alert_days',
             'receipt_footer_message', 'currency_symbol',
+            'vat_enabled', 'vat_rate', 'tax_id_number',
         ]:
             if field in data:
                 setattr(settings, field, data[field])

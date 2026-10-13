@@ -600,3 +600,72 @@ class ExpenseReportView(APIView):
                 for b in by_branch
             ],
         })
+
+class TaxReportView(APIView):
+    """
+    VAT summary by month for the monthly VAT return. Prices are
+    VAT-inclusive, so each sale's VAT was recorded when it was made;
+    returns are already taken off the sale they came from.
+    """
+    permission_classes = [IsManagerOrAbove, HasPrivilege('reports')]
+
+    def get(self, request):
+        from django.db.models.functions import TruncMonth
+        from core.models import BusinessSettings, SaleReturn
+
+        business = request.user.business
+        today = date.today()
+        date_from = parse_date(request.query_params.get('date_from') or '') or date(today.year, 1, 1)
+        date_to   = parse_date(request.query_params.get('date_to') or '') or today
+        branch_id = request.query_params.get('branch_id')
+
+        sales = Sale.objects.filter(business=business, is_deleted=False,
+                                    sale_date__gte=date_from, sale_date__lte=date_to)
+        returns = SaleReturn.objects.filter(business=business, sale__sale_date__gte=date_from,
+                                            sale__sale_date__lte=date_to, sale__is_deleted=False)
+        if branch_id:
+            sales = sales.filter(branch_id=branch_id)
+            returns = returns.filter(branch_id=branch_id)
+
+        zero = Decimal('0')
+        fields = dict(
+            sales_count=Count('id'),
+            net_sales=Sum('total_amount'),
+            returned=Sum('returned_amount'),
+            vat=Sum('tax_amount'),
+            vat_sales=Sum('total_amount', filter=Q(tax_rate__gt=0)),
+            non_vat_sales=Sum('total_amount', filter=Q(tax_rate=0)),
+        )
+
+        def row(agg):
+            net = agg['net_sales'] or zero
+            vat = agg['vat'] or zero
+            return {
+                'sales_count':   agg['sales_count'] or 0,
+                'gross_sales':   str(net + (agg['returned'] or zero)),
+                'returns':       str(agg['returned'] or zero),
+                'net_sales':     str(net),
+                'vatable_sales': str(agg['vat_sales'] or zero),
+                'non_vat_sales': str(agg['non_vat_sales'] or zero),
+                'vat_collected': str(vat),
+                'sales_excluding_vat': str(net - vat),
+            }
+
+        months = []
+        for agg in (sales.annotate(month=TruncMonth('sale_date')).values('month')
+                    .annotate(**fields).order_by('month')):
+            m = agg['month']
+            due = date(m.year + (m.month == 12), m.month % 12 + 1, 21)
+            months.append({'month': m.strftime('%Y-%m'), 'filing_due': str(due), **row(agg)})
+
+        settings = BusinessSettings.objects.filter(business=business).first()
+        return Response({
+            'date_from': str(date_from),
+            'date_to':   str(date_to),
+            'vat_enabled':   bool(settings and settings.vat_enabled),
+            'vat_rate':      str(settings.vat_rate) if settings else '7.50',
+            'tax_id_number': (settings.tax_id_number if settings else None) or '',
+            'totals':  row(sales.aggregate(**fields)),
+            'returns_count': returns.count(),
+            'months':  months,
+        })

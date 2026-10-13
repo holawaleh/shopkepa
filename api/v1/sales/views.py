@@ -6,16 +6,20 @@ from django.db import transaction
 from django.utils import timezone
 import logging
 
-from core.models import Sale, Branch, Module, Customer
+from core.models import (
+    Sale, Branch, Module, Customer, SaleReturn, BranchInventory, StockAdjustment, InstallmentPlan,
+)
 from core.permissions import IsCashierOrAbove, IsManagerOrAbove, HasPrivilege
-from core.services.sale_service import create_sale, add_payment_to_sale, find_or_create_customer
+from core.services.sale_service import create_sale, add_payment_to_sale, find_or_create_customer, money
+from core.services.return_service import process_return
 from core.idempotency import idempotent
-from core.utils import get_client_ip
+from core.utils import get_client_ip, log_audit
 logger = logging.getLogger(__name__)
 
 from .serializers import (
     SaleSerializer, SaleDetailSerializer,
-    CreateSaleSerializer, AddPaymentSerializer
+    CreateSaleSerializer, AddPaymentSerializer,
+    SaleReturnSerializer, CreateReturnSerializer,
 )
 
 
@@ -209,11 +213,104 @@ class SaleDetailView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        sale.is_deleted = True
-        sale.deleted_at = timezone.now()
-        sale.save()
+        with transaction.atomic():
+            sale = Sale.objects.select_for_update().get(pk=sale.pk)
+            if sale.is_deleted:
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            if sale.returns.exists():
+                return Response(
+                    {'error': 'This sale has returns recorded and cannot be voided.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Put the goods back on the shelf
+            for item in sale.items.filter(product__isnull=False):
+                inventory, _ = BranchInventory.objects.select_for_update().get_or_create(
+                    business=sale.business, branch=sale.branch, product_id=item.product_id,
+                    defaults={'quantity_in_stock': 0},
+                )
+                before = inventory.quantity_in_stock
+                inventory.quantity_in_stock = before + item.quantity
+                inventory.save(update_fields=['quantity_in_stock'])
+                StockAdjustment.objects.create(
+                    business=sale.business, branch=sale.branch, product_id=item.product_id,
+                    adjustment_type=StockAdjustment.TYPE_RETURN, quantity_change=item.quantity,
+                    quantity_before=before, quantity_after=before + item.quantity,
+                    reason=f'Voided sale {sale.sale_number}', reference_id=sale.id,
+                    created_by=request.user,
+                )
+
+            # Nothing was paid, so the whole total was added to the customer's debt
+            if sale.customer_id and sale.balance_due > 0:
+                customer = Customer.objects.select_for_update().get(pk=sale.customer_id)
+                customer.total_outstanding_debt = max(
+                    money(customer.total_outstanding_debt) - money(sale.balance_due), 0)
+                customer.save(update_fields=['total_outstanding_debt', 'updated_at'])
+            InstallmentPlan.objects.filter(sale=sale).update(status=InstallmentPlan.STATUS_CANCELLED)
+
+            sale.is_deleted = True
+            sale.deleted_at = timezone.now()
+            sale.save()
+
+            log_audit(
+                business_id=sale.business_id, user_id=request.user.id, action='DELETE',
+                table_name='sales', record_id=sale.id,
+                old_values={'sale_number': sale.sale_number, 'total_amount': str(sale.total_amount)},
+                ip_address=get_client_ip(request),
+            )
 
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SaleReturnCreateView(APIView):
+    """Record goods brought back from a sale."""
+    permission_classes = [IsManagerOrAbove, HasPrivilege('pos')]
+
+    @idempotent
+    def post(self, request, sale_id):
+        sale = Sale.objects.filter(id=sale_id, business=request.user.business, is_deleted=False).first()
+        if not sale:
+            return Response({'error': 'Sale not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = CreateReturnSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        data = serializer.validated_data
+
+        try:
+            sale_return = process_return(
+                sale, data['items'], refund_method=data.get('refund_method'),
+                reason=data.get('reason', ''), created_by=request.user,
+            )
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        sale.refresh_from_db()
+        return Response({
+            'return': SaleReturnSerializer(sale_return).data,
+            'sale': SaleDetailSerializer(sale).data,
+        }, status=status.HTTP_201_CREATED)
+
+
+class SaleReturnListView(APIView):
+    permission_classes = [IsCashierOrAbove, HasPrivilege('pos')]
+
+    def get(self, request):
+        qs = (SaleReturn.objects.filter(business=request.user.business)
+              .select_related('sale', 'customer', 'branch', 'created_by')
+              .prefetch_related('items').order_by('-created_at'))
+        if request.user.role == 'cashier':
+            qs = qs.filter(sale__created_by=request.user)
+        date_from = request.query_params.get('date_from')
+        date_to   = request.query_params.get('date_to')
+        branch_id = request.query_params.get('branch_id')
+        if date_from:
+            qs = qs.filter(return_date__gte=date_from)
+        if date_to:
+            qs = qs.filter(return_date__lte=date_to)
+        if branch_id:
+            qs = qs.filter(branch_id=branch_id)
+        return Response(SaleReturnSerializer(qs[:500], many=True).data)
 
 
 class AddPaymentView(APIView):

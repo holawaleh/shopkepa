@@ -56,6 +56,11 @@ class BusinessSettings(models.Model):
     expiry_alert_days         = models.IntegerField(default=30)
     receipt_footer_message    = models.TextField(null=True, blank=True)
     currency_symbol           = models.CharField(max_length=5, default='₦')
+    # Optional VAT. Prices are treated as VAT-inclusive: each sale records
+    # the VAT portion of its total, for the VAT report.
+    vat_enabled               = models.BooleanField(default=False)
+    vat_rate                  = models.DecimalField(max_digits=5, decimal_places=2, default=7.5)
+    tax_id_number             = models.CharField(max_length=50, null=True, blank=True)
     created_at                = models.DateTimeField(auto_now_add=True)
     updated_at                = models.DateTimeField(auto_now=True)
 

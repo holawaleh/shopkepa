@@ -1004,6 +1004,9 @@ function BusinessTab() {
     loyalty_bronze_threshold: '',
     loyalty_silver_threshold: '',
     loyalty_gold_threshold: '',
+    vat_enabled: false,
+    vat_rate: '7.5',
+    tax_id_number: '',
   })
 
   const load = useCallback(async () => {
@@ -1035,6 +1038,9 @@ function BusinessTab() {
           loyalty_bronze_threshold: s.loyalty_bronze_threshold || '',
           loyalty_silver_threshold: s.loyalty_silver_threshold || '',
           loyalty_gold_threshold:   s.loyalty_gold_threshold   || '',
+          vat_enabled:   !!s.vat_enabled,
+          vat_rate:      s.vat_rate != null ? String(parseFloat(s.vat_rate)) : '7.5',
+          tax_id_number: s.tax_id_number || '',
         })
       }
       if (subRes.status === 'fulfilled') setSub(subRes.value.data)
@@ -1043,6 +1049,13 @@ function BusinessTab() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Arriving from the VAT report's "Settings -> Tax" link
+  useEffect(() => {
+    if (!loading && window.location.hash === '#tax') {
+      document.getElementById('tax')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [loading])
 
   const handleProfileSave = async (e) => {
     e.preventDefault()
@@ -1082,6 +1095,8 @@ function BusinessTab() {
         loyalty_bronze_threshold: settingsForm.loyalty_bronze_threshold || undefined,
         loyalty_silver_threshold: settingsForm.loyalty_silver_threshold || undefined,
         loyalty_gold_threshold:   settingsForm.loyalty_gold_threshold   || undefined,
+        vat_rate:                 parseFloat(settingsForm.vat_rate) || 0,
+        tax_id_number:            settingsForm.tax_id_number.trim(),
       }
       await businessAPI.updateSettings(payload)
       toast.success('Business settings updated')
@@ -1248,6 +1263,32 @@ function BusinessTab() {
               <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Receipt footer message</label>
               <input className="input" placeholder="e.g. Thank you for shopping with us!"
                 value={settingsForm.receipt_footer_message} onChange={ss('receipt_footer_message')} />
+            </div>
+
+            <div id="tax" style={{ borderTop: '1px solid var(--mid)', paddingTop: 16, scrollMarginTop: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--light)', marginBottom: 4 }}>Tax (VAT)</div>
+              <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12, lineHeight: 1.5 }}>
+                Optional. Turn on only if your business is VAT-registered. Your prices stay the same - the VAT already
+                inside each price is recorded on every sale from now on and shown on receipts and in Reports → VAT report.
+              </p>
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, cursor: 'pointer', marginBottom: 12 }}>
+                <span style={{ fontSize: 13, color: 'var(--light)' }}>Charge VAT (prices include VAT)</span>
+                <input type="checkbox" checked={!!settingsForm.vat_enabled} onChange={ss('vat_enabled')} style={{ width: 16, height: 16, cursor: 'pointer' }} />
+              </label>
+              {settingsForm.vat_enabled && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>VAT rate (%)</label>
+                    <input className="input" type="number" min="0" max="50" step="0.01"
+                      value={settingsForm.vat_rate} onChange={ss('vat_rate')} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, color: 'var(--muted)', display: 'block', marginBottom: 5 }}>Tax ID (TIN) - optional</label>
+                    <input className="input" maxLength={50} placeholder="e.g. 12345678-0001"
+                      value={settingsForm.tax_id_number} onChange={ss('tax_id_number')} />
+                  </div>
+                </div>
+              )}
             </div>
 
             <button type="submit" className="btn-gold" style={{ alignSelf: 'flex-start', padding: '8px 24px' }} disabled={savingSet}>

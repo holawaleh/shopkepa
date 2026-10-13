@@ -134,6 +134,8 @@ export const salesAPI = {
   get:        (id)     => api.get(`/sales/${id}/`),
   addPayment: (id, d, key)  => api.post(`/sales/${id}/add-payment/`, d, withIdempotencyKey(key)),
   void:       (id)     => api.delete(`/sales/${id}/`),
+  createReturn: (id, data, key) => api.post(`/sales/${id}/returns/`, data, withIdempotencyKey(key)),
+  returns:    (params) => api.get('/sales/returns/', { params }),
 }
 
 export const customersAPI = {
@@ -158,6 +160,7 @@ export const reportsAPI = {
   customers:    (params) => api.get('/reports/customers/',      { params }),
   branches:     (params) => api.get('/reports/branches/',       { params }),
   expenses:     (params) => api.get('/reports/expenses/',       { params }),
+  tax:          (params) => api.get('/reports/tax/',           { params }),
 }
 
 export const jobCardsAPI = {

@@ -50,6 +50,23 @@ def money(value):
     return Decimal(str(value))
 
 
+CENT = Decimal('0.01')
+
+
+def vat_rate_for(business):
+    """The business's VAT rate (e.g. 7.50), or 0 when VAT is switched off."""
+    from core.models import BusinessSettings
+    settings = BusinessSettings.objects.filter(business=business).first()
+    return money(settings.vat_rate) if settings and settings.vat_enabled else Decimal('0')
+
+
+def vat_included_in(amount, rate):
+    """VAT portion of a VAT-inclusive amount: 7.5% -> amount * 7.5 / 107.5."""
+    if not rate or amount <= 0:
+        return Decimal('0')
+    return (money(amount) * rate / (Decimal('100') + rate)).quantize(CENT)
+
+
 @transaction.atomic
 def create_sale(business, branch, module, items, payment_data,
                 customer=None, discount_amount=0, notes='', created_by=None):
@@ -93,6 +110,9 @@ def create_sale(business, branch, module, items, payment_data,
         amount_paid = total_amount
         balance_due = Decimal('0')
 
+    tax_rate   = vat_rate_for(business)
+    tax_amount = vat_included_in(total_amount, tax_rate)
+
     # Determine payment status
     if balance_due <= 0:
         payment_status = Sale.STATUS_PAID
@@ -114,6 +134,8 @@ def create_sale(business, branch, module, items, payment_data,
             amount_paid=amount_paid,
             balance_due=balance_due,
             payment_status=payment_status,
+            tax_rate=tax_rate,
+            tax_amount=tax_amount,
             has_installment_plan=balance_due > 0 and customer is not None,
             notes=notes,
             created_by=created_by,

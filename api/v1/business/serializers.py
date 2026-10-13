@@ -49,6 +49,9 @@ class BusinessSettingsSerializer(serializers.ModelSerializer):
             'expiry_alert_days',
             'receipt_footer_message',
             'currency_symbol',
+            'vat_enabled',
+            'vat_rate',
+            'tax_id_number',
             'updated_at',
         ]
         read_only_fields = ['id', 'updated_at']
@@ -74,6 +77,13 @@ class UpdateBusinessSettingsSerializer(serializers.Serializer):
     )
     currency_symbol          = serializers.CharField(
         max_length=5, required=False
+    )
+    vat_enabled              = serializers.BooleanField(required=False)
+    vat_rate                 = serializers.DecimalField(
+        max_digits=5, decimal_places=2, min_value=0, max_value=50, required=False
+    )
+    tax_id_number            = serializers.CharField(
+        max_length=50, required=False, allow_blank=True
     )
 
     def validate(self, data):

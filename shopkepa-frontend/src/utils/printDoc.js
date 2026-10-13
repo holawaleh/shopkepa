@@ -178,7 +178,9 @@ export function printSaleReceipt(sale, business = null) {
     <table>
       <tr><td class="label">Subtotal</td><td class="right">${naira(sale.subtotal)}</td></tr>
       ${parseFloat(sale.discount_amount) > 0 ? `<tr><td class="label">Discount</td><td class="right">- ${naira(sale.discount_amount)}</td></tr>` : ''}
+      ${parseFloat(sale.returned_amount) > 0 ? `<tr><td class="label">Returned goods</td><td class="right">- ${naira(sale.returned_amount)}</td></tr>` : ''}
       <tr class="total-row"><td>TOTAL</td><td class="right">${naira(sale.total_amount)}</td></tr>
+      ${parseFloat(sale.tax_amount) > 0 ? `<tr><td class="label">VAT (${parseFloat(sale.tax_rate)}%) included</td><td class="right">${naira(sale.tax_amount)}</td></tr>` : ''}
       <tr><td class="label">Amount Paid</td><td class="right">${naira(sale.amount_paid)}</td></tr>
       ${change > 0 ? `<tr><td class="label">Change</td><td class="right">${naira(change)}</td></tr>` : ''}
       ${parseFloat(sale.balance_due) > 0 ? `<tr><td class="label" style="color:red">Balance Due</td><td class="right" style="color:red;font-weight:bold">${naira(sale.balance_due)}</td></tr>` : ''}
@@ -189,6 +191,47 @@ export function printSaleReceipt(sale, business = null) {
       Thank you for your patronage!<br>
       Powered by ShopKepa
     </p>
+  `, biz.logo)
+}
+
+// Return / credit note slip
+export function printReturnReceipt(ret, sale, business = null) {
+  const biz = normalizeBusiness(business, sale?.business_name)
+  const items = (ret.items || []).map(i => `
+    <tr>
+      <td>${esc(i.product_name)}${i.restocked ? '' : ' <span style="color:#555">(damaged)</span>'}</td>
+      <td class="right">${i.quantity}</td>
+      <td class="right">${naira(i.unit_value)}</td>
+      <td class="right">${naira(i.line_value)}</td>
+    </tr>
+  `).join('')
+  const method = { cash: 'Cash', transfer: 'Transfer', pos: 'POS' }[ret.refund_method] || ''
+
+  openPrint(`
+    ${companyHeader(biz, 'Return Receipt')}
+    <hr class="solid">
+    <table>
+      <tr><td class="label">Return #</td><td class="right" style="font-weight:bold">${esc(ret.return_number)}</td></tr>
+      <tr><td class="label">Original receipt</td><td class="right">${esc(ret.sale_number)}</td></tr>
+      <tr><td class="label">Customer</td><td class="right">${esc(ret.customer_name || 'Walk-in Customer')}</td></tr>
+      <tr><td class="label">Date</td><td class="right">${fmtDate(ret.created_at)} ${fmtTime(ret.created_at)}</td></tr>
+      ${ret.reason ? `<tr><td class="label">Reason</td><td class="right">${esc(ret.reason)}</td></tr>` : ''}
+    </table>
+    <hr class="divider">
+    <table>
+      <thead><tr><th style="text-align:left">Item returned</th><th class="right">Qty</th><th class="right">Price</th><th class="right">Value</th></tr></thead>
+      <tbody>${items}</tbody>
+    </table>
+    <hr class="divider">
+    <table>
+      <tr class="total-row"><td>RETURN VALUE</td><td class="right">${naira(ret.value)}</td></tr>
+      ${parseFloat(ret.debt_reduction) > 0 ? `<tr><td class="label">Taken off balance owed</td><td class="right">${naira(ret.debt_reduction)}</td></tr>` : ''}
+      ${parseFloat(ret.refund_amount) > 0 ? `<tr><td class="label">Refunded (${method})</td><td class="right">${naira(ret.refund_amount)}</td></tr>` : ''}
+      ${parseFloat(ret.tax_amount) > 0 ? `<tr><td class="label">VAT included</td><td class="right">${naira(ret.tax_amount)}</td></tr>` : ''}
+      ${sale && parseFloat(sale.balance_due) > 0 ? `<tr><td class="label" style="color:red">Balance still due</td><td class="right" style="color:red;font-weight:bold">${naira(sale.balance_due)}</td></tr>` : ''}
+    </table>
+    <hr class="solid">
+    <p class="center" style="margin-top:8px;font-size:12px;color:#555">Powered by ShopKepa</p>
   `, biz.logo)
 }
 
@@ -279,31 +322,51 @@ export function printCustomerStatement(customer, sales, businessName = 'ShopKepa
   const transactionRows = []
 
   sales.forEach((sale) => {
-    let runningBalance = parseFloat(sale.total_amount || 0)
+    // total_amount is already net of returns; show the original sale and
+    // the return separately so the statement reads like the till did.
+    const returned = parseFloat(sale.returned_amount || 0)
+    const original = parseFloat(sale.total_amount || 0) + returned
+    let runningBalance = original
     transactionRows.push({
       key: `${sale.id}-sale`,
       date: sale.sale_date || sale.created_at,
       type: 'Sale',
       reference: sale.sale_number || '-',
       officer: sale.created_by_name || '-',
-      debit: parseFloat(sale.total_amount || 0),
+      debit: original,
       credit: null,
       balance: runningBalance,
     })
 
     ;(sale.payments || []).forEach((payment) => {
-      runningBalance = Math.max(0, runningBalance - parseFloat(payment.amount || 0))
+      const amount = parseFloat(payment.amount || 0)
+      const refund = amount < 0
+      runningBalance = Math.max(0, runningBalance - amount)
       transactionRows.push({
         key: payment.id,
         date: payment.payment_date || payment.created_at,
-        type: `Payment ${payment.tranche_number ? `#${payment.tranche_number}` : ''}`.trim(),
-        reference: payment.reference_number || payment.id || '-',
+        type: refund ? 'Refund' : `Payment ${payment.tranche_number ? `#${payment.tranche_number}` : ''}`.trim(),
+        reference: refund ? (payment.notes || '-') : (payment.reference_number || payment.id || '-'),
         officer: payment.created_by_name || '-',
-        debit: null,
-        credit: parseFloat(payment.amount || 0),
+        debit: refund ? -amount : null,
+        credit: refund ? null : amount,
         balance: runningBalance,
       })
     })
+
+    if (returned > 0) {
+      runningBalance = Math.max(0, runningBalance - returned)
+      transactionRows.push({
+        key: `${sale.id}-returned`,
+        date: sale.updated_at || sale.sale_date,
+        type: 'Goods returned',
+        reference: sale.sale_number || '-',
+        officer: '-',
+        debit: null,
+        credit: returned,
+        balance: runningBalance,
+      })
+    }
   })
 
   const rows = transactionRows.map(row => `
