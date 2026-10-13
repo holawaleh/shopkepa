@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Plus, Search, Edit2, Trash2, X, AlertCircle, Package, PackagePlus, Tag, Barcode, Printer, Wand2 } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, X, AlertCircle, Package, PackagePlus, Tag, Barcode, Printer, Wand2, ScanLine } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
 import { productsAPI, modulesAPI, branchesAPI } from '../../api/client'
 import { formatNaira, parseApiError } from '../../utils/format'
@@ -7,6 +7,7 @@ import { useToast } from '../../context/ToastContext'
 import { useAuth } from '../../context/AuthContext'
 import { drawBarcode, printBarcodeLabels } from '../../utils/barcodes'
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner'
+import CameraScanner from '../../components/ui/CameraScanner'
 
 const EMPTY_FORM = {
   name: '', sku: '', barcode: '', description: '', module_id: '', category_id: '',
@@ -112,6 +113,7 @@ export default function ProductsPage() {
   const [labelItems, setLabelItems]   = useState([]) // [{ product, copies }]
   const [labelShowPrice, setLabelShowPrice] = useState(true)
   const [generating, setGenerating]   = useState(false)
+  const [cameraOpen, setCameraOpen]   = useState(false)
   const { user } = useAuth()
 
   const load = useCallback(async () => {
@@ -392,6 +394,10 @@ export default function ProductsPage() {
               <Wand2 size={14} /> {generating ? 'Creating...' : `Create ${missingBarcodes} missing barcode${missingBarcodes === 1 ? '' : 's'}`}
             </button>
           )}
+          <button className="btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            onClick={() => setCameraOpen(true)} title="Scan a barcode to find or add a product">
+            <ScanLine size={14} /> Scan
+          </button>
           {products.some(p => p.barcode) && (
             <button className="btn-ghost" style={{ display: 'flex', alignItems: 'center', gap: 6 }}
               onClick={() => openLabels(products)} title="Print barcode stickers for the products listed">
@@ -630,9 +636,15 @@ export default function ProductsPage() {
             </div>
 
             <FormField label="Barcode" error={formErrors.barcode}>
+              <div style={{ display: 'flex', gap: 8 }}>
               <input className="input" value={form.barcode} onChange={set('barcode')} inputMode="numeric" data-barcode-input
-                onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
+                onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }} style={{ flex: 1 }}
                 placeholder={modal === 'add' ? "Scan the maker's barcode, or leave blank to create one" : 'Scan or type a barcode'} />
+              <button type="button" className="btn-ghost" onClick={() => setCameraOpen(true)} title="Scan with camera" aria-label="Scan barcode with camera"
+                style={{ padding: '0 12px', display: 'flex', alignItems: 'center' }}>
+                <ScanLine size={15} />
+              </button>
+              </div>
               {form.barcode.trim()
                 ? <div style={{ marginTop: 8 }}><BarcodePreview code={form.barcode.trim()} height={40} /></div>
                 : <span style={{ fontSize: 11, color: 'var(--muted)', marginTop: 3, display: 'block' }}>
@@ -873,6 +885,11 @@ export default function ProductsPage() {
           }
         }
       `}</style>
+      {cameraOpen && (
+        <CameraScanner onScan={handleScan} onClose={() => setCameraOpen(false)}
+          title={modal === 'add' || modal === 'edit' ? 'Scan product barcode' : 'Scan to find or add a product'} />
+      )}
+
       {modal === 'labels' && (
         <Modal title="Print barcode labels" onClose={() => setModal(null)}>
           {labelItems.length === 1 && (

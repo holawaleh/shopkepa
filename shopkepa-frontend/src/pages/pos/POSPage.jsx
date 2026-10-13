@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   Search, Plus, Minus, Trash2, X, AlertCircle,
-  ShoppingCart, Check, Printer, ChevronLeft, ChevronRight,
+  ShoppingCart, Check, Printer, ChevronLeft, ChevronRight, ScanLine,
 } from 'lucide-react'
 import AppLayout from '../../components/layout/AppLayout'
 import { productsAPI, salesAPI, modulesAPI, branchesAPI, customersAPI } from '../../api/client'
@@ -10,6 +10,7 @@ import { printSaleReceipt, buildBusinessInfo } from '../../utils/printDoc'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner'
+import CameraScanner from '../../components/ui/CameraScanner'
 import { newIdempotencyKey } from '../../utils/idempotency'
 
 const PAGE_SIZE = 12
@@ -73,6 +74,7 @@ export default function POSPage() {
   const [totalCount, setTotalCount]           = useState(0)
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [query, setQuery]                     = useState('')
+  const [cameraOpen, setCameraOpen]           = useState(false)
   const searchTimer                           = useRef(null)
 
   // -- Cart: { product, qty, unit_price, price_type, stock } -----------------
@@ -542,7 +544,8 @@ export default function POSPage() {
         {/* -- Left: Products + Customer -- */}
         <div>
           {/* Search */}
-          <div style={{ position: 'relative', marginBottom: 12 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <div style={{ position: 'relative', flex: 1 }}>
             <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)' }} />
             <input
               className="input"
@@ -561,6 +564,15 @@ export default function POSPage() {
               </button>
             )}
           </div>
+            <button type="button" className="btn-ghost" onClick={() => setCameraOpen(true)}
+              title="Scan barcodes with the camera" aria-label="Scan with camera"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 14px', flexShrink: 0 }}>
+              <ScanLine size={16} /> <span className="pos-scan-label">Scan</span>
+            </button>
+          </div>
+          {cameraOpen && (
+            <CameraScanner continuous title="Scan items" onScan={addByCode} onClose={() => setCameraOpen(false)} />
+          )}
 
           {/* Customer selector */}
           <div style={{
