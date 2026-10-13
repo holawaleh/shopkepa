@@ -9,6 +9,7 @@ import { formatNaira, parseApiError } from '../../utils/format'
 import { printSaleReceipt, buildBusinessInfo } from '../../utils/printDoc'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
+import { useBarcodeScanner } from '../../hooks/useBarcodeScanner'
 import { newIdempotencyKey } from '../../utils/idempotency'
 
 const PAGE_SIZE = 12
@@ -268,10 +269,10 @@ export default function POSPage() {
 
   const removeFromCart = (productId) => setCart(c => c.filter(i => i.product.id !== productId))
 
-  // Barcode scanners type the code then press Enter. An exact barcode (or
-  // SKU) match goes straight into the cart and the box clears for the next scan.
-  const handleSearchEnter = async () => {
-    const code = query.trim()
+  // An exact barcode (or SKU) match goes straight into the cart. Used by
+  // Enter in the search box and by hardware scans anywhere on the page.
+  const addByCode = async (raw) => {
+    const code = raw.trim()
     if (!code) return
     const exact = (list) => list.find(p => p.barcode === code || (p.sku && p.sku.toLowerCase() === code.toLowerCase()))
     let product = exact(products)
@@ -287,6 +288,9 @@ export default function POSPage() {
     addToCart(product)
     handleQueryChange('')
   }
+
+  // Scanner used while focus is elsewhere (customer box, a button, nothing)
+  useBarcodeScanner(addByCode, { enabled: setupDone && !success })
 
   const cartTotal     = cart.reduce((s, i) => s + i.qty * i.unit_price, 0)
   const cartItemCount = cart.reduce((s, i) => s + i.qty, 0)
@@ -545,7 +549,8 @@ export default function POSPage() {
               placeholder="Search by name or SKU, or scan a barcode..."
               value={query}
               onChange={e => handleQueryChange(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleSearchEnter() } }}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addByCode(query) } }}
+              data-barcode-input
               style={{ paddingLeft: 36 }}
               autoFocus
             />

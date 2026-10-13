@@ -6,6 +6,7 @@ import { formatNaira, parseApiError } from '../../utils/format'
 import { useToast } from '../../context/ToastContext'
 import { useAuth } from '../../context/AuthContext'
 import { drawBarcode, printBarcodeLabels } from '../../utils/barcodes'
+import { useBarcodeScanner } from '../../hooks/useBarcodeScanner'
 
 const EMPTY_FORM = {
   name: '', sku: '', barcode: '', description: '', module_id: '', category_id: '',
@@ -343,6 +344,33 @@ export default function ProductsPage() {
     })
   }
 
+  // Hardware scanner: in the add/edit form a scan fills the Barcode field
+  // whatever field has focus; on the list it opens that product, or starts
+  // a new one with the code filled in.
+  const handleScan = async (code) => {
+    if (modal === 'add' || modal === 'edit') {
+      setForm(f => ({ ...f, barcode: code }))
+      setFormErrors(fe => ({ ...fe, barcode: '' }))
+      return
+    }
+    let product = products.find(p => p.barcode === code)
+    if (!product) {
+      try {
+        const res = await productsAPI.list({ search: code })
+        const raw = res.data
+        product = (Array.isArray(raw) ? raw : (raw.results ?? [])).find(p => p.barcode === code)
+      } catch { /* treat as new */ }
+    }
+    if (product) {
+      openEdit(product)
+    } else {
+      openAdd()
+      setForm(f => ({ ...f, barcode: code }))
+      toast.info(`New barcode ${code} - fill in the product details`)
+    }
+  }
+  useBarcodeScanner(handleScan, { enabled: modal === null || modal === 'add' || modal === 'edit' })
+
   const totalStock = (p) => {
     if (Array.isArray(p.stock)) {
       return p.stock.reduce((sum, s) => sum + (s.quantity_in_stock ?? 0), 0)
@@ -602,7 +630,8 @@ export default function ProductsPage() {
             </div>
 
             <FormField label="Barcode" error={formErrors.barcode}>
-              <input className="input" value={form.barcode} onChange={set('barcode')} inputMode="numeric"
+              <input className="input" value={form.barcode} onChange={set('barcode')} inputMode="numeric" data-barcode-input
+                onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
                 placeholder={modal === 'add' ? "Scan the maker's barcode, or leave blank to create one" : 'Scan or type a barcode'} />
               {form.barcode.trim()
                 ? <div style={{ marginTop: 8 }}><BarcodePreview code={form.barcode.trim()} height={40} /></div>
