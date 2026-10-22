@@ -219,7 +219,9 @@ export default function POSPage() {
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
 
   // -- Cart helpers ----------------------------------------------------------
-  const getStock = (product) => typeof product.stock === 'number' ? product.stock : 9999
+  // The product endpoint should return numeric branch stock for POS. Treat a
+  // missing value as zero so a bad/missing branch_id cannot permit overselling.
+  const getStock = (product) => typeof product.stock === 'number' ? product.stock : 0
   const cartMap  = Object.fromEntries(cart.map(i => [i.product.id, i.qty]))
 
   const addToCart = (product) => {

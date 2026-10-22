@@ -76,24 +76,35 @@ def create_sale(business, branch, module, items, payment_data,
     customer loyalty update, and audit logging.
     """
 
-    # ── 1. Validate stock for all items first ─────────────────────────
+    # ── 1. Validate the combined stock demand for all items first ─────
+    # A client may send the same product on multiple lines (for example with
+    # different prices). Check their combined quantity against the one stock
+    # row, otherwise each line could pass independently and oversell.
+    requested_by_product = {}
+    item_by_product = {}
     for item in items:
+        product_id = item['product_id']
+        requested_by_product[product_id] = requested_by_product.get(product_id, 0) + item['quantity']
+        item_by_product.setdefault(product_id, item)
+
+    for product_id, requested_quantity in requested_by_product.items():
+        item = item_by_product[product_id]
         try:
             inventory = BranchInventory.objects.select_for_update().get(
                 business=business,
                 branch=branch,
-                product_id=item['product_id'],
+                product_id=product_id,
             )
         except BranchInventory.DoesNotExist:
             raise ValueError(
                 f"{item['product_name']} has no stock record for {branch.name}. "
                 "Restock it from Products before selling."
             )
-        if inventory.quantity_in_stock < item['quantity']:
+        if inventory.quantity_in_stock < requested_quantity:
             raise ValueError(
                 f"Insufficient stock for {item['product_name']}. "
                 f"Available: {inventory.quantity_in_stock}, "
-                f"Requested: {item['quantity']}"
+                f"Requested: {requested_quantity}"
             )
 
     # ── 2. Calculate totals ───────────────────────────────────────────

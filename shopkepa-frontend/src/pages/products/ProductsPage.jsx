@@ -380,6 +380,13 @@ export default function ProductsPage() {
     return typeof p.stock === 'number' ? p.stock : '-'
   }
 
+  const branchStock = (p, branchId) => {
+    if (Array.isArray(p.stock)) {
+      return p.stock.find(s => String(s.branch) === String(branchId))?.quantity_in_stock ?? 0
+    }
+    return typeof p.stock === 'number' ? p.stock : 0
+  }
+
   const selectedModule = activeModules.find(bm => bm.module.id === form.module_id)?.module
 
   return (
@@ -469,7 +476,7 @@ export default function ProductsPage() {
           <table className="products-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--mid)' }}>
-                {['Name', 'SKU / Barcode', 'Module', 'Category', 'Retail Price', 'Stock', 'Status', ''].map(h => (
+                {['Name', 'SKU / Barcode', 'Module', 'Category', 'Retail Price', 'Total Stock', 'Status', ''].map(h => (
                   <th key={h} style={{
                     padding: '10px 16px', textAlign: 'left', fontSize: 11,
                     color: 'var(--muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: 0.4,
@@ -945,7 +952,7 @@ export default function ProductsPage() {
             </div>
           )}
           <div style={{ background: 'var(--navy)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: 'var(--muted)' }}>
-            Current stock: <strong style={{ color: 'var(--light)' }}>{totalStock(restockTarget)} units</strong>
+            Stock at selected branch: <strong style={{ color: 'var(--light)' }}>{branchStock(restockTarget, restockForm.branch_id)} units</strong>
           </div>
           <form onSubmit={handleRestock} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <FormField label="Branch *">
