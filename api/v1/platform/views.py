@@ -254,7 +254,8 @@ class PlatformBusinessDetailView(APIView):
         products = (
             Product.objects.filter(business=business, is_deleted=False)
             .select_related('module', 'category')
-            .annotate(stock=Coalesce(Sum('inventory__quantity_in_stock'), 0))
+            .annotate(stock=Coalesce(Sum('inventory__quantity_in_stock',
+                                         filter=Q(inventory__branch__is_deleted=False)), 0))
             .order_by('name')[:200]
         )
         recent_lines = (

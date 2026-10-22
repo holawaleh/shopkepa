@@ -361,26 +361,30 @@ class InventoryReportView(APIView):
         if module_id:
             products = products.filter(module_id=module_id)
 
-        inventory = BranchInventory.objects.filter(business=business)
+        inventory = BranchInventory.objects.filter(business=business, branch__is_deleted=False)
         if branch_id:
             inventory = inventory.filter(branch_id=branch_id)
+        if module_id:
+            inventory = inventory.filter(product__module_id=module_id)
 
         total_products  = products.count()
         active_products = products.filter(is_active=True).count()
 
         low_stock = [
             {
-                'product': i.product.name,
-                'branch':  i.branch.name,
-                'stock':   i.quantity_in_stock,
-                'reorder': i.product.reorder_level,
+                'product_id':        str(i.product_id),
+                'product_name':      i.product.name,
+                'branch_id':         str(i.branch_id),
+                'branch_name':       i.branch.name,
+                'quantity_in_stock': i.quantity_in_stock,
+                'reorder_level':     i.product.reorder_level,
             }
-            for i in inventory.select_related('product', 'branch')
+            for i in inventory.select_related('product', 'branch').order_by('quantity_in_stock', 'product__name')
             if i.quantity_in_stock <= i.product.reorder_level
             and not i.product.is_deleted
         ]
 
-        out_of_stock = [i for i in low_stock if i['stock'] == 0]
+        out_of_stock = [i for i in low_stock if i['quantity_in_stock'] <= 0]
 
         from core.models import ProductAttribute
         alert_days = getattr(business.settings, 'expiry_alert_days', 30)

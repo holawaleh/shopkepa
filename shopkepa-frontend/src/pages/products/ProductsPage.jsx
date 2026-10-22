@@ -7,6 +7,7 @@ import { useToast } from '../../context/ToastContext'
 import { useAuth } from '../../context/AuthContext'
 import { drawBarcode, printBarcodeLabels } from '../../utils/barcodes'
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner'
+import { newIdempotencyKey } from '../../utils/idempotency'
 import CameraScanner from '../../components/ui/CameraScanner'
 
 const EMPTY_FORM = {
@@ -174,7 +175,10 @@ export default function ProductsPage() {
     setModal('edit')
   }
 
+  const restockKeyRef = useRef(null)
+
   const openRestock = (p) => {
+    restockKeyRef.current = newIdempotencyKey()
     setRestockTarget(p)
     setRestockForm({ branch_id: branches[0]?.id || '', quantity_change: '', reason: '' })
     setError('')
@@ -289,7 +293,7 @@ export default function ProductsPage() {
         adjustment_type: qty > 0 ? 'restock' : 'manual_decrease',
         quantity_change: qty,
         reason:          restockForm.reason.trim() || undefined,
-      })
+      }, restockKeyRef.current)
       setModal(null)
       toast.success(`${qty > 0 ? `+${qty}` : qty} units ${qty > 0 ? 'added to' : 'removed from'} ${restockTarget.name}`)
       load()

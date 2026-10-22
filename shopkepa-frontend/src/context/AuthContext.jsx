@@ -3,6 +3,13 @@ import { authAPI, modulesAPI, setAccessToken, clearAccessToken } from '../api/cl
 
 const AuthContext = createContext(null)
 
+// The offline copy of API responses is keyed by URL only, so on a shared
+// device the next person could be shown the last person's data. Drop it
+// whenever the signed-in account changes.
+const clearOfflineApiCache = () => {
+  try { window.caches?.delete('api-cache') } catch { /* not supported */ }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser]                 = useState(null)
   const [activeModules, setActiveModules] = useState([])
@@ -46,6 +53,7 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     const res = await authAPI.login({ email, password })
+    clearOfflineApiCache()
     setAccessToken(res.data.access)
     const me = await authAPI.me()
     setUser(me.data)
@@ -66,6 +74,7 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     try { await authAPI.logout() } catch { /* best effort */ }
     clearAccessToken()
+    clearOfflineApiCache()
     setUser(null)
     setActiveModules([])
     sessionStorage.removeItem('shopkepa_pos_setup')

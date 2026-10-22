@@ -75,6 +75,8 @@ export default function POSPage() {
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [query, setQuery]                     = useState('')
   const [cameraOpen, setCameraOpen]           = useState(false)
+  // Bumped to re-fetch the product grid (fresh stock) without changing filters
+  const [stockVersion, setStockVersion]       = useState(0)
   const searchTimer                           = useRef(null)
 
   // -- Cart: { product, qty, unit_price, price_type, stock } -----------------
@@ -213,7 +215,20 @@ export default function POSPage() {
       finally { setLoadingProducts(false) }
     }, delay)
     return () => clearTimeout(searchTimer.current)
-  }, [setupDone, branchId, moduleId, query, page])
+  }, [setupDone, branchId, moduleId, query, page, stockVersion])
+
+  // Another till or the Products page may have changed stock while this
+  // tab sat in the background - refresh when it's looked at again.
+  useEffect(() => {
+    if (!setupDone) return
+    const refresh = () => { if (document.visibilityState === 'visible') setStockVersion(v => v + 1) }
+    document.addEventListener('visibilitychange', refresh)
+    window.addEventListener('focus', refresh)
+    return () => {
+      document.removeEventListener('visibilitychange', refresh)
+      window.removeEventListener('focus', refresh)
+    }
+  }, [setupDone])
 
   const handleQueryChange = (val) => { setQuery(val); setPage(1) }
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
@@ -417,9 +432,9 @@ export default function POSPage() {
       setQuickAddCustomer(false)
       setQuickForm({ full_name: '', phone_number: '' })
       setModal(false)
-      // Reload product grid to refresh stock counts
+      // Reload the product grid so cards show stock after this sale
       setPage(1)
-      setQuery(q => q)
+      setStockVersion(v => v + 1)
     } catch (err) {
       setSaleError(parseApiError(err))
     } finally {
@@ -679,8 +694,8 @@ export default function POSPage() {
             )}
           </div>
 
-          {/* Product grid */}
-          {loadingProducts ? (
+          {/* Product grid - keep current cards on screen during a refresh */}
+          {loadingProducts && products.length === 0 ? (
             <p style={{ color: 'var(--muted)', fontSize: 13, padding: '24px 0' }}>Loading products...</p>
           ) : products.length === 0 ? (
             <div style={{

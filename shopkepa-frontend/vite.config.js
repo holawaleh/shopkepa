@@ -33,10 +33,12 @@ export default defineConfig({
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/shopkepa-backend\.onrender\.com\/api\//,
+            // Saved responses are used only when the network fails (offline),
+            // never just because the server is slow to wake: stale stock
+            // figures at the till are worse than a short wait.
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
-              networkTimeoutSeconds: 5,
               expiration: { maxEntries: 100, maxAgeSeconds: 24 * 60 * 60 },
               cacheableResponse: { statuses: [0, 200] }
             }

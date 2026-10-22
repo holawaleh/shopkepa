@@ -84,13 +84,16 @@ class ProductSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at']
 
     def get_stock(self, obj):
+        # Lists prefetch live-branch stock (see ProductListCreateView); use it
+        # instead of a fresh query per product. Single products fall back to
+        # a query with the same filter.
+        rows = obj.inventory.all() if 'inventory' in getattr(obj, '_prefetched_objects_cache', {}) \
+            else obj.inventory.filter(branch__is_deleted=False).select_related('branch')
         branch_id = self.context.get('branch_id')
         if branch_id:
-            inventory = obj.inventory.filter(branch_id=branch_id, branch__is_deleted=False).first()
-            return inventory.quantity_in_stock if inventory else 0
-        return BranchStockSerializer(
-            obj.inventory.filter(branch__is_deleted=False), many=True
-        ).data
+            match = next((r for r in rows if str(r.branch_id) == str(branch_id)), None)
+            return match.quantity_in_stock if match else 0
+        return BranchStockSerializer(rows, many=True).data
 
 
 def validate_unique_barcode(value, business, product=None):
@@ -242,11 +245,11 @@ class StockAdjustmentSerializer(serializers.Serializer):
 
     def validate(self, data):
         if data['adjustment_type'] in (
-            'manual_decrease', 'damage', 'return'
+            'manual_decrease', 'damage'
         ) and data['quantity_change'] > 0:
             data['quantity_change'] = -abs(data['quantity_change'])
         elif data['adjustment_type'] in (
-            'restock', 'manual_increase', 'opening_stock'
+            'restock', 'manual_increase', 'opening_stock', 'return'
         ) and data['quantity_change'] < 0:
             data['quantity_change'] = abs(data['quantity_change'])
         return data

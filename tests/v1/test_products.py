@@ -156,3 +156,66 @@ class BarcodeTests(TestCase):
         self.assertEqual(Product.objects.get(id=kept).barcode, '5449000000996')
 
         self.assertEqual(self.client.post('/api/v1/products/barcodes/generate-missing/').data['generated'], 0)
+
+
+class StockDisplayTests(TestCase):
+    """Stock shown on Products, POS and reports must match the stock rows."""
+
+    def setUp(self):
+        from .factories import make_product
+        self.owner, self.business, self.main = make_business()
+        self.module = activate_module(self.business)
+        self.client = client_for(self.owner)
+        self.closed = Branch.objects.create(business=self.business, name='Closed shop', created_by=self.owner)
+        self.product = make_product(self.business, self.main, self.module, stock=7, name='Rice')
+        BranchInventory.objects.create(business=self.business, branch=self.closed, product=self.product, quantity_in_stock=0)
+        self.closed.is_deleted = True
+        self.closed.save()
+
+    def test_products_list_ignores_deleted_branches(self):
+        row = self.client.get('/api/v1/products/').data[0]
+        self.assertEqual([s['branch_name'] for s in row['stock']], [self.main.name])
+        self.assertEqual(row['stock'][0]['quantity_in_stock'], 7)
+
+    def test_pos_list_gives_that_branch_stock(self):
+        row = self.client.get('/api/v1/products/', {'branch_id': str(self.main.id)}).data[0]
+        self.assertEqual(row['stock'], 7)
+
+    def test_product_list_query_count_does_not_grow_with_products(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        from .factories import make_product
+
+        def count():
+            with CaptureQueriesContext(connection) as ctx:
+                self.client.get('/api/v1/products/', {'branch_id': str(self.main.id)})
+            return len(ctx.captured_queries)
+
+        before = count()
+        for n in range(8):
+            make_product(self.business, self.main, self.module, name=f'Extra {n}')
+        self.assertEqual(count(), before)
+
+    def test_inventory_report_names_fields_and_skips_deleted_branches(self):
+        self.product.reorder_level = 10
+        self.product.save()
+        data = self.client.get('/api/v1/reports/inventory/').data
+        self.assertEqual(len(data['low_stock_items']), 1)
+        item = data['low_stock_items'][0]
+        self.assertEqual((item['product_name'], item['branch_name'], item['quantity_in_stock'], item['reorder_level']),
+                         ('Rice', self.main.name, 7, 10))
+        self.assertEqual(data['out_of_stock_count'], 0)   # the 0 is in the deleted branch
+
+    def test_stock_adjustment_with_same_key_counts_once(self):
+        url = f'/api/v1/products/{self.product.id}/adjust-stock/'
+        body = {'branch_id': str(self.main.id), 'adjustment_type': 'restock', 'quantity_change': 5}
+        for _ in range(2):
+            res = self.client.post(url, body, format='json', HTTP_IDEMPOTENCY_KEY='restock-once')
+            self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual(BranchInventory.objects.get(branch=self.main, product=self.product).quantity_in_stock, 12)
+
+    def test_manual_return_adds_stock(self):
+        res = self.client.post(f'/api/v1/products/{self.product.id}/adjust-stock/', {
+            'branch_id': str(self.main.id), 'adjustment_type': 'return', 'quantity_change': 2,
+        }, format='json')
+        self.assertEqual(res.data['quantity_after'], 9)

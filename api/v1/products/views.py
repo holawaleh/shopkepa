@@ -3,13 +3,14 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.utils import timezone
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 
 from core.models import (
     Product, ProductCategory, ProductAttribute, BranchInventory,
     StockAdjustment, Branch, Module
 )
 from core.permissions import IsManagerOrAbove, IsCashierOrAbove, HasPrivilege
+from core.idempotency import idempotent
 from core.utils import log_audit, get_client_ip
 from core.services.product_categories import seed_default_product_categories
 from core.services.barcodes import generate_barcode, fill_missing_barcodes
@@ -89,7 +90,11 @@ class ProductListCreateView(APIView):
         queryset  = Product.objects.filter(
             business=business,
             is_deleted=False
-        ).select_related('module', 'category').prefetch_related('attributes', 'inventory')
+        ).select_related('module', 'category').prefetch_related(
+            'attributes',
+            Prefetch('inventory', queryset=BranchInventory.objects
+                     .filter(branch__is_deleted=False).select_related('branch')),
+        )
 
         # Filters
         module_id = request.query_params.get('module_id')
@@ -331,6 +336,7 @@ class ProductDetailView(APIView):
 class StockAdjustView(APIView):
     permission_classes = [IsManagerOrAbove, HasPrivilege('products')]
 
+    @idempotent
     @transaction.atomic
     def post(self, request, product_id):
         try:
@@ -367,8 +373,9 @@ class StockAdjustView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        # Get or create inventory record
-        inventory, _ = BranchInventory.objects.get_or_create(
+        # Get or create the stock row, locked: a sale running at the same
+        # moment also locks it, so neither change can overwrite the other.
+        inventory, _ = BranchInventory.objects.select_for_update().get_or_create(
             business=request.user.business,
             branch=branch,
             product=product,
